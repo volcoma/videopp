@@ -1,4 +1,4 @@
-﻿#include "context.h"
+﻿#include "context_wgl.h"
 namespace video_ctrl
 {
 namespace

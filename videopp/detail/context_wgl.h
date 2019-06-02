@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../../renderer.h"
-
-#include "../../utils.h"
+#include "../renderer.h"
+#include "../utils.h"
 
 #include <windows.h>
 #include <GL/wglext.h>
