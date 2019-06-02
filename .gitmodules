@@ -1,0 +1,12 @@
+[submodule "cmake"]
+	path = cmake
+	url = https://github.com/volcoma/cmake.git
+[submodule "3rdparty/ospp/ospp"]
+	path = 3rdparty/ospp/ospp
+	url = https://github.com/volcoma/ospp.git
+[submodule "3rdparty/fontpp/fontpp"]
+	path = 3rdparty/fontpp/fontpp
+	url = https://github.com/volcoma/fontpp.git
+[submodule "3rdparty/glm/glm"]
+	path = 3rdparty/glm/glm
+	url = https://github.com/g-truc/glm.git
