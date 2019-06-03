@@ -2,15 +2,15 @@
 
 namespace video_ctrl
 {
-    const color color::black{0, 0, 0, 255};
-    const color color::blue{0, 0, 255};
-    const color color::cyan{0, 255, 255, 255};
-    const color color::gray{128, 128, 128};
-    const color color::green{0, 255, 0};
-    const color color::magenta{255, 0, 255};
-    const color color::red{255, 0, 0};
-    const color color::yellow{255, 255, 0};
-    const color color::white{255, 255, 255};
+    const color color::black() { return {0, 0, 0, 255}; }
+    const color color::blue() { return {0, 0, 255}; }
+    const color color::cyan() { return {0, 255, 255, 255}; }
+    const color color::gray() { return {128, 128, 128}; }
+    const color color::green() { return {0, 255, 0}; }
+    const color color::magenta() { return {255, 0, 255}; }
+    const color color::red() { return {255, 0, 0}; }
+    const color color::yellow() { return {255, 255, 0}; }
+    const color color::white() { return {255, 255, 255}; }
 
     bool color::operator==(const color &rhs) const noexcept
     {

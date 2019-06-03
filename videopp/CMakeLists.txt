@@ -24,7 +24,13 @@ set_target_properties(${target_name} PROPERTIES
 )
 
 include(target_warning_support)
-set_warning_level(${target_name} ultra)
+set_warning_level(${target_name} high)
 
 include(target_code_style_support)
 set_code_style(${target_name} lower_case check_headers "${extra_flags}")
+
+if(MSVC)
+	#target_compile_options(${target_name} PRIVATE /wd4505)
+else()
+	target_compile_options(${target_name} PRIVATE -Wno-cast-function-type)
+endif()

@@ -38,15 +38,15 @@ namespace video_ctrl
         bool operator == (const color &rhs) const noexcept;
         bool operator != (const color &rhs) const noexcept;
 
-        static const color black;
-        static const color blue;
-        static const color cyan;
-        static const color gray;
-        static const color green;
-        static const color magenta;
-        static const color red;
-        static const color yellow;
-        static const color white;
+        static const color black();
+        static const color blue();
+        static const color cyan();
+        static const color gray();
+        static const color green();
+        static const color magenta();
+        static const color red();
+        static const color yellow();
+        static const color white();
 
         color& operator *= (const color& rhs) noexcept;
     };

@@ -26,38 +26,38 @@ struct draw_list
 {
     draw_list();
 
-    void add_rect(const rect& r, const color& col = color::white, bool filled = true,
+    void add_rect(const rect& r, const color& col = color::white(), bool filled = true,
                   float border_width = 0.0f, const program_setup& setup = {});
 
-    void add_rect(const rect& r, const math::transformf& transform, const color& col = color::white,
+    void add_rect(const rect& r, const math::transformf& transform, const color& col = color::white(),
                   bool filled = true, float border_width = 0.0f, const program_setup& setup = {});
 
-    void add_rect(const std::array<math::vec2, 4>& points, const color& col = color::white,
+    void add_rect(const std::array<math::vec2, 4>& points, const color& col = color::white(),
                   bool filled = true, float line_width = 0.0f, const program_setup& setup = {});
 
     void add_rect(const std::vector<vertex_2d>& verts, bool filled = true, float line_width = 0.0f, const program_setup& setup = {});
 
-    void add_line(const math::vec2& start, const math::vec2& end, const color& col = color::white,
+    void add_line(const math::vec2& start, const math::vec2& end, const color& col = color::white(),
                   float line_width = 1.0f, const program_setup& setup = {});
 
     void add_image(const texture_view& texture, const rect& src, const rect& dst,
-                   const math::transformf& transform, const color& col = color::white, const program_setup& setup = {});
+                   const math::transformf& transform, const color& col = color::white(), const program_setup& setup = {});
 
     void add_image(const texture_view& texture, const rect& src, const rect& dst,
-                   const color& col = color::white, const program_setup& setup = {});
+                   const color& col = color::white(), const program_setup& setup = {});
 
-    void add_image(const texture_view& texture, const rect& dst, const color& col = color::white,
+    void add_image(const texture_view& texture, const rect& dst, const color& col = color::white(),
                    const math::vec2& min_uv = {0.0f, 0.0f}, const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
 
     void add_image(const texture_view& texture, const rect& dst, const math::transformf& transform,
-                   const color& col = color::white, const math::vec2& min_uv = {0.0f, 0.0f},
+                   const color& col = color::white(), const math::vec2& min_uv = {0.0f, 0.0f},
                    const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
 
-    void add_image(const texture_view& texture, const point &pos, const color &col = color::white, const math::vec2& min_uv = {0.0f, 0.0f},
+    void add_image(const texture_view& texture, const point &pos, const color &col = color::white(), const math::vec2& min_uv = {0.0f, 0.0f},
                    const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
 
     void add_image(const texture_view& texture, const std::array<math::vec2, 4>& points,
-                   const color& col = color::white, const math::vec2& min_uv = {0.0f, 0.0f},
+                   const color& col = color::white(), const math::vec2& min_uv = {0.0f, 0.0f},
                    const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
 
     void add_text(const text& t,
@@ -73,9 +73,9 @@ struct draw_list
                               const std::string& partial,
                               const math::transformf& transform,
                               text::alignment align = text::alignment::top_left,
-                              const color& col = color::white,
+                              const color& col = color::white(),
                               float outline_width = 0.0f, // this is not in pixels (0.0 - 0.4)
-                              const color& outline_col = color::black,
+                              const color& outline_col = color::black(),
                               float partial_scale = 0.7f,
                               const program_setup& setup = {});
 

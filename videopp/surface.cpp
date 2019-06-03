@@ -303,7 +303,7 @@ namespace video_ctrl
                     auto col = src_surf.get_pixel(src_point);
                     if (col.a == 0)
                     {
-                        col = video_ctrl::color::black;
+                        col = video_ctrl::color::black();
                     }
                     if (!set_pixel(dst_point, col))
                     {

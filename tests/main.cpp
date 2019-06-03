@@ -131,7 +131,7 @@ int main()
 
                 using namespace std::chrono_literals;
 
-                rend.clear(video_ctrl::color::gray);
+                rend.clear(video_ctrl::color::gray());
 
                 video_ctrl::draw_list list;
 

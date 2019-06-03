@@ -166,7 +166,7 @@ renderer::renderer(os::window& win, bool vsync)
         default_font() = create_font(create_default_font());
         embedded_fonts_.emplace_back(default_font());
     }
-    clear(color::black);
+    clear(color::black());
 }
 
 renderer::~renderer()
@@ -566,7 +566,7 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
             ctx.program.shader->set_uniform("uDirection", direction);
         };
 
-        list.add_image(input, input->get_rect(), fbo->get_rect(), {}, color::white, setup);
+        list.add_image(input, input->get_rect(), fbo->get_rect(), {}, color::white(), setup);
 
         draw_cmd_list(list);
 

@@ -111,12 +111,12 @@ private:
 
     font_ptr font_;
 
-    color color_ = color::white;
+    color color_ = color::white();
 
-    color outline_color_ = color::black;
+    color outline_color_ = color::black();
     float outline_width_ = 0.0f;
 
-    color shadow_color_ = color::black;
+    color shadow_color_ = color::black();
     math::vec2 shadow_offsets_{0.0f, 0.0f};
 
     alignment alignment_ = alignment::top_left;

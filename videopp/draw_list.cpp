@@ -914,7 +914,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
     const auto& rect = t.get_rect();
     {
-        auto col = color::cyan;
+        auto col = color::cyan();
         std::string desc = "ascent ";
         const auto& lines = t.get_ascent_lines();
         for(const auto& line : lines)
@@ -941,7 +941,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
     {
-        auto col = color::magenta;
+        auto col = color::magenta();
         std::string desc = "baseline ";
         const auto& lines = t.get_baseline_lines();
         for(const auto& line : lines)
@@ -962,7 +962,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
     {
-        auto col = color::blue;
+        auto col = color::blue();
         std::string desc = "descent ";
         const auto& lines = t.get_descent_lines();
         for(const auto& line : lines)
@@ -984,7 +984,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     }
 
     {
-        auto col = color::green;
+        auto col = color::green();
         std::string desc = " line height = ";
         const auto& ascent_lines = t.get_ascent_lines();
         for(auto line : ascent_lines)
