@@ -14,7 +14,7 @@ const size_t VERTICES_PER_QUAD = 4;
 
 float align_to_pixel(float val)
 {
-    return val;//static_cast<float>(static_cast<int>(val));
+    return static_cast<float>(static_cast<int>(val));
 }
 
 float get_alignment_miny(text::alignment alignment,
@@ -526,7 +526,15 @@ void text::update_geometry() const
     {
         return;
     }
+    if(!lines_.empty())
+    {
+        return;
+    }
 
+    if(unicode_text_.empty())
+    {
+        return;
+    }
 
     // used for alignment
     float minx = 100000.0f;
