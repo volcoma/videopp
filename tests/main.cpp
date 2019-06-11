@@ -16,25 +16,32 @@ int main()
         std::unique_ptr<video_ctrl::renderer> renderer{};
     };
 
-
 	os::init();
+    video_ctrl::set_extern_logger([](const std::string& msg)
     {
+        std::cout << msg << std::endl;
+    });
 
+    {
         std::vector<video_window> windows{};
+
+        os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
+        video_ctrl::renderer master_rend(master_win, true);
 
         for(int i = 0; i < 2; ++i)
         {
             windows.emplace_back();
             auto& win = windows.back();
             auto centerd = os::window::centered;
-            win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, os::window::resizable);
+            auto flags = os::window::resizable;
+            win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
             win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, true);
         }
         video_ctrl::glyphs_builder builder;
         builder.add(video_ctrl::get_latin_glyph_range());
         //ile:///C:/WINDOWS/Fonts/TT1018M_.TTF
         //file:///C:/WINDOWS/Fonts/DFHEIA1.TTFfile:///D:/Workspace/lato/Lato-Bold.ttf
-        auto font_path = R"(D:/Workspace/dejavu-sans-mono/ttf/DejaVuSansMono-Bold.ttf)";
+        auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
         auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 60, 2));
 
         std::string display_text{"123"};
@@ -58,16 +65,18 @@ int main()
                 {
                     if(e.window.type == os::window_event_id::close)
                     {
-                        if(windows.size() == 1)
-                        {
-                            font.reset();
-                        }
 
                         windows.erase(std::remove_if(std::begin(windows), std::end(windows),
                                                      [=](const auto& w)
                         {
                             return e.window.window_id == w.window->get_id();
                         }), std::end(windows));
+
+                        if(windows.empty())
+                        {
+                            std::cout << "quit (all windows were closed)" << std::endl;
+                            running = false;
+                        }
                     }
                 }
 
@@ -128,7 +137,7 @@ int main()
 
                 auto pos = os::mouse::get_position(win);
                 transform.set_position(pos.x, pos.y, 0.0f);
-
+                //transform.rotate(0.0f, 0.0f, math::radians(1.0f));
                 using namespace std::chrono_literals;
 
                 rend.clear(video_ctrl::color::gray());
@@ -137,10 +146,11 @@ int main()
 
                 video_ctrl::text text;
                 text.set_font(font);
-                text.set_utf8_text(display_text + std::to_string(num));
+                text.set_utf8_text(display_text/* + std::to_string(num)*/);
                 text.set_alignment(align);
                 //text.set_outline_width(0.2f);
                 //list.add_text_superscript(text, text, transform, align);
+                //list.add_rect(video_ctrl::align_rect(video_ctrl::rect{0, 0, 200, 200}, align), transform, video_ctrl::color::white(), false, 1.0f);
                 list.add_text(text, transform);
                 list.add_text_debug_info(text, transform);
 
