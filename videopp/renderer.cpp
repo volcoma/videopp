@@ -5,7 +5,15 @@
 #include "shaders.h"
 #include "utils.h"
 
+#ifdef WGL_CONTEXT
 #include "detail/context_wgl.h"
+#elif GLX_CONTEXT
+#include "detail/context_glx.h"
+#elif EGL_CONTEXT
+#include "detail/context_egl.h"
+#else
+
+#endif
 
 namespace video_ctrl
 {
@@ -32,7 +40,13 @@ inline GLenum to_gl_primitive(primitive_type type)
 ///	@param vsync - true to enable vsync
 renderer::renderer(os::window& win, bool vsync)
     : win_(win)
+#ifdef WGL_CONTEXT
     , context_(std::make_unique<context_wgl>(win.get_native_handle()))
+#elif EGL_CONTEXT
+    , context_(std::make_unique<context_egl>(win.get_native_handle(), win.get_native_display()))
+#elif GLX_CONTEXT
+    , context_(std::make_unique<context_glx>(win.get_native_handle(), win.get_native_display()))
+#endif
 {
     context_->set_vsync(vsync);
 
@@ -47,7 +61,7 @@ renderer::renderer(os::window& win, bool vsync)
     rect_.h = win_.get_size().h;
 
     // Enable Texture Mapping (NEW)
-    gl_call(glEnable(GL_TEXTURE_2D));
+    //gl_call(glEnable(GL_TEXTURE_2D));
 
     // Depth calculation
     //gl_call(glClearDepth(1.0));
@@ -56,7 +70,7 @@ renderer::renderer(os::window& win, bool vsync)
     gl_call(glDepthMask(GL_FALSE));
 
     // Default blending mode
-    gl_call(glAlphaFunc(GL_GREATER, 0.1f));
+    //gl_call(glAlphaFunc(GL_GREATER, 0.1f));
     set_blending_mode(blending_mode::blend_normal);
 
     // Default texture interpolation methods
@@ -73,7 +87,7 @@ renderer::renderer(os::window& win, bool vsync)
 
     // Default index buffer budget. This is not static, so no worries
     master_ibo_.create();
-    master_ibo_.reserve(nullptr, sizeof(uint32_t) * 1024, true);
+    master_ibo_.reserve(nullptr, sizeof(draw_list::index_t) * 1024, true);
 
     reset_transform();
     set_model_view(0, rect_);
@@ -201,20 +215,20 @@ void renderer::set_model_view(const uint32_t fbo, const rect& rect) const noexce
 
     // Set the viewport
     gl_call(glViewport(0, 0, rect.w, rect.h));
-    gl_call(glMatrixMode(GL_PROJECTION));
-    gl_call(glLoadIdentity());
+    //gl_call(glMatrixMode(GL_PROJECTION));
+    //gl_call(glLoadIdentity());
     
     // Set the projection
     if(fbo == 0)
     {
         // If we have 0 it is the back buffer
-        gl_call(glOrtho(0, rect.w, rect.h, 0, 0, FARTHEST_Z));
+        //gl_call(glOrtho(0, rect.w, rect.h, 0, 0, FARTHEST_Z));
         current_ortho_ = math::ortho<float>(0, rect.w, rect.h, 0, 0, FARTHEST_Z);
     }
     else
     {
         // If we have > 0 the fbo must be flipped
-        gl_call(glOrtho(0, rect.w, 0, rect.h, 0, FARTHEST_Z));
+        //gl_call(glOrtho(0, rect.w, 0, rect.h, 0, FARTHEST_Z));
         current_ortho_ = math::ortho<float>(0, rect.w, 0, rect.h, 0, FARTHEST_Z);
     }
 
@@ -586,9 +600,7 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
 ///     @return true on success
 bool renderer::push_transform(const math::transformf& transform) const noexcept
 {
-    gl_call(glMatrixMode(GL_MODELVIEW));
-    gl_call(glPushMatrix());
-    gl_call(glLoadMatrixf(transform));
+    transforms_.push(transform);
 
     return true;
 }
@@ -597,7 +609,12 @@ bool renderer::push_transform(const math::transformf& transform) const noexcept
 ///     @return true on success
 bool renderer::pop_transform() const noexcept
 {
-    gl_call(glPopMatrix());
+    transforms_.pop();
+
+    if (transforms_.empty())
+    {
+        reset_transform();
+    }
     return true;
 }
 
@@ -605,8 +622,9 @@ bool renderer::pop_transform() const noexcept
 ///     @return true on success
 bool renderer::reset_transform() const noexcept
 {
-    gl_call(glMatrixMode(GL_MODELVIEW));
-    gl_call(glLoadIdentity());
+    decltype (transforms_) new_tranform;
+    new_tranform.push(math::transformf::identity());
+    transforms_.swap(new_tranform);
 
     return true;
 }
@@ -870,7 +888,6 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
     if (list.vertices.empty())
     {
-        log("ERROR: Called draw_cmd_list with no vertices. This is not allowed.");
         return false;
     }
 
@@ -901,7 +918,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
     set_blending_mode(blending_mode::blend_normal);
 
-    const auto& projection = current_ortho_;
+    const auto& projection = current_ortho_ * transforms_.top();
     // Draw commands
     for (const auto& cmd : list.commands)
     {

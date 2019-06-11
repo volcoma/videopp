@@ -3,6 +3,7 @@
 project (videopp)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/utility")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules")
 
 option(BUILD_VIDEOPP_SHARED "Build as a shared library." ON)
 option(BUILD_VIDEOPP_TESTS "Build the tests" ON)

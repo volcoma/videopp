@@ -111,6 +111,7 @@ private:
     index_buffer master_ibo_;
 
     mutable math::mat4x4 current_ortho_;
+    mutable std::stack<math::mat4x4> transforms_;
     std::stack<texture_ptr> fbo_stack_;
 
     std::vector<shader_ptr> embedded_shaders_;

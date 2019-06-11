@@ -20,6 +20,7 @@ static constexpr const char* vs_simple = R"(
                     })";
 
 static constexpr const char* fs_simple = R"(
+                    precision mediump float;
                     varying vec4 vColor;
 
                     void main() {
@@ -27,6 +28,7 @@ static constexpr const char* fs_simple = R"(
                     })";
 
 static constexpr const char* fs_multi_channel = R"(
+                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
@@ -37,6 +39,7 @@ static constexpr const char* fs_multi_channel = R"(
                     })";
 
 static constexpr const char* fs_single_channel = R"(
+                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
@@ -48,6 +51,7 @@ static constexpr const char* fs_single_channel = R"(
                     })";
 
 static constexpr const char* fs_distance_field = R"(
+                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
@@ -84,7 +88,7 @@ static constexpr const char* fs_distance_field = R"(
                     })";
 
 static constexpr const char* fs_blur = R"(
-
+                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
@@ -132,7 +136,7 @@ static constexpr const char* fs_blur = R"(
                     })";
 
 static constexpr const char* fs_fxaa = R"(
-
+                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 

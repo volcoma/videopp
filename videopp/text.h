@@ -59,9 +59,10 @@ public:
 
     float get_width() const;
     float get_height() const;
+    float get_min_baseline_height() const;
+    float get_max_baseline_height() const;
 
     video_ctrl::rect get_rect() const;
-    video_ctrl::rect get_baseline_rect() const;
 
     const color& get_color() const;
 
@@ -103,6 +104,8 @@ private:
     mutable std::vector<float> baseline_lines_;
 
     mutable frect rect_{};
+    mutable float min_baseline_height_{};
+    mutable float max_baseline_height_{};
 
     std::string utf8_text_;
     std::vector<uint32_t> unicode_text_;

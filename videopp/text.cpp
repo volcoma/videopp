@@ -350,19 +350,19 @@ const std::vector<std::vector<uint32_t>>& text::get_lines() const
     return lines_;
 }
 
-const std::vector<float>&text::get_ascent_lines() const
+const std::vector<float>& text::get_ascent_lines() const
 {
     get_geometry();
     return ascent_lines_;
 }
 
-const std::vector<float>&text::get_descent_lines() const
+const std::vector<float>& text::get_descent_lines() const
 {
     get_geometry();
     return descent_lines_;
 }
 
-const std::vector<float>&text::get_baseline_lines() const
+const std::vector<float>& text::get_baseline_lines() const
 {
     get_geometry();
     return baseline_lines_;
@@ -431,12 +431,13 @@ void text::clear_geometry()
     ascent_lines_.clear();
     descent_lines_.clear();
     baseline_lines_.clear();
+    rect_ = {};
+    min_baseline_height_ = {};
+    max_baseline_height_ = {};
 }
 
 void text::clear_lines()
 {
-    rect_ = {};
-
     chars_ = 0;
     lines_.clear();
 }
@@ -526,12 +527,7 @@ void text::update_geometry() const
     {
         return;
     }
-    if(!lines_.empty())
-    {
-        return;
-    }
-
-    if(unicode_text_.empty())
+    if(!geometry_.empty())
     {
         return;
     }
@@ -649,7 +645,8 @@ void text::update_geometry() const
     {
         line += yoffs;
     }
-
+    min_baseline_height_ = miny_baseline - miny_ascent + shadow_offsets_.y;
+    max_baseline_height_ = maxy_baseline - miny_ascent + shadow_offsets_.y;
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
     rect_.w = maxx - minx + shadow_offsets_.x;
 }
@@ -684,6 +681,38 @@ float text::get_height() const
     update_geometry();
 
     return rect_.h;
+}
+
+float text::get_min_baseline_height() const
+{
+    if(!font_)
+    {
+        return 0.0f;
+    }
+    if(min_baseline_height_ != 0.0f)
+    {
+        return min_baseline_height_;
+    }
+
+    update_geometry();
+
+    return min_baseline_height_;
+}
+
+float text::get_max_baseline_height() const
+{
+    if(!font_)
+    {
+        return 0.0f;
+    }
+    if(max_baseline_height_ != 0.0f)
+    {
+        return max_baseline_height_;
+    }
+
+    update_geometry();
+
+    return max_baseline_height_;
 }
 
 rect text::get_rect() const

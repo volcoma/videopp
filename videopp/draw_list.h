@@ -105,6 +105,14 @@ struct draw_list
     void reserve_rects(size_t count);
 
     void add_text_debug_info(const text& t, const math::transformf& transform);
+    void add_text_superscript_impl(const text& whole_text,
+                                   const text& partial_text,
+                                   const math::transformf& transform,
+                                   math::transformf& whole_transform,
+                                   math::transformf& partial_transform,
+                                   text::alignment align,
+                                   float partial_scale,
+                                   const program_setup& setup);
 
     using index_t = uint32_t;
     std::vector<vertex_2d> vertices;    // vertices to draw
