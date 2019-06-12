@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../renderer.h"
+#include "../../renderer.h"
 
 #ifndef EGL_CAST
 /* C++ / C typecast macros for special EGL handle values */
@@ -11,7 +11,7 @@
 #endif
 #endif
 
-#include "../glad/glad_egl.h"
+#include "glad_egl.h"
 
 namespace video_ctrl
 {

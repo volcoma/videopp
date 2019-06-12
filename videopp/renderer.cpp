@@ -6,11 +6,11 @@
 #include "utils.h"
 
 #ifdef WGL_CONTEXT
-#include "detail/context_wgl.h"
+#include "detail/wgl/context_wgl.h"
 #elif GLX_CONTEXT
-#include "detail/context_glx.h"
+#include "detail/glx/context_glx.h"
 #elif EGL_CONTEXT
-#include "detail/context_egl.h"
+#include "detail/egl/context_egl.h"
 #else
 
 #endif

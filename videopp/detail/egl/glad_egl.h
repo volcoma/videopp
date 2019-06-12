@@ -196,7 +196,7 @@ typedef void* (* GLADloadproc)(const char *name);
 GLAPI int gladLoadEGL(void);
 GLAPI int gladLoadEGLLoader(GLADloadproc);
 
-#include "khrplatform.h"
+#include "../khrplatform.h"
 #include <EGL/eglplatform.h>
 struct AHardwareBuffer;
 typedef unsigned int EGLBoolean;

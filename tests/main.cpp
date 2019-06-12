@@ -39,9 +39,11 @@ int main()
         }
         video_ctrl::glyphs_builder builder;
         builder.add(video_ctrl::get_latin_glyph_range());
-
+#ifdef _WIN32
         auto font_path = R"(C:/WINDOWS/Fonts/DFHEIA1.TTF)";
-        //auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
+#else
+        auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
+#endif
         auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 60, 2));
 
         std::string display_text{"123"};
@@ -149,11 +151,9 @@ int main()
                 text.set_utf8_text(display_text/* + std::to_string(num)*/);
                 text.set_alignment(align);
                 //text.set_outline_width(0.2f);
-                auto text2 = text;
-                list.add_text_superscript(text, text2, transform, align);
-                //list.add_rect(video_ctrl::align_rect(video_ctrl::rect{0, 0, 200, 200}, align), transform, video_ctrl::color::white(), false, 1.0f);
-                //list.add_text(text, transform);
-                //list.add_text_debug_info(text, transform);
+                //list.add_text_superscript(text, text, transform, align);
+                list.add_text(text, transform);
+                list.add_text_debug_info(text, transform);
 
                 rend.draw_cmd_list(list);
 

@@ -4,7 +4,7 @@ namespace video_ctrl
 {
 namespace
 {
-EGLContext shared_ctx{};
+context_egl* master_ctx{};
 }
 
 context_egl::context_egl(void* native_handle, void* native_display)
@@ -12,7 +12,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
     display_ = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(native_display));
     if (display_ == EGL_NO_DISPLAY)
     {
-        throw std::runtime_error("Cannot get EGL Dsiplay.");
+        throw video_ctrl::exception("Cannot get EGL Dsiplay.");
     }
 
     if(!gladLoadEGL())
@@ -25,7 +25,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (!eglInitialize(display_, &major_version, &minor_version))
     {
-        throw std::runtime_error("Cannot get EGL Initialize.");
+        throw video_ctrl::exception("Cannot get EGL Initialize.");
     }
 
     EGLConfig config {};
@@ -48,12 +48,12 @@ context_egl::context_egl(void* native_handle, void* native_display)
         // Choose config
         if (!eglChooseConfig(display_, attribList, &config, 1, &num_config))
         {
-            throw std::runtime_error("Cannot choose EGL Config.");
+            throw video_ctrl::exception("Cannot choose EGL Config.");
         }
 
         if (num_config < 1)
         {
-            throw std::runtime_error("No EGL Config.");
+            throw video_ctrl::exception("No EGL Config.");
         }
     }
 
@@ -64,20 +64,27 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (surface_ == EGL_NO_SURFACE)
     {
-        throw std::runtime_error("Cannot create EGL Surface.");
+        throw video_ctrl::exception("Cannot create EGL Surface.");
     }
 
     EGLint context_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
-    context_ = eglCreateContext(display_, config, shared_ctx, context_attribs);
+    if(master_ctx)
+    {
+        context_ = eglCreateContext(display_, config, master_ctx->context_, context_attribs);
+    }
+    else
+    {
+        context_ = eglCreateContext(display_, config, nullptr, context_attribs);
+    }
 
     if (context_ == EGL_NO_CONTEXT)
     {
-        throw std::runtime_error("Cannot create EGL Context.");
+        throw video_ctrl::exception("Cannot create EGL Context.");
     }
 
-    if(!shared_ctx)
+    if(!master_ctx)
     {
-        shared_ctx = context_;
+        master_ctx = this;
     }
 
     make_current();
@@ -85,13 +92,18 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
 context_egl::~context_egl()
 {
-    if(shared_ctx == context_)
+    if(master_ctx == this)
     {
-        shared_ctx = {};
+        master_ctx = {};
     }
 
     eglMakeCurrent(display_, nullptr, nullptr, nullptr);
     eglDestroyContext(display_, context_);
+
+    if(master_ctx)
+    {
+        master_ctx->make_current();
+    }
 }
 
 bool context_egl::set_vsync(bool vsync)
@@ -99,7 +111,6 @@ bool context_egl::set_vsync(bool vsync)
     return eglSwapInterval(display_, vsync ? 1 : 0);
 }
 
-// make it the calling thread's current rendering context
 bool context_egl::make_current()
 {
     return eglMakeCurrent(display_, surface_, surface_, context_);

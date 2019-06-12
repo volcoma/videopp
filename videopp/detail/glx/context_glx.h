@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../renderer.h"
-#include "../glad/glad_glx.h"
+#include "../../renderer.h"
+#include "glad_glx.h"
 
 namespace video_ctrl
 {

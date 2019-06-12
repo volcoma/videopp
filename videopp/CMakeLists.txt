@@ -2,32 +2,33 @@ file(GLOB_RECURSE libsrc *.h *.cpp *.hpp *.c *.cc)
 
 set(target_name videopp)
 
-list(FILTER libsrc EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/detail/context_")
-list(FILTER libsrc EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_")
+list(FILTER libsrc EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/detail/wgl")
+list(FILTER libsrc EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/detail/egl")
+list(FILTER libsrc EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/detail/glx")
+
+find_package(OpenGL REQUIRED)
 
 if(WIN32)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_wgl.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_wgl.cpp)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_wgl.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_wgl.c)
-
+    file(GLOB wgl_src ${CMAKE_CURRENT_SOURCE_DIR}/detail/wgl/*)
 else()
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_glx.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_glx.cpp)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_glx.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_glx.c)
+    if(OpenGL_EGL_FOUND)
+        message(STATUS "Found EGL")
+        file(GLOB egl_src ${CMAKE_CURRENT_SOURCE_DIR}/detail/egl/*)
+    endif()
 
-	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.h)
-	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.cpp)
-	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.h)
-	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.c)
+    #if(OpenGL_GLX_FOUND)
+        message(STATUS "Found GLX")
+        file(GLOB glx_src ${CMAKE_CURRENT_SOURCE_DIR}/detail/glx/*)
+    #endif()
 endif()
 
+list(APPEND libsrc ${wgl_src})
+list(APPEND libsrc ${egl_src})
+list(APPEND libsrc ${glx_src})
 
 add_library(${target_name} ${libsrc})
 target_link_libraries(${target_name} PUBLIC ospp fontpp glm)
 
-find_package(OpenGL REQUIRED)
 target_link_libraries(${target_name} PUBLIC ${OPENGL_LIBRARIES})
 target_include_directories(${target_name} PUBLIC ${OPENGL_INCLUDE_DIR})
 

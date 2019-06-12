@@ -4,7 +4,7 @@ namespace video_ctrl
 {
 namespace
 {
-GLXContext shared_ctx{};
+context_glx* master_ctx{};
 }
 
 
@@ -34,19 +34,26 @@ context_glx::context_glx(void* native_handle, void* native_display)
                                          visual_attribs, &num_fbc);
     if (!fbc)
     {
-        throw std::runtime_error("glXChooseFBConfig() failed");
+        throw video_ctrl::exception("glXChooseFBConfig() failed");
     }
 
     XVisualInfo* vi = glXGetVisualFromFBConfig(display_, fbc[0]);
-    context_ = glXCreateContext(display_, vi, shared_ctx, GL_TRUE);
+    if(master_ctx)
+    {
+        context_ = glXCreateContext(display_, vi, master_ctx->context_, GL_TRUE);
+    }
+    else
+    {
+        context_ = glXCreateContext(display_, vi, nullptr, GL_TRUE);
+    }
     if (!context_)
     {
-        throw std::runtime_error("Failed to create OpenGL context");
+        throw video_ctrl::exception("Failed to create OpenGL context");
     }
 
-    if(!shared_ctx)
+    if(!master_ctx)
     {
-        shared_ctx = context_;
+        master_ctx = this;
     }
 
 
@@ -55,13 +62,18 @@ context_glx::context_glx(void* native_handle, void* native_display)
 
 context_glx::~context_glx()
 {
-    if(shared_ctx == context_)
+    if(master_ctx == this)
     {
-        shared_ctx = {};
+        master_ctx = {};
     }
 
     glXMakeCurrent(display_, 0, nullptr);
     glXDestroyContext(display_, context_);
+
+    if(master_ctx)
+    {
+        master_ctx->make_current();
+    }
 }
 
 bool context_glx::set_vsync(bool vsync)

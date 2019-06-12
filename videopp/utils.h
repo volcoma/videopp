@@ -1,7 +1,7 @@
 #pragma once
 
 #define GL_GLEXT_PROTOTYPES
-#include "glad/glad.h"
+#include "detail/glad.h"
 
 #include "logger.h"
 #include <sstream>
