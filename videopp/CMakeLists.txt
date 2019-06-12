@@ -17,14 +17,14 @@ else()
     list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_glx.h)
     list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_glx.c)
 
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.cpp)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.h)
-    list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.c)
+	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.h)
+	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/detail/context_egl.cpp)
+	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.h)
+	list(APPEND libsrc ${CMAKE_CURRENT_SOURCE_DIR}/glad/glad_egl.c)
 endif()
 
-add_library(${target_name} ${libsrc})
 
+add_library(${target_name} ${libsrc})
 target_link_libraries(${target_name} PUBLIC ospp fontpp glm)
 
 find_package(OpenGL REQUIRED)

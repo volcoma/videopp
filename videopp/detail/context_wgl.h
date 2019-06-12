@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../renderer.h"
+#include "../glad/glad_wgl.h"
 
 namespace video_ctrl
 {
@@ -13,9 +14,9 @@ struct context_wgl : context
     bool make_current() override;
     bool swap_buffers() override;
 
-    void* hwnd_;
-    void* hdc_{};
-    void* ctx_{};
+    HWND hwnd_;
+    HDC hdc_{};
+    HGLRC context_{};
 };
 
 

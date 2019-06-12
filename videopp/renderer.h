@@ -91,11 +91,11 @@ public:
     ~renderer();
 
     void resize(int new_width, int new_height) noexcept;
+	bool set_current_context() const noexcept;
 
 private:
     void set_model_view(const uint32_t model, const rect& rect) const noexcept;
     void clear_fbo(uint32_t fbo_id, const color& color) const noexcept;
-    bool set_current_context() const noexcept;
     void set_old_framebuffer() const noexcept;
 
     friend class texture;

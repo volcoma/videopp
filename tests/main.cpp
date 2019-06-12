@@ -22,11 +22,11 @@ int main()
         std::cout << msg << std::endl;
     });
 
+    os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
+    video_ctrl::renderer master_rend(master_win, true);
     {
         std::vector<video_window> windows{};
 
-        os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-        video_ctrl::renderer master_rend(master_win, true);
 
         for(int i = 0; i < 2; ++i)
         {
@@ -39,9 +39,9 @@ int main()
         }
         video_ctrl::glyphs_builder builder;
         builder.add(video_ctrl::get_latin_glyph_range());
-        //ile:///C:/WINDOWS/Fonts/TT1018M_.TTF
-        //file:///C:/WINDOWS/Fonts/DFHEIA1.TTFfile:///D:/Workspace/lato/Lato-Bold.ttf
-        auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
+
+        auto font_path = R"(C:/WINDOWS/Fonts/DFHEIA1.TTF)";
+        //auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
         auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 60, 2));
 
         std::string display_text{"123"};
@@ -149,16 +149,16 @@ int main()
                 text.set_utf8_text(display_text/* + std::to_string(num)*/);
                 text.set_alignment(align);
                 //text.set_outline_width(0.2f);
-                //list.add_text_superscript(text, text, transform, align);
+                auto text2 = text;
+                list.add_text_superscript(text, text2, transform, align);
                 //list.add_rect(video_ctrl::align_rect(video_ctrl::rect{0, 0, 200, 200}, align), transform, video_ctrl::color::white(), false, 1.0f);
-                list.add_text(text, transform);
-                list.add_text_debug_info(text, transform);
+                //list.add_text(text, transform);
+                //list.add_text_debug_info(text, transform);
 
                 rend.draw_cmd_list(list);
 
                 rend.present();
             }
-
         }
     }
 	os::shutdown();

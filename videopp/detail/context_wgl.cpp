@@ -1,22 +1,25 @@
 ﻿#include "context_wgl.h"
-#include "../glad/glad_wgl.h"
 
 namespace video_ctrl
 {
 namespace
 {
-HGLRC shared_ctx{};
-
+context_wgl* master_context{};
 }
 
 context_wgl::context_wgl(void* native_handle)
 {
-    auto hwnd = reinterpret_cast<HWND>(native_handle);
-	hwnd_ = hwnd;
+    hwnd_ = reinterpret_cast<HWND>(native_handle);
+    if(!hwnd_)
+    {
+        throw video_ctrl::exception("Invalid native handle.");
+    }
 
-	auto hdc = GetDC(hwnd);
-    hdc_ = hdc;
-
+	hdc_ = GetDC(hwnd_);
+    if(!hdc_)
+    {
+        throw video_ctrl::exception("Could not get device context for native handle.");
+    }
 
 	PIXELFORMATDESCRIPTOR pfd;
 	std::memset(&pfd, 0, sizeof(pfd));
@@ -30,56 +33,58 @@ context_wgl::context_wgl(void* native_handle)
 	pfd.cStencilBits = 8;
 	pfd.iLayerType = PFD_MAIN_PLANE;
 
-	int pixelFormat = ChoosePixelFormat(hdc, &pfd);
-	if(pixelFormat == 0)
+	int pf = ChoosePixelFormat(hdc_, &pfd);
+	if(pf == 0)
 	{
-		throw video_ctrl::exception("Cannot ChoosePixelFormat.");
+		throw video_ctrl::exception("ChoosePixelFormat failed.");
 	}
-	DescribePixelFormat(hdc, pixelFormat, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
-
-	int result = SetPixelFormat(hdc, pixelFormat, &pfd);
-	if(result == 0)
-	{
-		throw video_ctrl::exception("Cannot SetPixelFormat.");
-	}
-	auto ctx = wglCreateContext(hdc);
-    ctx_ = ctx;
-
-    if(shared_ctx)
+	if(!DescribePixelFormat(hdc_, pf, sizeof(pfd), &pfd))
     {
-        wglShareLists(shared_ctx, ctx);
+        throw video_ctrl::exception("DescribePixelFormat failed.");
+    }
+
+	if(!SetPixelFormat(hdc_, pf, &pfd))
+	{
+		throw video_ctrl::exception("SetPixelFormat failed.");
+	}
+	context_ = wglCreateContext(hdc_);
+
+    if(!master_context)
+    {
+        master_context = this;
     }
     else
     {
-        shared_ctx = ctx;
+        if(!wglShareLists(master_context->context_, context_))
+        {
+            throw video_ctrl::exception("wglShareLists failed.");
+        }
     }
 
-    if(!wglMakeCurrent(hdc, ctx))
-    {
-        throw video_ctrl::exception("Cannot make_current.");
-    }
+
+    make_current();
 
 	// must be called after context was made current
-    if(!gladLoadWGL(hdc))
+    if(!gladLoadWGL(hdc_))
     {
         throw video_ctrl::exception("Cannot load wgl.");
     }
-
 }
 
 context_wgl::~context_wgl()
 {
-    auto ctx = reinterpret_cast<HGLRC>(ctx_);
-    auto hdc = reinterpret_cast<HDC>(hdc_);
-    auto hwnd = reinterpret_cast<HWND>(hwnd_);
-
-    if(shared_ctx == ctx)
+    if(master_context == this)
     {
-        shared_ctx = {};
+        master_context = {};
     }
 	wglMakeCurrent(nullptr, nullptr);
-	wglDeleteContext(ctx);
-	ReleaseDC(hwnd, hdc);
+	wglDeleteContext(context_);
+	ReleaseDC(hwnd_, hdc_);
+
+    if(master_context)
+    {
+        master_context->make_current();
+    }
 }
 
 bool context_wgl::set_vsync(bool vsync)
@@ -91,17 +96,13 @@ bool context_wgl::set_vsync(bool vsync)
 	return false;
 }
 
-// make it the calling thread's current rendering context
 bool context_wgl::make_current()
 {
-    auto ctx = reinterpret_cast<HGLRC>(ctx_);
-    auto hdc = reinterpret_cast<HDC>(hdc_);
-	return wglMakeCurrent(hdc, ctx);
+	return wglMakeCurrent(hdc_, context_);
 }
 
 bool context_wgl::swap_buffers()
 {
-    auto hdc = reinterpret_cast<HDC>(hdc_);
-	return SwapBuffers(hdc);
+	return SwapBuffers(hdc_);
 }
 }
