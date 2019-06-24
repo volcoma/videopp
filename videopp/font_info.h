@@ -9,12 +9,15 @@
 #include <locale>
 #include <codecvt>
 #include <map>
+#include <unordered_map>
+
+#include "fontpp/font.h"
 
 namespace video_ctrl
 {
 
-using char_t = uint16_t;
-using kerning_table_t = std::vector<std::vector<float>>;
+using char_t = fnt::font_wchar;
+using kerning_table_t = fnt::kerning_table;
 
 struct font_info
 {
@@ -44,14 +47,11 @@ struct font_info
 
     float get_kerning(uint32_t codepoint1, uint32_t codepoint2) const
     {
-        if(codepoint1 < kernings.size())
+        auto it = kernings.find({codepoint1, codepoint2});
+
+        if(it != std::end(kernings))
         {
-            const auto& kern_values = kernings[codepoint1];
-            if(codepoint2 < kern_values.size())
-            {
-                auto kerning = kern_values[codepoint2];
-                return kerning;
-            }
+            return it->second;
         }
 
         return 0.0f;

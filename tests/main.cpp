@@ -44,7 +44,7 @@ int main()
         auto font_path = R"(D:/wds052801.ttf)";
         //auto font_path = R"(C:/Windows/Fonts/Arial.ttf)";
 #else
-        auto font_path = R"(/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf)";
+        auto font_path = R"(/home/default/Downloads/stilltime.ttf)";
 #endif
         auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2));
 
@@ -187,7 +187,7 @@ therefore not recommended if portability is important. This manual does not cove
 
                 if(e.type == os::events::text_input)
                 {
-                    display_text += e.text.text;
+                    //display_text += e.text.text;
                 }
             }
 
