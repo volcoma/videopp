@@ -44,9 +44,10 @@ int main()
         auto font_path = R"(D:/wds052801.ttf)";
         //auto font_path = R"(C:/Windows/Fonts/Arial.ttf)";
 #else
-        auto font_path = R"(/home/default/Downloads/stilltime.ttf)";
+        auto font_path = R"(/home/default/Downloads/wds052801.ttf)";
 #endif
         auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2));
+        auto font2 = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50));
 
         std::string display_text =
 R"(
@@ -96,8 +97,11 @@ therefore not recommended if portability is important. This manual does not cove
         int num = 100;
 
         bool running = true;
-        int mode = 0;
+        bool use_kerning = false;
         float outline_width = 0.0f;
+        float target_scale = 1.0f;
+        bool use_sdf = true;
+        bool debug = false;
         while(running)
         {
             os::event e{};
@@ -137,8 +141,8 @@ therefore not recommended if portability is important. This manual does not cove
                     }
                     else
                     {
-                        float scale = float(e.wheel.y) * 0.05f;
-                        transform.scale(1.0f + scale, 1.0f + scale, 1.0f);
+                        float scale = float(e.wheel.y) * 0.1f;
+                        target_scale += scale;
                     }
                 }
                 if(e.type == os::events::key_down)
@@ -167,12 +171,15 @@ therefore not recommended if portability is important. This manual does not cove
                     {
                         if(e.key.shift)
                         {
-                            display_text += "\n";
+                            debug = !debug;
                         }
-                        if(e.key.ctrl)
+                        else if(e.key.ctrl)
                         {
-                            mode++;
-                            mode %= 2;
+                            use_kerning = !use_kerning;
+                        }
+                        else if(e.key.alt)
+                        {
+                            use_sdf = !use_sdf;
                         }
                         else
                         {
@@ -191,42 +198,48 @@ therefore not recommended if portability is important. This manual does not cove
                 }
             }
 
+            using namespace std::chrono_literals;
             auto start = std::chrono::high_resolution_clock::now();
+
             for(const auto& window : windows)
             {
                 const auto& win = *window.window;
                 auto& rend = *window.renderer;
+                rend.clear(video_ctrl::color::white());
 
                 auto pos = os::mouse::get_position(win);
                 transform.set_position(pos.x, pos.y, 0.0f);
-                //transform.rotate(0.0f, 0.0f, math::radians(1.0f));
-                using namespace std::chrono_literals;
-
-                rend.clear(video_ctrl::color::white());
 
                 video_ctrl::draw_list list;
-
                 video_ctrl::text text;
-                text.set_font(font);
+                text.set_font(use_sdf ? font : font2);
                 text.set_color(video_ctrl::color::black());
-                text.set_outline_color(video_ctrl::color::yellow());
+                text.set_outline_color(video_ctrl::color::magenta());
                 text.set_utf8_text(display_text);
                 text.set_alignment(align);
                 text.set_outline_width(outline_width);
-                text.use_kerning = mode;
-                //list.add_text_superscript(text, text, transform, align);
+                text.use_kerning = use_kerning;
                 list.add_text(text, transform);
+                if(debug)
+                {
+                    list.add_text_debug_info(text, transform);
+                }
 
                 rend.draw_cmd_list(list);
-
                 rend.present();
             }
             auto end = std::chrono::high_resolution_clock::now();
-            auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            auto dur = std::chrono::duration_cast<std::chrono::duration<float>>(end - start);
+
+            auto scale = transform.get_scale().x;
+            scale = std::max(0.05f, math::lerp(scale, target_scale, dur.count()));
+            transform.set_scale(scale, scale, 1.0f);
+
+
             static decltype(dur) avg_dur{};
             static int frame = 0;
             frame++;
-            if(frame > 2000)
+            if(frame > 1000)
             {
                 static int count = 0;
 

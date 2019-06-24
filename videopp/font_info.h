@@ -4,37 +4,21 @@
 #include "surface.h"
 #include "logger.h"
 
+#include <fontpp/font.h>
 #include <cstdint>
 #include <vector>
 #include <locale>
 #include <codecvt>
-#include <map>
-#include <unordered_map>
-
-#include "fontpp/font.h"
 
 namespace video_ctrl
 {
 
 using char_t = fnt::font_wchar;
 using kerning_table_t = fnt::kerning_table;
+using glyph = fnt::font_glyph;
 
 struct font_info
 {
-    struct glyph
-    {
-        /// Unicode codepoint (!= utf-8 symbol)
-        char_t codepoint = 0;
-        /// spacing to next character
-        float xadvance = 0.0f;
-        /// geometry (relative to 0)
-        math::vec2 xy0 = {0.0f, 0.0f};
-        math::vec2 xy1 = {0.0f, 0.0f};
-        /// texture coordinates
-        math::vec2 uv0 = {0.0f, 0.0f};
-        math::vec2 uv1 = {0.0f, 0.0f};
-    };
-
     const glyph& get_glyph(uint32_t codepoint) const
     {
         if (codepoint >= uint32_t(glyph_index.size()) || glyph_index[codepoint] == char_t(-1))
@@ -86,7 +70,7 @@ struct font_info
     std::vector<glyph> glyphs;
 
     /// sparse vector of indices per codepoint
-    std::vector<int> glyph_index;
+    std::vector<char_t> glyph_index;
 
     /// kerning lookup table per codepoint
     kerning_table_t kernings{};

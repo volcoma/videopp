@@ -61,7 +61,6 @@ static constexpr const char* fs_distance_field = R"(
 
                     uniform float uDistanceFieldMultiplier;
                     uniform float uOutlineWidth;
-                    uniform int mode;
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 

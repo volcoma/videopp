@@ -50,24 +50,10 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
         throw std::runtime_error("[" + path + "] - " + err);
     }
 
-    auto create_glyph = [](const fnt::font_glyph& font_glyph)
-    {
-        font_info::glyph glyph;
-        glyph.uv0 = {font_glyph.u0, font_glyph.v0};
-        glyph.uv1 = {font_glyph.u1, font_glyph.v1};
-
-        glyph.xy0 = {font_glyph.x0, font_glyph.y0};
-        glyph.xy1 = {font_glyph.x1, font_glyph.y1};
-
-        glyph.xadvance = font_glyph.advance_x;
-        glyph.codepoint = font_glyph.codepoint;
-        return glyph;
-    };
-
     f.glyphs.reserve(font->glyphs.size());
     for(const auto& font_glyph : font->glyphs)
     {
-        f.glyphs.emplace_back(create_glyph(font_glyph));
+        f.glyphs.emplace_back(font_glyph);
     }
 
     f.glyph_index.reserve(font->index_lookup.size());
@@ -79,7 +65,7 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     if(font->fallback_glyph)
     {
         const auto& font_glyph = *font->fallback_glyph;
-        f.fallback_glyph = create_glyph(font_glyph);
+        f.fallback_glyph = font_glyph;
     }
     else if(!f.glyphs.empty())
     {
@@ -89,7 +75,6 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     f.descent = font->descent;
     f.line_height = font->line_height;
     f.kernings = std::move(font->kernings);
-
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
 
     return f;
@@ -121,24 +106,10 @@ font_info create_default_font(float font_size, int sdf_spread)
         throw std::runtime_error("[default] - " + err);
     }
 
-    auto create_glyph = [](const fnt::font_glyph& font_glyph)
-    {
-        font_info::glyph glyph;
-        glyph.uv0 = {font_glyph.u0, font_glyph.v0};
-        glyph.uv1 = {font_glyph.u1, font_glyph.v1};
-
-        glyph.xy0 = {font_glyph.x0, font_glyph.y0};
-        glyph.xy1 = {font_glyph.x1, font_glyph.y1};
-
-        glyph.xadvance = font_glyph.advance_x;
-        glyph.codepoint = font_glyph.codepoint;
-        return glyph;
-    };
-
     f.glyphs.reserve(font->glyphs.size());
     for(const auto& font_glyph : font->glyphs)
     {
-        f.glyphs.emplace_back(create_glyph(font_glyph));
+        f.glyphs.emplace_back(font_glyph);
     }
 
     f.glyph_index.reserve(font->index_lookup.size());
@@ -150,7 +121,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     if(font->fallback_glyph)
     {
         const auto& font_glyph = *font->fallback_glyph;
-        f.fallback_glyph = create_glyph(font_glyph);
+        f.fallback_glyph = font_glyph;
     }
     else if(!f.glyphs.empty())
     {

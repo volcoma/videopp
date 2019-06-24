@@ -121,13 +121,19 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
             //Turns out we only need to offset Y, the cyan pixel can overlap actual data at the X axis
             auto symbol_start_y = float(start_point.y + offset);
             auto width = x - symbol_start_x;
-            g.xy0 = {0, -f.ascent};
-            g.xy1 = {float(width), g.xy0.y + float(height)};
 
-            g.xadvance = g.xy1.x + offset;
+            g.x0 = 0.0f;
+            g.y0 = -f.ascent;
+            g.x1 = float(width);
+            g.y1 = g.y0 + float(height);
 
-            g.uv0 = { symbol_start_x / s->get_width(), symbol_start_y / s->get_height() };
-            g.uv1 = { float(x) / s->get_width(), (symbol_start_y + float(height)) / s->get_height() };
+            g.advance_x = g.x1 + offset;
+
+            g.u0 = symbol_start_x / s->get_width();
+            g.v0 = symbol_start_y / s->get_height();
+
+            g.u1 = float(x) / s->get_width();
+            g.v1 = (symbol_start_y + float(height)) / s->get_height();
 
             start_point.x = x;
         }

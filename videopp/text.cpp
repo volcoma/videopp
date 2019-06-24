@@ -489,19 +489,19 @@ void text::update_geometry() const
                 last_codepoint = g.codepoint;
             }
 
-            auto x0 = g.xy0.x + xadvance;
-            auto x1 = g.xy1.x + xadvance;
-            auto y0 = g.xy0.y + yadvance;
-            auto y1 = g.xy1.y + yadvance;
+            auto x0 = g.x0 + xadvance;
+            auto x1 = g.x1 + xadvance;
+            auto y0 = g.y0 + yadvance;
+            auto y1 = g.y1 + yadvance;
 
-            *vptr++ = {{x0, y0}, g.uv0, color_};
-            *vptr++ = {{x1, y0}, {g.uv1.x, g.uv0.y}, color_};
-            *vptr++ = {{x1, y1}, g.uv1, color_};
-            *vptr++ = {{x0, y1}, {g.uv0.x, g.uv1.y}, color_};
+            *vptr++ = {{x0, y0}, {g.u0, g.v0}, color_};
+            *vptr++ = {{x1, y0}, {g.u1, g.v0}, color_};
+            *vptr++ = {{x1, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0, y1}, {g.u0, g.v1}, color_};
 
             line_offset += 4;
 
-            xadvance += g.xadvance + advance_offset_x;
+            xadvance += g.advance_x + advance_offset_x;
             line_minx = std::min(x0, line_minx);
             line_maxx = std::max(x1, line_maxx);
             line_maxx = std::max(line_maxx, xadvance);
