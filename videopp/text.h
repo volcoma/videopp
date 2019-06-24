@@ -87,12 +87,15 @@ public:
     bool is_valid() const;
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
+
+    bool use_kerning = true;
 private:
     void clear_geometry();
     void clear_lines();
 
     void update_lines() const;
     void update_geometry() const;
+    void regen_unicode_text();
     // buffer of quads
     mutable std::vector<vertex_2d> geometry_;
     // lines
@@ -110,7 +113,6 @@ private:
     std::string utf8_text_;
     std::vector<uint32_t> unicode_text_;
 
-    void regen_unicode_text();
 
     font_ptr font_;
 

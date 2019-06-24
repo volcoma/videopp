@@ -901,11 +901,11 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             tr.set_position(v1.x, v1.y, 0.0f);
             add_text(txt, tr);
 
-            txt.set_alignment(text::alignment::left);
-            txt.set_utf8_text(" width = " + std::to_string(t.get_width()));
+//            txt.set_alignment(text::alignment::left);
+//            txt.set_utf8_text(" width = " + std::to_string(t.get_width()));
 
-            tr.set_position(v2.x, v1.y, 0.0f);
-            add_text(txt, tr);
+//            tr.set_position(v2.x, v1.y, 0.0f);
+//            add_text(txt, tr);
         }
     }
     {
@@ -964,14 +964,14 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
             add_line(v1, v2, col, 2.0f);
 
-            text txt;
-            txt.set_color(col);
-            txt.set_font(default_font());
-            txt.set_alignment(text::alignment::left);
-            txt.set_utf8_text(desc + std::to_string(line_height));
+//            text txt;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(text::alignment::left);
+//            txt.set_utf8_text(desc + std::to_string(line_height));
 
-            tr.set_position(v1.x + 4.0f, v1.y + (v2.y - v1.y) * 0.5f, 0.0f);
-            add_text(txt, tr);
+//            tr.set_position(v1.x + 4.0f, v1.y + (v2.y - v1.y) * 0.5f, 0.0f);
+//            add_text(txt, tr);
 
         }
     }

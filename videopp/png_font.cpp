@@ -84,7 +84,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
     for (auto& range : codepoint_ranges)
     {
         total_glyphs += range.second - range.first + 1;
-        max_char = std::max(max_char, range.second + 1);
+        max_char = std::max(max_char, char_t(range.second + 1));
     }
 
     f.glyph_index.resize(max_char);

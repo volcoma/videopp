@@ -51,41 +51,107 @@ static constexpr const char* fs_single_channel = R"(
                     })";
 
 static constexpr const char* fs_distance_field = R"(
+                    #ifdef GL_OES_standard_derivatives
+                        #extension GL_OES_standard_derivatives : enable
+                    #endif
+
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
                     uniform float uDistanceFieldMultiplier;
                     uniform float uOutlineWidth;
+                    uniform int mode;
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 
-                    void main()
+
+                    #ifdef GL_OES_standard_derivatives
+
+                    float contour( in float d, in float w )
                     {
-                        float masterAlpha = vColor.a;
+                        return smoothstep(0.5 - w, 0.5 + w, d);
+                    }
+                    float sample( in sampler2D tex, in vec2 uv, in float w )
+                    {
+                        return contour( texture2D(tex,uv).r, w );
+                    }
 
-                        float inDistance = texture2D(uTexture, vTexCoord.xy).r;
+                    float supersample( in float alpha, in vec4 box_samples, in float width)
+                    {
+                         float asum = contour( box_samples.x, width )
+                                    + contour( box_samples.y, width )
+                                    + contour( box_samples.z, width )
+                                    + contour( box_samples.w, width );
 
-                        float inAlpha = (inDistance - 0.5) * uDistanceFieldMultiplier + 0.5;
-                        vec4 inColor = vec4(vColor.rgb, inAlpha);
+                         float weight = 0.5;  // scale value to apply to neighbours
+                         // weighted average, with 4 extra points
+                         return (alpha + weight * asum) / (1.0 + 4.0 * weight);
+                    }
 
-                        float outDistance = inDistance + uOutlineWidth;
-                        float outAlpha = (outDistance - 0.5) * uDistanceFieldMultiplier + 0.5;
-                        vec4 outColor = vec4(uOutlineColor.rgb, outAlpha * uOutlineColor.a);
+                    float aastep(in float dist, in vec4 box_samples)
+                    {
+                        // fwidth helps keep outlines a constant width irrespective of scaling
+                        // Stefan Gustavson's fwidth
+                        float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
+                        float alpha = contour( dist, width );
+                        alpha = supersample(alpha, box_samples, width);
+                        return alpha;
+                    }
+                    #endif
 
+                    void main(void)
+                    {
+                        vec4 master_color = vColor;
+                        float master_alpha = master_color.a;
+                        vec4 outline_color = uOutlineColor;
+                        float outline_width = uOutlineWidth;
+                        vec2 uv = vTexCoord.xy;
+                        float multiplier = uDistanceFieldMultiplier;
+                        float dist = texture2D(uTexture, uv).r;
+
+                    #ifdef GL_OES_standard_derivatives
+                        dist *= multiplier/multiplier;
+
+                        // Supersample, 4 extra points
+                        float dscale = 0.354; // half of 1/sqrt2; you can play with this
+                        vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
+                        vec4 box = vec4(uv-duv, uv+duv);
+                        vec4 box_distances = vec4(
+                            texture2D(uTexture, box.xy).r,
+                            texture2D(uTexture, box.zw).r,
+                            texture2D(uTexture, box.xw).r,
+                            texture2D(uTexture, box.zy).r
+                        );
+                        float alpha = aastep(dist, box_distances);
+                        vec4 color = vec4(master_color.rgb, alpha);
+
+                        vec4 obox_distances = box_distances + outline_width;
+                        float odist = dist + outline_width;
+                        float oalpha = aastep(odist, obox_distances);
+                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
+                    #else
+                        float alpha = (dist - 0.5) * multiplier + 0.5;
+                        vec4 color = vec4(master_color.rgb, alpha);
+                        float odist = dist + outline_width;
+                        float oalpha = (odist - 0.5) * multiplier + 0.5;
+                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
+                    #endif
                         // Alpha blend foreground.
-                        vec4 resultColor = mix(
-                            inColor,
-                            outColor,
-                            clamp(1.0 - inAlpha, 0.0, 1.0) * uOutlineColor.a
+                        vec4 rcolor = mix(
+                            color,
+                            ocolor,
+                            clamp(1.0 - alpha, 0.0, 1.0) * outline_color.a
                         );
 
                         // Master alpha.
-                        resultColor.a = clamp(resultColor.a, 0.0, 1.0) * masterAlpha;
+                        rcolor.a = clamp(rcolor.a, 0.0, 1.0) * master_color.a;
 
                         // Done!
-                        gl_FragColor = resultColor;
-                    })";
+                        gl_FragColor = rcolor;
+
+                    }
+                    )";
 
 static constexpr const char* fs_blur = R"(
                     precision mediump float;

@@ -13,11 +13,6 @@ namespace
 
 const size_t VERTICES_PER_QUAD = 4;
 
-float align_to_pixel(float val)
-{
-    return static_cast<float>(static_cast<int>(val));
-}
-
 float get_alignment_miny(text::alignment alignment,
         float y, float y_baseline)
 {
@@ -136,7 +131,7 @@ std::pair<float, float> get_alignment_offsets(text::alignment alignment,
             yoffs = (-miny - maxy) / 2;
             break;
     }
-    return {align_to_pixel(xoffs), align_to_pixel(yoffs)};
+    return {xoffs, yoffs};
 }
 
 }
@@ -380,15 +375,11 @@ void text::update_lines() const
     }
 
     // find newlines
-    float advance = 0;
     auto last_space = size_t(-1);
 
     lines_.clear();
     lines_.resize(1);
     lines_.back().reserve(unicode_text_.size());
-
-    auto max_width = float(max_width_);
-    auto advance_offset_x = get_advance_offset_x();
 
     for(size_t i = 0; i < unicode_text_.size(); ++i)
     {
@@ -399,11 +390,7 @@ void text::update_lines() const
             last_space = i;
         }
 
-        const auto& g = font_->get_glyph(c);
-
-        bool exceedsmax_width = max_width > 0 && (advance + g.xadvance + advance_offset_x) > max_width;
-
-        if(c == '\n' || (exceedsmax_width && (last_space != size_t(-1))))
+        if(c == '\n')
         {
             lines_.back().resize(lines_.back().size() - (i - last_space));
             chars_ -= uint32_t(i - last_space);
@@ -411,14 +398,13 @@ void text::update_lines() const
             i = last_space;
             lines_.resize(lines_.size() + 1);
             lines_.back().reserve(unicode_text_.size() - chars_);
-            advance = 0;
             last_space = size_t(-1);
         }
         else
         {
             lines_.back().push_back(c);
             ++chars_;
-            advance += g.xadvance;
+
         }
     }
 }
@@ -491,14 +477,22 @@ void text::update_geometry() const
         float line_minx = 100000.0f;
         float line_maxx = -100000.0f;
 
+        auto last_codepoint = char_t(-1);
         for(auto c : line)
         {
             const auto& g = font_->get_glyph(c);
 
-            auto x0 = align_to_pixel(g.xy0.x + xadvance);
-            auto x1 = align_to_pixel(g.xy1.x + xadvance);
-            auto y0 = align_to_pixel(g.xy0.y + yadvance);
-            auto y1 = align_to_pixel(g.xy1.y + yadvance);
+            if(use_kerning)
+            {
+                // modify the xadvance with the kerning from the previous character
+                xadvance += font_->get_kerning(last_codepoint, g.codepoint);
+                last_codepoint = g.codepoint;
+            }
+
+            auto x0 = g.xy0.x + xadvance;
+            auto x1 = g.xy1.x + xadvance;
+            auto y0 = g.xy0.y + yadvance;
+            auto y1 = g.xy1.y + yadvance;
 
             *vptr++ = {{x0, y0}, g.uv0, color_};
             *vptr++ = {{x1, y0}, {g.uv1.x, g.uv0.y}, color_};

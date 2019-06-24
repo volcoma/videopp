@@ -64,12 +64,9 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
         return glyph;
     };
 
-    f.max_xadvance = -10000.0f;
-
     f.glyphs.reserve(font->glyphs.size());
     for(const auto& font_glyph : font->glyphs)
     {
-        f.max_xadvance = std::max(f.max_xadvance, font_glyph.advance_x);
         f.glyphs.emplace_back(create_glyph(font_glyph));
     }
 
@@ -88,10 +85,11 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     {
         f.fallback_glyph = f.glyphs.front();
     }
-
     f.ascent = font->ascent;
     f.descent = font->descent;
     f.line_height = font->line_height;
+    f.kernings = std::move(font->kernings);
+
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
 
     return f;
