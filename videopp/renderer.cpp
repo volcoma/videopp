@@ -918,7 +918,6 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
     set_blending_mode(blending_mode::blend_normal);
 
-    const auto& projection = current_ortho_ * transforms_.top();
     // Draw commands
     for (const auto& cmd : list.commands)
     {
@@ -933,14 +932,15 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
             cmd.setup.program.layout.bind();
         }
 
-        if(cmd.setup.program.shader->has_uniform("uProjection"))
-        {
-            cmd.setup.program.shader->set_uniform("uProjection", projection);
-        }
-
         if(cmd.setup.begin)
         {
             cmd.setup.begin(gpu_context{*this, cmd.setup.program});
+        }
+
+        if(cmd.setup.program.shader->has_uniform("uProjection"))
+        {
+            const auto& projection = current_ortho_ * transforms_.top();
+            cmd.setup.program.shader->set_uniform("uProjection", projection);
         }
 
         if (cmd.clip_rect)

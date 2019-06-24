@@ -104,7 +104,7 @@ namespace std
         result_type operator()(argument_type const& s) const noexcept
         {
             uint64_t seed{0};
-            utils::hash_combine(seed, s.id);
+            utils::hash(seed, s.id);
             return seed;
         }
     };

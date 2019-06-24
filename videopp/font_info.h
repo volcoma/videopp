@@ -31,7 +31,7 @@ struct font_info
 
     float get_kerning(uint32_t codepoint1, uint32_t codepoint2) const
     {
-        auto it = kernings.find({codepoint1, codepoint2});
+        auto it = kernings.find({char_t(codepoint1), char_t(codepoint2)});
 
         if(it != std::end(kernings))
         {

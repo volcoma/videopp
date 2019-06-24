@@ -8,10 +8,18 @@ namespace utils
 {
 
 template <class T>
-inline void hash_combine(uint64_t& seed, const T & v)
+inline void hash(uint64_t& seed, const T & v)
 {
     std::hash<T> hasher;
     seed ^= static_cast<uint64_t>(hasher(v)) + 0x9e3779b967dd4acc + (seed << 6) + (seed >> 2);
+}
+
+template <typename Arg0, typename Arg1, typename... Args>
+inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args)
+{
+
+    hash(seed, std::forward<Arg0>(arg0));
+    hash(seed, std::forward<Arg1>(arg1), std::forward<Args>(args)...);
 }
 
 }
@@ -86,10 +94,7 @@ namespace std
         result_type operator()(argument_type const& s) const noexcept
         {
             uint64_t seed{0};
-            utils::hash_combine(seed, s.r);
-            utils::hash_combine(seed, s.g);
-            utils::hash_combine(seed, s.b);
-            utils::hash_combine(seed, s.a);
+            utils::hash(seed, s.r, s.g, s.b, s.a);
             return seed;
         }
     };

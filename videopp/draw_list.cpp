@@ -103,8 +103,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     else
     {
         auto hash = setup.calc_uniforms_hash();
-        utils::hash_combine(hash, type);
-        utils::hash_combine(hash, setup.program.shader.get());
+        utils::hash(hash, type, setup.program.shader.get());
 
         if(list.commands.empty() || !can_be_batched(list.commands.back(), hash, type))
         {
@@ -182,7 +181,7 @@ void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& c
         program.calc_uniforms_hash = [=]()
         {
             uint64_t seed{0};
-            utils::hash_combine(seed, border_width);
+            utils::hash(seed, border_width);
             return seed;
         };
         program.begin = [=](const gpu_context& ctx)
@@ -255,7 +254,7 @@ void draw_list::add_line(const math::vec2& start, const math::vec2& end, const c
         program.calc_uniforms_hash = [=]()
         {
             uint64_t seed{0};
-            utils::hash_combine(seed, line_width);
+            utils::hash(seed, line_width);
             return seed;
         };
         program.begin = [=](const gpu_context& ctx)
@@ -339,7 +338,7 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
             program.calc_uniforms_hash = [=]()
             {
                 uint64_t seed{0};
-                utils::hash_combine(seed, texture);
+                utils::hash(seed, texture);
                 return seed;
             };
             program.begin = [texture](const gpu_context& ctx)
@@ -468,6 +467,12 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float outline_width = std::max(0.0f, t.get_outline_width());
     color outline_color = t.get_outline_color();
 
+    // cpu_batching is disabled for text rendering with more than X vertices
+    // because there are too many vertices and their matrix multiplication
+    // on the cpu dominates the batching benefits.
+    const auto& geometry = t.get_geometry();
+    bool cpu_batch = geometry.size() < 32 * 4;
+
     auto program = setup;
     auto texture = font->texture;
     if(setup.program.shader == nullptr)
@@ -475,17 +480,26 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         if(sdf_spread > 0)
         {
             program.program = distance_field_font_program();
-            program.calc_uniforms_hash = [=]()
+
+            if(cpu_batch)
             {
-                uint64_t seed{0};
-                utils::hash_combine(seed, distance_field_multiplier);
-                utils::hash_combine(seed, outline_width);
-                utils::hash_combine(seed, outline_color);
-                utils::hash_combine(seed, texture);
-                return seed;
-            };
+                program.calc_uniforms_hash = [=]()
+                {
+                    uint64_t seed{0};
+                    utils::hash(seed,
+                                distance_field_multiplier,
+                                outline_width,
+                                outline_color,
+                                texture);
+                    return seed;
+                };
+            }
             program.begin = [=](const gpu_context& ctx)
             {
+                if(!cpu_batch)
+                {
+                    ctx.rend.push_transform(transform);
+                }
                 ctx.program.shader->set_uniform("uDistanceFieldMultiplier", distance_field_multiplier);
                 ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
                 ctx.program.shader->set_uniform("uOutlineColor", outline_color);
@@ -505,14 +519,21 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
                 break;
             }
 
-            program.calc_uniforms_hash = [=]()
+            if(cpu_batch)
             {
-                uint64_t seed{0};
-                utils::hash_combine(seed, texture);
-                return seed;
-            };
+                program.calc_uniforms_hash = [=]()
+                {
+                    uint64_t seed{0};
+                    utils::hash(seed, texture);
+                    return seed;
+                };
+            }
             program.begin = [=](const gpu_context& ctx)
             {
+                if(!cpu_batch)
+                {
+                    ctx.rend.push_transform(transform);
+                }
                 ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
             };
 
@@ -520,15 +541,26 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     }
 
-    auto geometry = t.get_geometry();
-    for(auto& v : geometry)
+    if(cpu_batch)
     {
-        v.pos = transform.transform_coord(v.pos);
-        v.pos.x = detail::align_to_pixel(v.pos.x);
-        v.pos.y = detail::align_to_pixel(v.pos.y);
+        auto transformed_geometry = geometry;
+        for(auto& v : transformed_geometry)
+        {
+            v.pos = transform.transform_coord(v.pos);
+            v.pos.x = detail::align_to_pixel(v.pos.x);
+            v.pos.y = detail::align_to_pixel(v.pos.y);
+        }
+        add_vertices(transformed_geometry, primitive_type::triangles, 0.0f, texture, program);
     }
+    else
+    {
+        program.end = [](const gpu_context& ctx)
+        {
+            ctx.rend.pop_transform();
+        };
 
-    add_vertices(geometry, primitive_type::triangles, 0.0f, texture, program);
+        add_vertices(geometry, primitive_type::triangles, 0.0f, texture, program);
+    }
 }
 
 void draw_list::add_text_superscript(const font_ptr& font, const std::string& whole,
@@ -818,7 +850,7 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
             program.calc_uniforms_hash = [=]()
             {
                 uint64_t seed{0};
-                utils::hash_combine(seed, texture);
+                utils::hash(seed, texture);
                 return seed;
             };
             program.begin = [texture](const gpu_context& ctx)
@@ -832,7 +864,7 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
             program.calc_uniforms_hash = [=]()
             {
                 uint64_t seed{0};
-                utils::hash_combine(seed, line_width);
+                utils::hash(seed, line_width);
                 return seed;
             };
             program.begin = [=](const gpu_context& ctx)

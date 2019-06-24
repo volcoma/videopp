@@ -145,6 +145,10 @@ therefore not recommended if portability is important. This manual does not cove
                         target_scale += scale;
                     }
                 }
+                if(e.type == os::events::text_input)
+                {
+                    display_text += e.text.text;
+                }
                 if(e.type == os::events::key_down)
                 {
                     if(e.key.code == os::key::backspace)
@@ -219,7 +223,12 @@ therefore not recommended if portability is important. This manual does not cove
                 text.set_alignment(align);
                 text.set_outline_width(outline_width);
                 text.use_kerning = use_kerning;
-                list.add_text(text, transform);
+
+                for(int i = 0; i < 30; ++i)
+                {
+                    list.add_text(text, transform);
+                }
+
                 if(debug)
                 {
                     list.add_text_debug_info(text, transform);
@@ -243,7 +252,7 @@ therefore not recommended if portability is important. This manual does not cove
             {
                 static int count = 0;
 
-                if(count > 2000)
+                if(count > 1000)
                 {
                     count = 0;
                     avg_dur = {};
