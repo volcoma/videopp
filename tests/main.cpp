@@ -85,7 +85,7 @@ int main()
         builder.add(video_ctrl::get_latin_glyph_range());
         builder.add(video_ctrl::get_cyrillic_glyph_range());
 
-        auto font_path = "/home/default/Downloads/wds052801.ttf";//DATA "/FreeSansBold.ttf";
+        auto font_path = DATA "/FreeSansBold.ttf";
         auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
         auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
