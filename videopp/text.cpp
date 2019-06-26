@@ -302,6 +302,16 @@ float text::get_advance_offset_y() const
     return advance_.y;
 }
 
+void text::set_kerning(bool enabled)
+{
+    if(kerning_enabled_ == enabled)
+    {
+        return;
+    }
+    kerning_enabled_ = enabled;
+    clear_geometry();
+}
+
 float text::get_advance_offset_x() const
 {
     if(font_ && font_->sdf_spread > 0)
@@ -482,7 +492,7 @@ void text::update_geometry() const
         {
             const auto& g = font_->get_glyph(c);
 
-            if(use_kerning)
+            if(kerning_enabled_)
             {
                 // modify the xadvance with the kerning from the previous character
                 xadvance += font_->get_kerning(last_codepoint, g.codepoint);

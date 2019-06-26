@@ -12,7 +12,7 @@ namespace video_ctrl
 {
 
 font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_ranges, float font_size,
-                               int sdf_spread /*= 0*/)
+                               int sdf_spread /*= 0*/, bool kerning /*= false*/)
 {
 
     font_info f;
@@ -38,7 +38,9 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     }
     auto ranges = builder.build_ranges();
 
-    auto font = atlas.add_font_from_file_ttf(path.c_str(), font_size, nullptr, ranges.data());
+    fnt::font_config cfg{};
+    cfg.kerning = kerning;
+    auto font = atlas.add_font_from_file_ttf(path.c_str(), font_size, &cfg, ranges.data());
     if(!font)
     {
         throw std::runtime_error("[" + path + "] - Could not load.");

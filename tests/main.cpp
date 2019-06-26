@@ -1,55 +1,13 @@
 #include <ospp/os.h>
 #include <videopp/renderer.h>
 #include <videopp/ttf_font.h>
-#include <videopp/ttf_font.h>
 
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <algorithm>
 
-int main()
-{
-    struct video_window
-    {
-        std::unique_ptr<os::window> window{};
-        std::unique_ptr<video_ctrl::renderer> renderer{};
-    };
-
-	os::init();
-    video_ctrl::set_extern_logger([](const std::string& msg)
-    {
-        std::cout << msg << std::endl;
-    });
-
-    os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-    video_ctrl::renderer master_rend(master_win, true);
-    {
-        std::vector<video_window> windows{};
-
-
-        for(int i = 0; i < 1; ++i)
-        {
-            windows.emplace_back();
-            auto& win = windows.back();
-            auto centerd = os::window::centered;
-            auto flags = os::window::resizable;
-            win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
-            win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
-        }
-        video_ctrl::glyphs_builder builder;
-        builder.add(video_ctrl::get_latin_glyph_range());
-
-#ifdef _WIN32
-        auto font_path = R"(D:/wds052801.ttf)";
-        //auto font_path = R"(C:/Windows/Fonts/Arial.ttf)";
-#else
-        auto font_path = R"(/home/default/Downloads/wds052801.ttf)";
-#endif
-        auto font = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2));
-        auto font2 = windows.at(0).renderer->create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50));
-
-        std::string display_text =
+std::string display_text =
 R"(
 $2 Choosing the optimal platform
 The choice of hardware platform has become less important than it used to be. The distinctions between
@@ -92,6 +50,45 @@ It is possible in some cases to use the high processing power of the processors 
 for other purposes than rendering graphics on the screen. However, such applications are highly system dependent and
 therefore not recommended if portability is important. This manual does not cover graphics processors.
 )";
+
+
+int main()
+{
+    struct video_window
+    {
+        std::unique_ptr<os::window> window{};
+        std::unique_ptr<video_ctrl::renderer> renderer{};
+    };
+
+	os::init();
+    video_ctrl::set_extern_logger([](const std::string& msg)
+    {
+        std::cout << msg << std::endl;
+    });
+
+    os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
+    video_ctrl::renderer master_rend(master_win, true);
+    {
+        std::vector<video_window> windows{};
+
+
+        for(int i = 0; i < 1; ++i)
+        {
+            windows.emplace_back();
+            auto& win = windows.back();
+            auto centerd = os::window::centered;
+            auto flags = os::window::resizable;
+            win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
+            win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
+        }
+        video_ctrl::glyphs_builder builder;
+        builder.add(video_ctrl::get_latin_glyph_range());
+
+        auto font_path = DATA "/Balava Regular.otf";
+        auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
+        auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
+
+
         video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
         math::transformf transform;
         int num = 100;
@@ -196,10 +193,6 @@ therefore not recommended if portability is important. This manual does not cove
                     }
                 }
 
-                if(e.type == os::events::text_input)
-                {
-                    //display_text += e.text.text;
-                }
             }
 
             using namespace std::chrono_literals;
@@ -216,15 +209,15 @@ therefore not recommended if portability is important. This manual does not cove
 
                 video_ctrl::draw_list list;
                 video_ctrl::text text;
-                text.set_font(use_sdf ? font : font2);
+                text.set_font(use_sdf ? font : font_bitmap);
                 text.set_color(video_ctrl::color::black());
                 text.set_outline_color(video_ctrl::color::magenta());
                 text.set_utf8_text(display_text);
                 text.set_alignment(align);
                 text.set_outline_width(outline_width);
-                text.use_kerning = use_kerning;
+                text.set_kerning(use_kerning);
 
-                for(int i = 0; i < 30; ++i)
+                //for(int i = 0; i < 30; ++i)
                 {
                     list.add_text(text, transform);
                 }
@@ -246,21 +239,17 @@ therefore not recommended if portability is important. This manual does not cove
 
 
             static decltype(dur) avg_dur{};
-            static int frame = 0;
-            frame++;
-            if(frame > 1000)
-            {
-                static int count = 0;
+            static int count = 0;
 
-                if(count > 1000)
-                {
-                    count = 0;
-                    avg_dur = {};
-                }
-                count++;
-                avg_dur += dur;
-                std::cout << avg_dur.count() / count << std::endl;
+            if(count > 100)
+            {
+                count = 0;
+                avg_dur = {};
             }
+            count++;
+            avg_dur += dur;
+            std::cout << (avg_dur.count() * 1000) / count << std::endl;
+
         }
     }
 	os::shutdown();

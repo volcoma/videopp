@@ -447,7 +447,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     }
 
     const auto& offsets = t.get_shadow_offsets();
-    if(math::any(math::greaterThan(offsets, math::vec2(0.0f, 0.0f))))
+    if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
     {
         auto shadow = t;
         shadow.set_color(t.get_shadow_color());
@@ -471,7 +471,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     // because there are too many vertices and their matrix multiplication
     // on the cpu dominates the batching benefits.
     const auto& geometry = t.get_geometry();
-    bool cpu_batch = geometry.size() < 32 * 4;
+    bool cpu_batch = geometry.size() < (16 * 4);
 
     auto program = setup;
     auto texture = font->texture;

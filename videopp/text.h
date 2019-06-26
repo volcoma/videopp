@@ -88,7 +88,7 @@ public:
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
 
-    bool use_kerning = true;
+    void set_kerning(bool enabled);
 private:
     void clear_geometry();
     void clear_lines();
@@ -126,7 +126,8 @@ private:
 
     alignment alignment_ = alignment::top_left;
     float max_width_ = 0;
-    math::vec2 advance_ = {0, 0};
+    math::vec2 advance_ = {0, 0};\
+    bool kerning_enabled_ = false;
 };
 
 
