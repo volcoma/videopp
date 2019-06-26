@@ -39,7 +39,7 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     auto ranges = builder.build_ranges();
 
     fnt::font_config cfg{};
-    cfg.kerning = kerning;
+    cfg.kerning_glyphs_limit = kerning ? 512 : 0;
     auto font = atlas.add_font_from_file_ttf(path.c_str(), font_size, &cfg, ranges.data());
     if(!font)
     {
