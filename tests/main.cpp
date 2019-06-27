@@ -7,9 +7,8 @@
 #include <chrono>
 #include <algorithm>
 
-std::string display_text =
-R"(
-$2 Choosing the optimal platform
+static std::string display_text =
+R"($2 Choosing the optimal platform
 The choice of hardware platform has become less important than it used to be. The distinctions between
 RISC and CISC processors, between PC's and mainframes, and between simple processors and vector processors are
 becoming increasingly blurred as the standard PC processors with CISC instruction sets have got RISC cores, vector
@@ -48,8 +47,7 @@ physics processor for calculating the physical movements of objects in a compute
 
 It is possible in some cases to use the high processing power of the processors on a graphics accelerator card
 for other purposes than rendering graphics on the screen. However, such applications are highly system dependent and
-therefore not recommended if portability is important. This manual does not cover graphics processors.
-)";
+therefore not recommended if portability is important. This manual does not cover graphics processors.)";
 
 
 int main()
