@@ -42,6 +42,13 @@ namespace video_ctrl
             , g(gg)
             , b(bb)
             , a(aa) {}
+        constexpr color(uint32_t rgba) noexcept
+        {
+            r = (rgba>>0) & 0xFF;
+            g = (rgba>>8) & 0xFF;
+            b = (rgba>>16) & 0xFF;
+            a = (rgba>>24) & 0xFF;
+        }
 
         bool operator == (const color &rhs) const noexcept;
         bool operator != (const color &rhs) const noexcept;

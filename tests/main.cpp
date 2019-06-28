@@ -1,11 +1,13 @@
 #include <ospp/os.h>
 #include <videopp/renderer.h>
 #include <videopp/ttf_font.h>
+#include <videopp/rich_text/rich_text.h>
 
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <algorithm>
+
 
 static std::string display_text =
 R"($2 Choosing the optimal platform
@@ -86,6 +88,8 @@ int main()
         auto font_path = DATA "/FreeSansBold.ttf";
         auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
         auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
+
+        std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FreeSansBold", font}};
 
 
         video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
@@ -203,10 +207,49 @@ int main()
                 auto& rend = *window.renderer;
                 rend.clear(video_ctrl::color::white());
 
+
+
+
+
+
                 auto pos = os::mouse::get_position(win);
                 transform.set_position(pos.x, pos.y, 0.0f);
 
                 video_ctrl::draw_list list;
+
+                video_ctrl::rich_text t;
+                t.add_decorator("text", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
+                {
+                    auto getter = [&](const std::string& key)
+                    {
+                        return rss_mgr[key];
+                    };
+
+
+                    return std::make_shared<video_ctrl::text_decorator>(table, text, getter);
+                });
+                t.add_decorator("rect", [](const video_ctrl::decorator::attr_table& table, const std::string&)
+                {
+                    return std::make_shared<video_ctrl::rect_decorator>(table);
+                });
+                t.set_utf8_text(R"(<html>
+                                <text color=0xFF000000 font=FreeSansBold>Your </text>
+                                <text color=0xFF00FF00 font=FreeSansBold>Winning </text>
+                                <text color=0xFF000000 font=FreeSansBold>figure is </text>
+                                <rect color=0xFF000000 x=0, y=0 w=200 h=100 />
+                                <text color=0xFF0000FF font=FreeSansBold> Please collect.</text>
+                                </html>)");
+
+
+
+                const auto& decorators = t.get_decorators();
+                for(const auto& decorator : decorators)
+                {
+                    decorator->draw(transform, list);
+                }
+
+
+
                 video_ctrl::text text;
                 text.set_font(use_sdf ? font : font_bitmap);
                 text.set_color(video_ctrl::color::black());
@@ -218,7 +261,7 @@ int main()
 
                 //for(int i = 0; i < 30; ++i)
                 {
-                    list.add_text(text, transform);
+//                    list.add_text(text, transform);
                 }
 
                 if(debug)
