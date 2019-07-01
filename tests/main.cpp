@@ -89,8 +89,51 @@ int main()
         auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
         auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
-        std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FreeSansBold", font}};
+        std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FONT_KEY", font}};
 
+        auto parser = std::make_shared<video_ctrl::simple_html_parser>();
+        parser->register_type("text", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
+        {
+            auto getter = [&](const std::string& key)
+            {
+                return rss_mgr[key];
+            };
+
+
+            return std::make_shared<video_ctrl::text_decorator>(table, text, getter);
+        });
+        parser->register_type("rect", [](const video_ctrl::decorator::attr_table& table, const std::string&)
+        {
+            return std::make_shared<video_ctrl::rect_decorator>(table);
+        });
+        video_ctrl::rich_text t;
+        t.set_parser(parser);
+        t.set_line_gap(4.0f);
+        t.set_utf8_text(R"(<html>
+                        <text color=0xFF000000 font=FONT_KEY>Your </text>
+                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
+                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
+                        <rect color=0xFF000000 x=0, y=0 w=200 h=100 />
+                        <text color=0xFF0000FF font=FONT_KEY1> Please collect.</text>
+                        <br>
+                        <text color=0xFF000000 font=FONT_KEY>Your </text>
+                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
+                        <text color=0xFF000000 font=FONT_KEY1>figure is </text>
+                        <rect color=0xFF0000FF x=0, y=0 w=200 h=100 />
+                        <text color=0xFF0000FF font=FONT_KEY> Please collect.</text>
+                        <br>
+                        <text color=0xFF000000 font=FONT_KEY1>Your </text>
+                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
+                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
+                        <rect color=0xFF00FF00 x=0, y=0 w=200 h=100 />
+                        <text color=0xFF0000FF font=FONT_KEY1> Please collect.</text>
+                        <br>
+                        <text color=0xFF000000 font=FONT_KEY>Your </text>
+                        <text color=0xFF00FF00 font=FONT_KEY1>Winning </text>
+                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
+                        <rect color=0xFFFF0000 x=0, y=0 w=200 h=100 />
+                        <text color=0xFF0000FF font=FONT_KEY> Please collect.</text>
+                        </html>)");
 
         video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
         math::transformf transform;
@@ -208,45 +251,16 @@ int main()
                 rend.clear(video_ctrl::color::white());
 
 
-
-
-
-
                 auto pos = os::mouse::get_position(win);
                 transform.set_position(pos.x, pos.y, 0.0f);
 
                 video_ctrl::draw_list list;
 
-                video_ctrl::rich_text t;
-                t.add_decorator("text", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
-                {
-                    auto getter = [&](const std::string& key)
-                    {
-                        return rss_mgr[key];
-                    };
-
-
-                    return std::make_shared<video_ctrl::text_decorator>(table, text, getter);
-                });
-                t.add_decorator("rect", [](const video_ctrl::decorator::attr_table& table, const std::string&)
-                {
-                    return std::make_shared<video_ctrl::rect_decorator>(table);
-                });
-                t.set_utf8_text(R"(<html>
-                                <text color=0xFF000000 font=FreeSansBold>Your </text>
-                                <text color=0xFF00FF00 font=FreeSansBold>Winning </text>
-                                <text color=0xFF000000 font=FreeSansBold>figure is </text>
-                                <rect color=0xFF000000 x=0, y=0 w=200 h=100 />
-                                <text color=0xFF0000FF font=FreeSansBold> Please collect.</text>
-                                </html>)");
 
 
 
-                const auto& decorators = t.get_decorators();
-                for(const auto& decorator : decorators)
-                {
-                    decorator->draw(transform, list);
-                }
+
+                list.add_text(t, transform);
 
 
 

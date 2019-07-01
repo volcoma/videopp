@@ -38,6 +38,10 @@ text_decorator::text_decorator(const decorator::attr_table &table, const std::st
                 {
                     text_.set_font(font);
                 }
+                else
+                {
+                    text_.set_font(default_font());
+                }
             }
         }
         else
@@ -48,10 +52,14 @@ text_decorator::text_decorator(const decorator::attr_table &table, const std::st
 
 }
 
-void text_decorator::draw(math::transformf &trans, draw_list &list)
+void text_decorator::draw(draw_list& list, const math::transformf& trans)
 {
     list.add_text(text_, trans);
-    trans.translate(text_.get_width() * trans.get_scale().x, 0.0f, 0.0f);
+}
+
+rect text_decorator::get_rect() const
+{
+    return text_.get_rect();
 }
 
 rect_decorator::rect_decorator(const decorator::attr_table &table)
@@ -103,41 +111,43 @@ rect_decorator::rect_decorator(const decorator::attr_table &table)
     }
 }
 
-void rect_decorator::draw(math::transformf &trans, draw_list &list)
+void rect_decorator::draw(draw_list& list, const math::transformf& trans)
 {
     list.add_rect(rect_, trans, color_);
-    trans.translate(rect_.w * trans.get_scale().x, 0.0f, 0.0f);
 }
 
-void rich_text::add_decorator(const std::string &name, rich_text::creator_t creator)
+rect rect_decorator::get_rect() const
+{
+    return rect_;
+}
+
+
+void rich_text_parser::register_type(const std::string &name, creator_t creator)
 {
     factory_[name] = std::move(creator);
 }
 
-void rich_text::set_utf8_text(const std::string &text)
-{
-    if(utf8_text_ == text)
-    {
-        return;
-    }
-    utf8_text_ = text;
-    decorators_.clear();
-}
 
-void rich_text::parse() const
+rich_text_parser::decorator_lines_t simple_html_parser::parse(const std::string& text) const
 {
-    if(!decorators_.empty())
-    {
-        return;
-    }
+
     html_parser parser;
-    auto doc = parser.parse(utf8_text_);
-    parse(doc->root());
+    decorator_lines_t decorators;
+    auto doc = parser.parse(text);
+
+    parse(decorators, doc->root());
+    return decorators;
 }
 
-void rich_text::parse(const shared_ptr<html_element> &node) const
+void simple_html_parser::parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node) const
 {
     const auto& name = node->get_name();
+
+    if(name == "br")
+    {
+        decorators.emplace_back();
+    }
+
     auto text = node->text();
 
     auto find_it = factory_.find(name);
@@ -151,21 +161,54 @@ void rich_text::parse(const shared_ptr<html_element> &node) const
             table[kvp.first] = kvp.second;
         }
 
-        decorators_.emplace_back();
-        auto& decorator = decorators_.back();
+        if(decorators.empty())
+        {
+            decorators.emplace_back();
+        }
+        decorators.back().emplace_back();
+        auto& decorator = decorators.back().back();
         decorator = creator(table, text);
     }
 
     const auto& children = node->get_children();
     for(const auto& child : children)
     {
-        parse(child);
+        parse(decorators, child);
     }
 }
 
-const std::vector<std::shared_ptr<decorator> > rich_text::get_decorators() const
+void rich_text::set_parser(const parser_ptr& parser)
 {
-    parse();
+    parser_ = parser;
+    decorators_.clear();
+}
+
+void rich_text::set_utf8_text(const std::string& text)
+{
+    if(utf8_text_ == text)
+    {
+        return;
+    }
+    utf8_text_ = text;
+    decorators_.clear();
+}
+
+void rich_text::set_line_gap(float gap)
+{
+    line_gap_ = gap;
+}
+
+float rich_text::get_line_gap() const
+{
+    return line_gap_;
+}
+
+const rich_text::decorator_lines_t& rich_text::get_decorators() const
+{
+    if(decorators_.empty())
+    {
+        decorators_ = parser_->parse(utf8_text_);
+    }
     return decorators_;
 }
 

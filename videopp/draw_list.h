@@ -2,6 +2,7 @@
 
 #include "draw_cmd.h"
 #include "text.h"
+#include "rich_text/rich_text.h"
 
 namespace video_ctrl
 {
@@ -95,6 +96,9 @@ struct draw_list
                               size_fit sz_fit = size_fit::shrink_to_fit,
                               dimension_fit dim_fit = dimension_fit::uniform,
                               const program_setup& setup = {});
+    void add_text(const rich_text& t, const math::transformf& transform);
+
+
 
     void add_vertices(const std::vector<vertex_2d>& verts, primitive_type type, float line_width = 1.0f,
                       const texture_view& texture = {}, const program_setup& setup = {});
