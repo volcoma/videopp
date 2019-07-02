@@ -723,7 +723,7 @@ void draw_list::add_text(const rich_text &t, const math::transformf& transform)
 
             auto aligned_trans = trans;
             aligned_trans.translate(0.0f, center_offset, 0.0f);
-            decorator->draw(*this, aligned_trans);
+            decorator->draw(aligned_trans, this);
 
             trans.translate(rect.w * transform.get_scale().x, 0.0f, 0.0f);
         }

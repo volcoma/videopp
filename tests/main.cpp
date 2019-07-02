@@ -92,7 +92,7 @@ int main()
         std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FONT_KEY", font}};
 
         auto parser = std::make_shared<video_ctrl::simple_html_parser>();
-        parser->register_type("text", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
+        parser->register_type("plain", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
         {
             auto getter = [&](const std::string& key)
             {
@@ -102,38 +102,15 @@ int main()
 
             return std::make_shared<video_ctrl::text_decorator>(table, text, getter);
         });
-        parser->register_type("rect", [](const video_ctrl::decorator::attr_table& table, const std::string&)
+
+        parser->register_type("img", [](const video_ctrl::decorator::attr_table& table, const std::string&)
         {
             return std::make_shared<video_ctrl::rect_decorator>(table);
         });
         video_ctrl::rich_text t;
         t.set_parser(parser);
         t.set_line_gap(4.0f);
-        t.set_utf8_text(R"(<html>
-                        <text color=0xFF000000 font=FONT_KEY>Your </text>
-                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
-                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
-                        <rect color=0xFF000000 x=0, y=0 w=200 h=100 />
-                        <text color=0xFF0000FF font=FONT_KEY1> Please collect.</text>
-                        <br>
-                        <text color=0xFF000000 font=FONT_KEY>Your </text>
-                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
-                        <text color=0xFF000000 font=FONT_KEY1>figure is </text>
-                        <rect color=0xFF0000FF x=0, y=0 w=200 h=100 />
-                        <text color=0xFF0000FF font=FONT_KEY> Please collect.</text>
-                        <br>
-                        <text color=0xFF000000 font=FONT_KEY1>Your </text>
-                        <text color=0xFF00FF00 font=FONT_KEY>Winning </text>
-                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
-                        <rect color=0xFF00FF00 x=0, y=0 w=200 h=100 />
-                        <text color=0xFF0000FF font=FONT_KEY1> Please collect.</text>
-                        <br>
-                        <text color=0xFF000000 font=FONT_KEY>Your </text>
-                        <text color=0xFF00FF00 font=FONT_KEY1>Winning </text>
-                        <text color=0xFF000000 font=FONT_KEY>figure is </text>
-                        <rect color=0xFFFF0000 x=0, y=0 w=200 h=100 />
-                        <text color=0xFF0000FF font=FONT_KEY> Please collect.</text>
-                        </html>)");
+
 
         video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
         math::transformf transform;
@@ -256,7 +233,17 @@ int main()
 
                 video_ctrl::draw_list list;
 
-
+t.set_utf8_text(R"(
+<html>
+<text color=0xff000000 font=FONT_KEY>Your <text color=0xff0000ff>winning</text> figure is <img color=0xFF000000 x=0, y=0 w=200 h=100 /> Congratulations.</text>
+<br>
+<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
+<br>
+<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
+<br>
+<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
+</html>
+)");
 
 
 

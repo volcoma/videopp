@@ -52,8 +52,9 @@ text_decorator::text_decorator(const decorator::attr_table &table, const std::st
 
 }
 
-void text_decorator::draw(draw_list& list, const math::transformf& trans)
+void text_decorator::draw(const math::transformf& trans, void* user_data)
 {
+    auto& list = *reinterpret_cast<draw_list*>(user_data);
     list.add_text(text_, trans);
 }
 
@@ -111,8 +112,9 @@ rect_decorator::rect_decorator(const decorator::attr_table &table)
     }
 }
 
-void rect_decorator::draw(draw_list& list, const math::transformf& trans)
+void rect_decorator::draw(const math::transformf& trans, void* user_data)
 {
+    auto& list = *reinterpret_cast<draw_list*>(user_data);
     list.add_rect(rect_, trans, color_);
 }
 
@@ -135,45 +137,62 @@ rich_text_parser::decorator_lines_t simple_html_parser::parse(const std::string&
     decorator_lines_t decorators;
     auto doc = parser.parse(text);
 
-    parse(decorators, doc->root());
+    parse(decorators, doc->root(), nullptr);
     return decorators;
 }
 
-void simple_html_parser::parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node) const
+void simple_html_parser::parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node, shared_ptr<html_element> parent) const
 {
+    auto text = node->text();
     const auto& name = node->get_name();
+    const auto& children = node->get_children();
 
     if(name == "br")
     {
         decorators.emplace_back();
     }
 
-    auto text = node->text();
-
-    auto find_it = factory_.find(name);
-    if(find_it != std::end(factory_))
+    if(children.empty())
     {
-        const auto& creator = find_it->second;
-        decorator::attr_table table;
-        const auto& attributes = node->get_attributes();
-        for(const auto& kvp : attributes)
+        auto find_it = factory_.find(name);
+        if(find_it != std::end(factory_))
         {
-            table[kvp.first] = kvp.second;
+            const auto& creator = find_it->second;
+            decorator::attr_table table;
+            const auto& attributes = node->get_attributes();
+
+            for(const auto& kvp : attributes)
+            {
+                table[kvp.first] = kvp.second;
+            }
+
+            while(parent)
+            {
+                const auto& parent_attributes = parent->get_attributes();
+
+                for(const auto& kvp : parent_attributes)
+                {
+                    table.insert(kvp);
+                }
+
+                parent = parent->get_parent();
+            }
+
+
+            if(decorators.empty())
+            {
+                decorators.emplace_back();
+            }
+            decorators.back().emplace_back();
+            auto& decorator = decorators.back().back();
+            decorator = creator(table, text);
         }
 
-        if(decorators.empty())
-        {
-            decorators.emplace_back();
-        }
-        decorators.back().emplace_back();
-        auto& decorator = decorators.back().back();
-        decorator = creator(table, text);
     }
 
-    const auto& children = node->get_children();
     for(const auto& child : children)
     {
-        parse(decorators, child);
+        parse(decorators, child, node);
     }
 }
 

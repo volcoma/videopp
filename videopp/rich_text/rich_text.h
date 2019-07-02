@@ -15,13 +15,12 @@
 
 namespace video_ctrl
 {
-struct draw_list;
 
 struct decorator
 {
     using attr_table = std::unordered_map<std::string, std::string>;
     virtual ~decorator() = default;
-    virtual void draw(draw_list& list, const math::transformf& trans) = 0;
+    virtual void draw(const math::transformf& trans, void* user_data) = 0;
     virtual rect get_rect() const = 0;
 };
 
@@ -55,9 +54,10 @@ struct rich_text
 private:
     mutable decorator_lines_t decorators_;
 
+    std::string utf8_text_{};
+    std::size_t text_hash_{};
+    parser_ptr parser_{};
     float line_gap_{};
-    parser_ptr parser_;
-    std::string utf8_text_;
 };
 
 
@@ -66,7 +66,7 @@ struct text_decorator : decorator
     using font_getter_t = std::function<font_ptr(const std::string)>;
 
     text_decorator(const attr_table& table, const std::string& text, const font_getter_t& font_getter);
-    void draw(draw_list& list, const math::transformf& trans) override;
+    void draw(const math::transformf& trans, void* user_data) override;
     rect get_rect() const override;
     text text_;
 };
@@ -74,7 +74,7 @@ struct text_decorator : decorator
 struct rect_decorator : decorator
 {
     rect_decorator(const attr_table& table);
-    void draw(draw_list& list, const math::transformf& trans) override;
+    void draw(const math::transformf& trans, void* user_data) override;
     rect get_rect() const override;
 
     rect rect_{};
@@ -87,7 +87,7 @@ struct simple_html_parser : rich_text_parser
 {
     decorator_lines_t parse(const std::string& text) const override;
 private:
-    void parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node) const;
+    void parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node, shared_ptr<html_element> parent) const;
 };
 
 
