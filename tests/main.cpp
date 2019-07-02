@@ -86,13 +86,17 @@ int main()
         builder.add(video_ctrl::get_cyrillic_glyph_range());
 
         auto font_path = DATA "/FreeSansBold.ttf";
+        auto font_path2 = DATA "/FreeSans.ttf";
+
         auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
+        auto font2 = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path2, builder.get(), 50, 2, true));
+
         auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
-        std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FONT_KEY", font}};
+        std::unordered_map<std::string, video_ctrl::font_ptr> rss_mgr = {{"FONT_BOLD_KEY", font}, {"FONT_KEY", font2}};
 
         auto parser = std::make_shared<video_ctrl::simple_html_parser>();
-        parser->register_type("plain", [&](const video_ctrl::decorator::attr_table& table, const std::string& text)
+        parser->register_type("plain", [&](const auto& table, const std::string& text)
         {
             auto getter = [&](const std::string& key)
             {
@@ -100,12 +104,16 @@ int main()
             };
 
 
-            return std::make_shared<video_ctrl::text_decorator>(table, text, getter);
+            return std::make_shared<video_ctrl::text_element>(table, text, getter);
         });
 
-        parser->register_type("img", [](const video_ctrl::decorator::attr_table& table, const std::string&)
+        parser->register_type("img", [](const auto& table, const std::string&)
         {
-            return std::make_shared<video_ctrl::rect_decorator>(table);
+            return std::make_shared<video_ctrl::image_element>(table, false);
+        });
+        parser->register_type("body", [](const auto& table, const std::string&)
+        {
+            return std::make_shared<video_ctrl::image_element>(table, true);
         });
         video_ctrl::rich_text t;
         t.set_parser(parser);
@@ -234,18 +242,16 @@ int main()
                 video_ctrl::draw_list list;
 
 t.set_utf8_text(R"(
-<html>
-<text color=0xff000000 font=FONT_KEY>Your <text color=0xff0000ff>winning</text> figure is <img color=0xFF000000 x=0, y=0 w=200 h=100 /> Congratulations.</text>
+<body>
+<text color=#000000 font=FONT_BOLD_KEY>Your <text color=darkkhaki font=FONT_KEY>winning</text> figure is <img color=#ff00ff width=200 height=100 /> Congratulations.</text>
 <br>
-<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
+<text color=#000000 font=FONT_KEY>Твоята <text color=#00ff00 font=FONT_BOLD_KEY>печеливша</text> фигура е <img color=palevioletred width=200 height=100 /> Поздравления.</text>
 <br>
-<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
+<text color=#000000 font=FONT_KEY>Your <text color=#ff00ff font=FONT_BOLD_KEY>winning</text> figure is <img color=mediumseagreen width=200 height=100 /> Congratulations.</text>
 <br>
-<text color=0xff000000 font=FONT_KEY>Your <text color=0xffff00ff font=FONT_KEY2>winning</text> figure <img color=0xFF000000 x=0, y=0 w=200 h=100 /> is this : </text>
-</html>
+<text color=salmon font=FONT_KEY>Your <text color=#0000ff font=FONT_BOLD_KEY>winning</text> figure is <img color=#0000ff width=200 height=100 /> Congratulations.</text>
+</body>
 )");
-
-
 
                 list.add_text(t, transform);
 

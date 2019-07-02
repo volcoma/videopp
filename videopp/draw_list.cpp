@@ -702,30 +702,40 @@ void draw_list::add_text(const rich_text &t, const math::transformf& transform)
 {
 
     auto trans = transform;
-    const auto& lines = t.get_decorators();
+    const auto& lines = t.get_elements();
     const auto line_gap = t.get_line_gap();
     auto line_start_pos = trans.get_position();
     for(const auto& line : lines)
     {
         video_ctrl::rect line_rect{};
 
-        for(const auto& decorator : line)
+        for(const auto& element : line)
         {
-            auto rect = decorator->get_rect();
-            line_rect.insert({rect.x, rect.y});
-            line_rect.insert({rect.x + rect.w, rect.y + rect.h});
+            if(!element->is_absolute())
+            {
+                auto rect = element->get_rect();
+                line_rect.insert({rect.x, rect.y});
+                line_rect.insert({rect.x + rect.w, rect.y + rect.h});
+            }
         }
 
-        for(const auto& decorator : line)
+        for(const auto& element : line)
         {
-            auto rect = decorator->get_rect();
-            auto center_offset = (line_rect.h - rect.h) * 0.5f * trans.get_scale().y;
+            if(!element->is_absolute())
+            {
+                auto rect = element->get_rect();
+                auto center_offset = (line_rect.h - rect.h) * 0.5f * trans.get_scale().y;
 
-            auto aligned_trans = trans;
-            aligned_trans.translate(0.0f, center_offset, 0.0f);
-            decorator->draw(aligned_trans, this);
+                auto aligned_trans = trans;
+                aligned_trans.translate(0.0f, center_offset, 0.0f);
+                element->draw(aligned_trans, this);
 
-            trans.translate(rect.w * transform.get_scale().x, 0.0f, 0.0f);
+                trans.translate(rect.w * transform.get_scale().x, 0.0f, 0.0f);
+            }
+            else
+            {
+                element->draw(trans, this);
+            }
         }
 
         line_start_pos.y += (line_rect.h + line_gap) * transform.get_scale().y;

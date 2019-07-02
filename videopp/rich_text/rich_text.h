@@ -16,23 +16,24 @@
 namespace video_ctrl
 {
 
-struct decorator
+struct rich_text_element
 {
     using attr_table = std::unordered_map<std::string, std::string>;
-    virtual ~decorator() = default;
+    virtual ~rich_text_element() = default;
     virtual void draw(const math::transformf& trans, void* user_data) = 0;
     virtual rect get_rect() const = 0;
+    virtual bool is_absolute() const { return false; }
 };
 
 
 struct rich_text_parser
 {
-    using creator_t = std::function<std::shared_ptr<decorator>(const decorator::attr_table&, const std::string&)>;
+    using creator_t = std::function<std::shared_ptr<rich_text_element>(const rich_text_element::attr_table&, const std::string&)>;
     using creator_container_t = std::unordered_map<std::string, creator_t>;
-    using decorator_lines_t = std::vector<std::vector<std::shared_ptr<decorator>>>;
+    using element_lines_t = std::vector<std::vector<std::shared_ptr<rich_text_element>>>;
 
     virtual ~rich_text_parser() = default;
-    virtual decorator_lines_t parse(const std::string& text) const = 0;
+    virtual element_lines_t parse(const std::string& text) const = 0;
     virtual void register_type(const std::string& name, creator_t creator);
 protected:
     creator_container_t factory_;
@@ -42,52 +43,54 @@ using parser_ptr = std::shared_ptr<rich_text_parser>;
 
 struct rich_text
 {
-    using decorator_lines_t = rich_text_parser::decorator_lines_t;
+    using element_lines_t = rich_text_parser::element_lines_t;
 
     void set_parser(const parser_ptr& parser);
     void set_utf8_text(const std::string& text);
     void set_line_gap(float gap);
 
     float get_line_gap() const;
-    const decorator_lines_t& get_decorators() const;
+    const element_lines_t& get_elements() const;
 
 private:
-    mutable decorator_lines_t decorators_;
+    mutable std::shared_ptr<rich_text_element> background_element_;
+    mutable element_lines_t elements_;
 
     std::string utf8_text_{};
-    std::size_t text_hash_{};
     parser_ptr parser_{};
     float line_gap_{};
 };
 
 
-struct text_decorator : decorator
+struct text_element : rich_text_element
 {
     using font_getter_t = std::function<font_ptr(const std::string)>;
 
-    text_decorator(const attr_table& table, const std::string& text, const font_getter_t& font_getter);
+    text_element(const attr_table& table, const std::string& text, const font_getter_t& font_getter);
     void draw(const math::transformf& trans, void* user_data) override;
     rect get_rect() const override;
     text text_;
 };
 
-struct rect_decorator : decorator
+struct image_element : rich_text_element
 {
-    rect_decorator(const attr_table& table);
+    image_element(const attr_table& table, bool absolute);
     void draw(const math::transformf& trans, void* user_data) override;
     rect get_rect() const override;
+    bool is_absolute() const override { return absolute_; }
 
     rect rect_{};
     color color_{};
     bool filled_{};
+    bool absolute_{};
 };
 
 
 struct simple_html_parser : rich_text_parser
 {
-    decorator_lines_t parse(const std::string& text) const override;
+    element_lines_t parse(const std::string& text) const override;
 private:
-    void parse(decorator_lines_t& decorators, const shared_ptr<html_element>& node, shared_ptr<html_element> parent) const;
+    void parse(element_lines_t& elements, const shared_ptr<html_element>& node, shared_ptr<html_element> parent) const;
 };
 
 
