@@ -71,7 +71,7 @@ namespace litehtml
 		tstring                             m_lang;
 		tstring                             m_culture;
 	public:
-		document(litehtml::document_container* objContainer, litehtml::context* ctx);
+		document(litehtml::document_container* doc_container, litehtml::context* ctx);
 		virtual ~document();
 
 		litehtml::document_container*	container()	{ return m_container; }

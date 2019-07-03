@@ -93,7 +93,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     fnt::font_atlas atlas{};
     atlas.max_texture_size = 1024 * 8;
     atlas.sdf_spread = uint32_t(sdf_spread);
-    fnt::font_glyph_ranges_builder builder{};
+
     fnt::font_config cfg{};
     cfg.size_pixels = font_size;
     auto font = atlas.add_font_default(&cfg);

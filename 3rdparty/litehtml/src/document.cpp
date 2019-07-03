@@ -21,26 +21,26 @@
 #include "el_div.h"
 #include "el_font.h"
 #include "el_tr.h"
-#include <math.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
 #include <algorithm>
 #include "gumbo/gumbo.h"
 #include "utf8_strings.h"
 
-litehtml::document::document(litehtml::document_container* objContainer, litehtml::context* ctx)
+litehtml::document::document(litehtml::document_container* doc_container, litehtml::context* ctx)
 {
-	m_container	= objContainer;
+	m_container	= doc_container;
 	m_context	= ctx;
 }
 
 litehtml::document::~document()
 {
-	m_over_element = 0;
+	m_over_element = nullptr;
 	if(m_container)
 	{
-		for(fonts_map::iterator f = m_fonts.begin(); f != m_fonts.end(); f++)
+		for(auto& font : m_fonts)
 		{
-			m_container->delete_font(f->second.font);
+			m_container->delete_font(font.second.font);
 		}
 	}
 }
@@ -81,17 +81,17 @@ litehtml::document::ptr litehtml::document::createFromUTF8(const char* str, lite
 
 		// parse style sheets linked in document
 		media_query_list::ptr media;
-		for (css_text::vector::iterator css = doc->m_css.begin(); css != doc->m_css.end(); css++)
+		for (const auto& css : doc->m_css)
 		{
-			if (!css->media.empty())
+			if (!css.media.empty())
 			{
-				media = media_query_list::create_from_string(css->media, doc);
+				media = media_query_list::create_from_string(css.media, doc);
 			}
 			else
 			{
-				media = 0;
+				media = nullptr;
 			}
-			doc->m_styles.parse_stylesheet(css->text.c_str(), css->baseurl.c_str(), doc, media);
+			doc->m_styles.parse_stylesheet(css.text.c_str(), css.baseurl.c_str(), doc, media);
 		}
 		// Sort css selectors using CSS rules.
 		doc->m_styles.sort_selectors();
@@ -128,7 +128,7 @@ litehtml::document::ptr litehtml::document::createFromUTF8(const char* str, lite
 
 litehtml::uint_ptr litehtml::document::add_font( const tchar_t* name, int size, const tchar_t* weight, const tchar_t* style, const tchar_t* decoration, font_metrics* fm )
 {
-	uint_ptr ret = 0;
+    uint_ptr ret = {};
 
 	if( !name || (name && !t_strcasecmp(name, _t("inherit"))) )
 	{
@@ -189,22 +189,22 @@ litehtml::uint_ptr litehtml::document::add_font( const tchar_t* name, int size, 
 		{
 			std::vector<tstring> tokens;
 			split_string(decoration, tokens, _t(" "));
-			for(std::vector<tstring>::iterator i = tokens.begin(); i != tokens.end(); i++)
+			for(auto & token : tokens)
 			{
-				if(!t_strcasecmp(i->c_str(), _t("underline")))
+				if(!t_strcasecmp(token.c_str(), _t("underline")))
 				{
 					decor |= font_decoration_underline;
-				} else if(!t_strcasecmp(i->c_str(), _t("line-through")))
+				} else if(!t_strcasecmp(token.c_str(), _t("line-through")))
 				{
 					decor |= font_decoration_linethrough;
-				} else if(!t_strcasecmp(i->c_str(), _t("overline")))
+				} else if(!t_strcasecmp(token.c_str(), _t("overline")))
 				{
 					decor |= font_decoration_overline;
 				}
 			}
 		}
 
-		font_item fi= {0};
+		font_item fi= {nullptr};
 
 		fi.font = m_container->create_font(name, size, fw, fs, decor, &fi.metrics);
 		m_fonts[key] = fi;
@@ -242,7 +242,7 @@ litehtml::uint_ptr litehtml::document::get_font( const tchar_t* name, int size, 
 	key += _t(":");
 	key += decoration;
 
-	fonts_map::iterator el = m_fonts.find(key);
+	auto el = m_fonts.find(key);
 
 	if(el != m_fonts.end())
 	{
@@ -394,7 +394,7 @@ bool litehtml::document::on_mouse_over( int x, int y, int client_x, int client_y
 		m_over_element = over_el;
 	}
 
-	const tchar_t* cursor = 0;
+	const tchar_t* cursor = nullptr;
 
 	if(m_over_element)
 	{
@@ -460,7 +460,7 @@ bool litehtml::document::on_lbutton_down( int x, int y, int client_x, int client
 		}
 	}
 
-	const tchar_t* cursor = 0;
+	const tchar_t* cursor = nullptr;
 
 	if(m_over_element)
 	{
@@ -561,9 +561,9 @@ litehtml::element::ptr litehtml::document::create_element(const tchar_t* tag_nam
 	if(newTag)
 	{
 		newTag->set_tagName(tag_name);
-		for (string_map::const_iterator iter = attributes.begin(); iter != attributes.end(); iter++)
+		for (const auto & attribute : attributes)
 		{
-			newTag->set_attr(iter->first.c_str(), iter->second.c_str());
+			newTag->set_attr(attribute.first.c_str(), attribute.second.c_str());
 		}
 	}
 
@@ -619,9 +619,9 @@ bool litehtml::document::lang_changed()
 bool litehtml::document::update_media_lists(const media_features& features)
 {
 	bool update_styles = false;
-	for(media_query_list::vector::iterator iter = m_media_lists.begin(); iter != m_media_lists.end(); iter++)
+	for(auto & m_media_list : m_media_lists)
 	{
-		if((*iter)->apply_media_features(features))
+		if(m_media_list->apply_media_features(features))
 		{
 			update_styles = true;
 		}
@@ -799,14 +799,14 @@ void litehtml::document::fix_tables_layout()
 void litehtml::document::fix_table_children(element::ptr& el_ptr, style_display disp, const tchar_t* disp_str)
 {
 	elements_vector tmp;
-	elements_vector::iterator first_iter = el_ptr->m_children.begin();
-	elements_vector::iterator cur_iter = el_ptr->m_children.begin();
+	auto first_iter = el_ptr->m_children.begin();
+	auto cur_iter = el_ptr->m_children.begin();
 
 	auto flush_elements = [&]()
 	{
 		element::ptr annon_tag = std::make_shared<html_tag>(shared_from_this());
 		style st;
-		st.add_property(_t("display"), disp_str, 0, false);
+		st.add_property(_t("display"), disp_str, nullptr, false);
 		annon_tag->add_style(st);
 		annon_tag->parent(el_ptr);
 		annon_tag->parse_styles();
@@ -861,22 +861,18 @@ void litehtml::document::fix_table_parent(element::ptr& el_ptr, style_display di
 
 	if (parent->get_display() != disp)
 	{
-		elements_vector::iterator this_element = std::find_if(parent->m_children.begin(), parent->m_children.end(),
+		auto this_element = std::find_if(parent->m_children.begin(), parent->m_children.end(),
 			[&](element::ptr& el)
 			{
-				if (el == el_ptr)
-				{
-					return true;
-				}
-				return false;
+				return el == el_ptr;
 			}
 		);
 		if (this_element != parent->m_children.end())
 		{
 			style_display el_disp = el_ptr->get_display();
-			elements_vector::iterator first = this_element;
-			elements_vector::iterator last = this_element;
-			elements_vector::iterator cur = this_element;
+			auto first = this_element;
+			auto last = this_element;
+			auto cur = this_element;
 
 			// find first element with same display
 			while (true)
@@ -913,7 +909,7 @@ void litehtml::document::fix_table_parent(element::ptr& el_ptr, style_display di
 			// extract elements with the same display and wrap them with anonymous object
 			element::ptr annon_tag = std::make_shared<html_tag>(shared_from_this());
 			style st;
-			st.add_property(_t("display"), disp_str, 0, false);
+			st.add_property(_t("display"), disp_str, nullptr, false);
 			annon_tag->add_style(st);
 			annon_tag->parent(parent);
 			annon_tag->parse_styles();
