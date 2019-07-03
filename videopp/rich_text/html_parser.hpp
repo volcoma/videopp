@@ -773,7 +773,7 @@ private:
 				{
 					case PARSE_ELEMENT_TAG:
 					{
-						char input = stream_[index];
+						input = stream_[index];
 						if(input == ' ' || input == '\r' || input == '\n' || input == '\t')
 						{
 							if(!self->name_.empty())
@@ -808,7 +808,7 @@ private:
 
 					case PARSE_ELEMENT_ATTR:
 					{
-						char input = stream_[index];
+						input = stream_[index];
 						if(input == '>')
 						{
 							if(stream_[index - 1] == '/')
@@ -851,7 +851,7 @@ private:
 							return index;
 						}
 
-						char input = stream_[index];
+						input = stream_[index];
 						if(input == '<')
 						{
 							if(!self->value_.empty())
@@ -902,8 +902,8 @@ private:
 							{
 								if(parent->name_ == value)
 								{
-									std::cerr << "WARN : element not closed <" << self->name_ << "> "
-											  << std::endl;
+									//std::cerr << "WARN : element not closed <" << self->name_ << "> "
+									//		  << std::endl;
 									self->parse(attr);
 									element->children_.push_back(self);
 									return pre - 2;
@@ -912,8 +912,8 @@ private:
 								parent = parent->get_parent();
 							}
 
-							std::cerr << "WARN : unexpected closed element </" << value << "> for <"
-									  << self->name_ << ">" << std::endl;
+							//std::cerr << "WARN : unexpected closed element </" << value << "> for <"
+							//		  << self->name_ << ">" << std::endl;
 							state = PARSE_ELEMENT_VALUE;
 						}
 						else
