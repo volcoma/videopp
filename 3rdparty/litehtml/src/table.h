@@ -1,5 +1,7 @@
 #ifndef LH_TABLE_H
 #define LH_TABLE_H
+#include "types.h"
+#include "element.h"
 
 namespace litehtml
 {

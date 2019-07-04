@@ -1,7 +1,7 @@
 #include "html.h"
 #include "background.h"
 
-litehtml::background::background(void)
+litehtml::background::background()
 {
 	m_attachment	= background_attachment_scroll;
 	m_repeat		= background_repeat_repeat;
@@ -25,7 +25,7 @@ litehtml::background::background( const background& val )
 	m_origin		= val.m_origin;
 }
 
-litehtml::background::~background(void)
+litehtml::background::~background()
 {
 }
 

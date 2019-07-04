@@ -1,5 +1,6 @@
 #ifndef LH_UTF8_STRINGS_H
 #define LH_UTF8_STRINGS_H
+#include "types.h"
 
 namespace litehtml
 {

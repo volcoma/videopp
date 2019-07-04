@@ -45,12 +45,12 @@ litehtml::document::~document()
 	}
 }
 
-litehtml::document::ptr litehtml::document::createFromString( const tchar_t* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles)
+litehtml::document::ptr litehtml::document::create_from_string( const tchar_t* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles)
 {
-	return createFromUTF8(litehtml_to_utf8(str), objPainter, ctx, user_styles);
+	return create_from_utf8(litehtml_to_utf8(str), objPainter, ctx, user_styles);
 }
 
-litehtml::document::ptr litehtml::document::createFromUTF8(const char* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles)
+litehtml::document::ptr litehtml::document::create_from_utf8(const char* str, litehtml::document_container* objPainter, litehtml::context* ctx, litehtml::css* user_styles)
 {
 	// parse document into GumboOutput
 	GumboOutput* output = gumbo_parse((const char*) str);
@@ -204,7 +204,7 @@ litehtml::uint_ptr litehtml::document::add_font( const tchar_t* name, int size, 
 			}
 		}
 
-		font_item fi= {nullptr};
+		font_item fi= {};
 
 		fi.font = m_container->create_font(name, size, fw, fs, decor, &fi.metrics);
 		m_fonts[key] = fi;

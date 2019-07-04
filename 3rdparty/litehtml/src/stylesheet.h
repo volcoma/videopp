@@ -12,15 +12,6 @@ namespace litehtml
 	{
 		css_selector::vector	m_selectors;
 	public:
-		css()
-		{
-
-		}
-		
-		~css()
-		{
-
-		}
 
 		const css_selector::vector& selectors() const
 		{

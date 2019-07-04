@@ -11,7 +11,7 @@
 #include <iostream>
 
 
-std::string html =
+static std::string html =
 R"(
 <!DOCTYPE html>
 <html>
@@ -48,7 +48,8 @@ int main()
         options.default_font = "FreeSerif";
         options.default_font_size = 16;
 
-        video_ctrl::html_context html_ctx(rend, options);
+        video_ctrl::html_context html_ctx(rend, std::move(options));
+
         video_ctrl::html_page page(html_ctx);
         page.load(html);
 
@@ -74,6 +75,13 @@ int main()
 
 					}
 				}
+                if(e.type == os::events::key_down)
+                {
+                    if(e.key.code == os::key::enter)
+                    {
+
+                    }
+                }
 			}
 
             auto mouse_pos = os::mouse::get_position(win);
@@ -83,8 +91,7 @@ int main()
 
             rend.clear(video_ctrl::color::white());
 
-
-            page.present(rend.get_rect());
+            page.draw(0, 0, rend.get_rect().w);
 
             rend.present();
 

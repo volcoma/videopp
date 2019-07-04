@@ -18,6 +18,7 @@
 
 namespace video_ctrl
 {
+struct html_context;
 
 struct html_defaults
 {
@@ -31,13 +32,13 @@ class html_container : public litehtml::document_container
 {
 
 public:
-    html_container(renderer& rend, const html_defaults& options);
-    virtual ~html_container() = default;
+    html_container(html_context& ctx);
+    ~html_container() override = default;
 
-    void invalidate_draw_list();
     void present();
+    void invalidate();
 
-    litehtml::uint_ptr create_font(const litehtml::tchar_t* face_name, int size, int /*weight*/,
+    litehtml::uint_ptr create_font(const litehtml::tchar_t* face_name, int size, int weight,
                                    litehtml::font_style style, unsigned int decoration,
                                    litehtml::font_metrics* fm) override;
     void delete_font(litehtml::uint_ptr hFont) override;
@@ -78,21 +79,9 @@ public:
     void get_language(litehtml::tstring& language, litehtml::tstring& culture) const override;
 
 private:
-    struct font_face
-    {
-        font_ptr font;
-        std::string key;
-        float scale{1.0f};
-        float boldness{0.0f};
-    };
 
-    html_defaults options_;
-    std::map<std::string, font_face> fonts_faces_;
-    std::map<std::string, font_ptr> fonts_;
-    std::map<std::string, video_ctrl::rect> textures_;
-
+    html_context& ctx_;
     draw_list list_;
-    renderer& rend_;
-    rect clip_rect_{};
+    std::vector<rect> clip_rects_{};
 };
 }

@@ -24,9 +24,9 @@ namespace litehtml
 		css_border_radius		m_radius;
 
 	public:
-		background(void);
+		background();
 		background(const background& val);
-		~background(void);
+		~background();
 
 		background& operator=(const background& val);
 	};
