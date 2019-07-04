@@ -1,32 +1,11 @@
 #pragma once
 
-#include "../color.h"
-#include "../glyph_range.h"
-#include "../rect.h"
-#include "../renderer.h"
-#include "../text.h"
-#include "../ttf_font.h"
+#include "html_context.h"
 
-#include <litehtml.h>
-
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 namespace video_ctrl
 {
 struct html_context;
-
-struct html_defaults
-{
-    std::string fonts_dir{};
-    std::string images_dir{};
-    std::string default_font{};
-    int default_font_size{};
-};
 
 class html_container : public litehtml::document_container
 {
