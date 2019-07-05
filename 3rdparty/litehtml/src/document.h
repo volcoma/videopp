@@ -1,9 +1,10 @@
 #ifndef LH_DOCUMENT_H
 #define LH_DOCUMENT_H
-
 #include "style.h"
 #include "types.h"
 #include "context.h"
+#include "element.h"
+#include "web_color.h"
 #include "gumbo/gumbo.h"
 
 namespace litehtml

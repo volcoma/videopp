@@ -3,7 +3,6 @@
 namespace video_ctrl
 {
 
-
 html_page::html_page(html_context& ctx)
     : ctx_(ctx)
     , container_(ctx)
@@ -13,6 +12,11 @@ html_page::html_page(html_context& ctx)
 
 void html_page::draw(int x, int y, int max_width)
 {
+    if(!document_)
+    {
+        return;
+    }
+
     if(width != max_width)
     {
         document_->render(max_width);
@@ -33,6 +37,7 @@ void html_page::draw(int x, int y, int max_width)
 
 void html_page::load(const std::string& html)
 {
+    container_.invalidate();
     document_ = litehtml::document::create_from_utf8(html.c_str(), &container_, &ctx_.ctx);
 
     posx = -1;

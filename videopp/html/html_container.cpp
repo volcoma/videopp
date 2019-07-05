@@ -1,33 +1,37 @@
+#include <utility>
+
 #include "html_container.h"
 
 namespace video_ctrl
 {
 
 html_container::html_container(html_context& ctx)
-    : ctx_(ctx)
+	: ctx_(ctx)
 {
+	static size_t ids = 0;
+	id_ = ++ids;
 }
 
 void html_container::present()
 {
-    ctx_.rend.draw_cmd_list(list_);
+	ctx_.rend.draw_cmd_list(list_);
 }
 
 void html_container::invalidate()
 {
-    list_ = {};
+	list_ = {};
 }
 
 litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_name, int size, int weight,
 											   litehtml::font_style style, unsigned int decoration,
 											   litehtml::font_metrics* fm)
 {
-	auto extract_font_metrics = [&](const html_context::font_face* face, litehtml::font_metrics* fm) {
-		if(face && fm)
+	auto extract_font_metrics = [&](const html_font* fnt, litehtml::font_metrics* fm) {
+		if(fnt && fm)
 		{
-            const auto& font = face->font;
-            const auto& x_glyph = font->get_glyph('x');
-            auto scale = face->scale;
+			const auto& font = fnt->face;
+			const auto& x_glyph = font->get_glyph('x');
+			auto scale = fnt->scale;
 
 			fm->ascent = static_cast<int>(font->ascent * scale);
 			fm->descent = static_cast<int>(-font->descent * scale);
@@ -37,33 +41,42 @@ litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_nam
 		}
 	};
 
-    auto face_ptr = ctx_.create_font(face_name, size, weight);
-    extract_font_metrics(face_ptr.get(), fm);
-	return reinterpret_cast<litehtml::uint_ptr>(face_ptr.get());
+	auto font = ctx_.get_font(id_, face_name, size, weight);
+	extract_font_metrics(font.get(), fm);
+	return reinterpret_cast<litehtml::uint_ptr>(font.get());
 }
 
-void html_container::delete_font(litehtml::uint_ptr)
+void html_container::delete_font(litehtml::uint_ptr hFont)
 {
+	auto font_data = reinterpret_cast<html_font*>(hFont);
+	if(!font_data)
+	{
+		return;
+	}
+
+	ctx_.delete_font(font_data);
 }
 
 int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr hFont)
 {
-	auto face = reinterpret_cast<html_context::font_face*>(hFont);
+	auto font_data = reinterpret_cast<html_font*>(hFont);
 
-    if(!face)
-    {
-        return 0;
-    }
+	if(!font_data)
+	{
+		return 0;
+	}
 
-    const auto& font = face->font;
-    auto scale = face->scale;
+	const auto& font = font_data->face;
+	auto scale = font_data->scale;
+	auto boldness = font_data->boldness;
 
 	video_ctrl::text t;
 	t.set_font(font);
 	t.set_utf8_text(text);
-	if(face->boldness > 0.0f)
+
+	if(boldness > 0.0f)
 	{
-		t.set_outline_width(face->boldness);
+		t.set_outline_width(boldness);
 	}
 
 	return static_cast<int>(t.get_width() * scale);
@@ -72,22 +85,22 @@ int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr
 void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text, litehtml::uint_ptr hFont,
 							   litehtml::web_color color, const litehtml::position& pos)
 {
-    auto face = reinterpret_cast<html_context::font_face*>(hFont);
+	auto font_data = reinterpret_cast<html_font*>(hFont);
 
-    if(!face)
-    {
-        return;
-    }
+	if(!font_data)
+	{
+		return;
+	}
 
-    const auto& font = face->font;
-    auto scale = face->scale;
-    auto boldness = face->boldness;
+	const auto& font = font_data->face;
+	auto scale = font_data->scale;
+	auto boldness = font_data->boldness;
 
 	video_ctrl::color col = {color.red, color.green, color.blue, color.alpha};
 	video_ctrl::text t;
 	t.set_font(font);
 	t.set_utf8_text(text);
-	t.set_alignment(video_ctrl::text::alignment::top_left);
+	t.set_alignment(text::alignment::top_left);
 	t.set_color(col);
 	if(boldness > 0.0f)
 	{
@@ -152,12 +165,10 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			break;
 			case litehtml::list_style_type_square:
 			{
-				video_ctrl::color col{marker.color.red, marker.color.green, marker.color.blue,
-									  marker.color.alpha};
-				video_ctrl::rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width,
-											  marker.pos.height};
+				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
 
-                list_.add_rect(fill_rect, col);
+				list_.add_rect(fill_rect, col);
 			}
 			break;
 			default:
@@ -169,21 +180,32 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 void html_container::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* /*baseurl*/,
 								bool /*redraw_on_ready*/)
 {
-
+	ctx_.get_image(src);
 }
 
 void html_container::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* /*baseurl*/,
 									litehtml::size& sz)
 {
-
+	auto image = ctx_.get_image(src);
+	if(image)
+	{
+		const auto& rect = image->get_rect();
+		sz.width = rect.w;
+		sz.height = rect.h;
+	}
+	else
+	{
+		sz.width = 0;
+		sz.height = 0;
+	}
 }
 
 void html_container::draw_background(litehtml::uint_ptr, const litehtml::background_paint& bg)
 {
 	if(bg.image.empty())
 	{
-		video_ctrl::color col{bg.color.red, bg.color.green, bg.color.blue, bg.color.alpha};
-		video_ctrl::rect fill_rect = {bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height};
+		color col{bg.color.red, bg.color.green, bg.color.blue, bg.color.alpha};
+		rect fill_rect = {bg.clip_box.x, bg.clip_box.y, bg.clip_box.width, bg.clip_box.height};
 		if(fill_rect)
 		{
 			list_.add_rect(fill_rect, col);
@@ -191,9 +213,15 @@ void html_container::draw_background(litehtml::uint_ptr, const litehtml::backgro
 	}
 	else
 	{
-		video_ctrl::rect fill_rect = {bg.clip_box.x, bg.clip_box.y, bg.image_size.width,
-									  bg.image_size.height};
 
+		auto image = ctx_.get_image(bg.image);
+
+		if(image)
+		{
+			rect src = image->get_rect();
+			rect dst = {bg.clip_box.x, bg.clip_box.y, bg.image_size.width, bg.image_size.height};
+			list_.add_image(image, src, dst);
+		}
 	}
 }
 
@@ -202,9 +230,9 @@ void html_container::draw_borders(litehtml::uint_ptr /*hdc*/, const litehtml::bo
 {
 	if(borders.top.width != 0 && borders.top.style > litehtml::border_style_hidden)
 	{
-		video_ctrl::rect hollow_rect = {draw_pos.x, draw_pos.y, draw_pos.width, draw_pos.height};
-		video_ctrl::color col{borders.top.color.red, borders.top.color.green, borders.top.color.blue,
-							  borders.top.color.alpha};
+		rect hollow_rect = {draw_pos.x, draw_pos.y, draw_pos.width, draw_pos.height};
+		color col{borders.top.color.red, borders.top.color.green, borders.top.color.blue,
+				  borders.top.color.alpha};
 
 		if(hollow_rect)
 		{
@@ -237,36 +265,36 @@ void html_container::transform_text(litehtml::tstring&, litehtml::text_transform
 {
 }
 
-void html_container::import_css(litehtml::tstring&, const litehtml::tstring&, litehtml::tstring&)
+void html_container::import_css(litehtml::tstring& /*text*/, const litehtml::tstring& /*url*/,
+								litehtml::tstring& /*baseurl*/)
 {
 }
 
 void html_container::set_clip(const litehtml::position& pos, const litehtml::border_radiuses& /*bdr_radius*/,
 							  bool valid_x, bool valid_y)
 {
-    rect clip_rect = {pos.x, pos.y, pos.width, pos.height};
-    litehtml::position client_pos;
-    get_client_rect(client_pos);
-    if(!valid_x)
-    {
-        clip_rect.x		= client_pos.x;
-        clip_rect.w	= client_pos.width;
-    }
-    if(!valid_y)
-    {
-        clip_rect.y		= client_pos.y;
-        clip_rect.h	= client_pos.height;
-    }
-    clip_rects_.emplace_back(clip_rect);
-
+	rect clip_rect = {pos.x, pos.y, pos.width, pos.height};
+	litehtml::position client_pos;
+	get_client_rect(client_pos);
+	if(!valid_x)
+	{
+		clip_rect.x = client_pos.x;
+		clip_rect.w = client_pos.width;
+	}
+	if(!valid_y)
+	{
+		clip_rect.y = client_pos.y;
+		clip_rect.h = client_pos.height;
+	}
+	clip_rects_.emplace_back(clip_rect);
 }
 
 void html_container::del_clip()
 {
-    if(!clip_rects_.empty())
-    {
-        clip_rects_.pop_back();
-    }
+	if(!clip_rects_.empty())
+	{
+		clip_rects_.pop_back();
+	}
 }
 
 void html_container::get_client_rect(litehtml::position& client) const
