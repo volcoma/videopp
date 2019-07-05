@@ -117,7 +117,6 @@ struct draw_list
     using index_t = uint32_t;
     std::vector<vertex_2d> vertices;    // vertices to draw
     std::vector<index_t> indices;       // indices to draw
-
     std::vector<draw_cmd> commands;     // draw commands
 };
 

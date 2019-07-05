@@ -116,6 +116,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
+
 }
 }
 

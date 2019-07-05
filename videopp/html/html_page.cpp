@@ -35,9 +35,10 @@ void html_page::draw(int x, int y, int max_width)
     container_.present();
 }
 
-void html_page::load(const std::string& html)
+void html_page::load(const std::string& html, const std::string& path)
 {
     container_.invalidate();
+    container_.path = path;
     document_ = litehtml::document::create_from_utf8(html.c_str(), &container_, &ctx_.ctx);
 
     posx = -1;

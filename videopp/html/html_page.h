@@ -12,7 +12,7 @@ public:
     html_page(html_context& ctx);
 
     void draw(int x, int y, int max_width);
-    void load(const std::string& html);
+    void load(const std::string& html, const std::string& path);
 
 private:
 

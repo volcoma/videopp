@@ -155,12 +155,20 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			{
 				// draw_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
 				// marker.pos.height, 			 marker.color, 0.5);
+                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+
+				list_.add_rect(fill_rect, col);
 			}
 			break;
 			case litehtml::list_style_type_disc:
 			{
 				// fill_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
 				// marker.pos.height, 			 marker.color);
+                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+
+				list_.add_rect(fill_rect, col);
 			}
 			break;
 			case litehtml::list_style_type_square:
@@ -265,9 +273,10 @@ void html_container::transform_text(litehtml::tstring&, litehtml::text_transform
 {
 }
 
-void html_container::import_css(litehtml::tstring& /*text*/, const litehtml::tstring& /*url*/,
-								litehtml::tstring& /*baseurl*/)
+void html_container::import_css(litehtml::tstring& text, const litehtml::tstring& url,
+								litehtml::tstring& baseurl)
 {
+    ctx_.load_file(path + "/" + url, text);
 }
 
 void html_container::set_clip(const litehtml::position& pos, const litehtml::border_radiuses& /*bdr_radius*/,

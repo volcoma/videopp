@@ -16,6 +16,7 @@ public:
 
     void present();
     void invalidate();
+    std::string path;
 
     litehtml::uint_ptr create_font(const litehtml::tchar_t* face_name, int size, int weight,
                                    litehtml::font_style style, unsigned int decoration,

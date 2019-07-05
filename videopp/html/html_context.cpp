@@ -1,9 +1,78 @@
 #include "html_context.h"
 #include <master.css>
+#include <fstream>
 
 namespace video_ctrl
 {
 
+namespace detail
+{
+template <typename Container = std::string, typename CharT = char, typename Traits = std::char_traits<char>>
+auto read_stream(std::basic_istream<CharT, Traits>& in, Container& container) -> bool
+{
+	static_assert(
+		// Allow only strings...
+		std::is_same<Container,
+					 std::basic_string<CharT, Traits, typename Container::allocator_type>>::value ||
+			// ... and vectors of the plain, signed, and
+			// unsigned flavours of CharT.
+			std::is_same<Container, std::vector<CharT, typename Container::allocator_type>>::value ||
+			std::is_same<Container, std::vector<std::make_unsigned_t<CharT>,
+												typename Container::allocator_type>>::value ||
+			std::is_same<Container,
+						 std::vector<std::make_signed_t<CharT>, typename Container::allocator_type>>::value,
+		"only strings and vectors of ((un)signed) CharT allowed");
+
+	auto const start_pos = in.tellg();
+	if(std::streamsize(-1) == start_pos)
+	{
+		return false;
+	};
+
+	if(!in.seekg(0, std::ios_base::end))
+	{
+		return false;
+	};
+
+	auto const end_pos = in.tellg();
+
+	if(std::streamsize(-1) == end_pos)
+	{
+		return false;
+	};
+
+	auto const char_count = end_pos - start_pos;
+
+	if(!in.seekg(start_pos))
+	{
+		return false;
+	};
+
+	container.resize(static_cast<std::size_t>(char_count));
+
+	if(!container.empty())
+	{
+		if(!in.read(reinterpret_cast<CharT*>(&container[0]), char_count))
+		{
+			return false;
+		};
+	}
+
+	return true;
+}
+} // namespace detail
+
+bool html_context::load_file(const std::string& path, std::string& buffer)
+{
+	std::ifstream stream(path, std::ios::in | std::ios::binary);
+
+	if(!stream.is_open())
+	{
+		return false;
+	}
+
+	return detail::read_stream(stream, buffer);
+}
 
 html_context::html_context(renderer& r, html_defaults opts)
     : rend(r)
@@ -36,7 +105,8 @@ void html_context::delete_font(html_font* /*font*/)
 
 texture_ptr html_context::get_image(const std::string &src)
 {
-    auto it = images.find(src);
+    std::string key = options.images_dir + "/" + src;
+    auto it = images.find(key);
 	if(it != images.end())
 	{
 		return it->second;
@@ -44,8 +114,11 @@ texture_ptr html_context::get_image(const std::string &src)
 
     try
     {
-        auto image = rend.create_texture(src);
-        images[src] = image;
+        auto image = rend.create_texture(key);
+        if(image)
+        {
+            images[key] = image;
+        }
         return image;
     }
     catch (...)
@@ -99,12 +172,10 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 		{
             if(face_name != options.default_font)
             {
-                return get_font(page_uid, options.default_font.c_str(), size, weight);
+                return get_font(page_uid, options.default_font, size, weight);
             }
-            else
-            {
-                font->face = rend.create_font(create_default_font(rasterize_size, 2));
-            }
+
+            font->face = rend.create_font(create_default_font(rasterize_size, 2));
 		}
 		fonts[font_path] = font->face;
 	}

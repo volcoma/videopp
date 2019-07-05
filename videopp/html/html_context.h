@@ -40,6 +40,9 @@ struct html_context
 
     texture_ptr get_image(const std::string& src);
 
+    bool load_file(const std::string& path, std::string& buffer);
+
+
     litehtml::context ctx;
     renderer& rend;
     html_defaults options;

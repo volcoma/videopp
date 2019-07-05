@@ -10,76 +10,6 @@
 #include <fstream>
 #include <iostream>
 
-namespace detail
-{
-
-template <typename Container = std::string, typename CharT = char, typename Traits = std::char_traits<char>>
-auto read_stream(std::basic_istream<CharT, Traits>& in, Container& container) -> bool
-{
-	static_assert(
-		// Allow only strings...
-		std::is_same<Container,
-					 std::basic_string<CharT, Traits, typename Container::allocator_type>>::value ||
-			// ... and vectors of the plain, signed, and
-			// unsigned flavours of CharT.
-			std::is_same<Container, std::vector<CharT, typename Container::allocator_type>>::value ||
-			std::is_same<Container, std::vector<std::make_unsigned_t<CharT>,
-												typename Container::allocator_type>>::value ||
-			std::is_same<Container,
-						 std::vector<std::make_signed_t<CharT>, typename Container::allocator_type>>::value,
-		"only strings and vectors of ((un)signed) CharT allowed");
-
-	auto const start_pos = in.tellg();
-	if(std::streamsize(-1) == start_pos)
-	{
-		return false;
-	};
-
-	if(!in.seekg(0, std::ios_base::end))
-	{
-		return false;
-	};
-
-	auto const end_pos = in.tellg();
-
-	if(std::streamsize(-1) == end_pos)
-	{
-		return false;
-	};
-
-	auto const char_count = end_pos - start_pos;
-
-	if(!in.seekg(start_pos))
-	{
-		return false;
-	};
-
-	container.resize(static_cast<std::size_t>(char_count));
-
-	if(!container.empty())
-	{
-		if(!in.read(reinterpret_cast<CharT*>(&container[0]), char_count))
-		{
-			return false;
-		};
-	}
-
-	return true;
-}
-} // namespace detail
-
-auto load_file(const std::string& path, std::string& buffer) -> bool
-{
-	std::ifstream stream(path, std::ios::in | std::ios::binary);
-
-	if(!stream.is_open())
-	{
-		return false;
-	}
-
-	return detail::read_stream(stream, buffer);
-}
-
 static std::string html =
 R"(
 <!DOCTYPE html>
@@ -121,13 +51,15 @@ int main()
 
         video_ctrl::html_defaults options;
         options.fonts_dir = DATA;
+        options.images_dir = DATA"/html/template";
+
         options.default_font = "FreeSerif";
         options.default_monospace_font = "FreeMono";
         options.default_font_size = 16;
 
         video_ctrl::html_context html_ctx(rend, std::move(options));
         video_ctrl::html_page page(html_ctx);
-        page.load(html);
+        page.load(html, DATA"/html");
 		bool running = true;
 		while(running)
 		{
@@ -154,9 +86,9 @@ int main()
                 {
                     if(e.key.code == os::key::r)
                     {
-                        if(load_file(DATA"/html/example.html", html))
+                        if(html_ctx.load_file(DATA"/html/index.html", html))
                         {
-                            page.load(html);
+                            page.load(html, DATA"/html");
                         }
                     }
                 }
