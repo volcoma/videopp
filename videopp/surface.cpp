@@ -2,8 +2,8 @@
 #include "logger.h"
 #include <algorithm>
 
-//#include <libpng16/png.h>
-#include <libpng/png.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "image/stb_image.h"
 
 namespace video_ctrl
 {
@@ -11,15 +11,30 @@ namespace video_ctrl
 
     surface::surface(const std::string &file_name)
     {
-        if (load_png(file_name))
+        int w = 0,h = 0,n = 0;
+        unsigned char *data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
+        if(data)
         {
-            return;
+            switch(n)
+            {
+                case 1:
+                    type_ = pix_type::gray;
+                break;
+                case 3:
+                    type_ = pix_type::rgb;
+                break;
+                case 4:
+                    type_ = pix_type::rgba;
+                break;
+                default:
+                    stbi_image_free(data);
+                    throw video_ctrl::exception("Cannot create surface from file " + file_name);
+                break;
+            }
+            rect_= rect(0, 0, w, h);
+            data_ = std::vector<uint8_t>(data, data + (w * h * n));
+            stbi_image_free(data);
         }
-        else if (load_dds(file_name))
-        {
-            return;
-        }
-
         throw video_ctrl::exception("Cannot create surface from file " + file_name);
     }
 

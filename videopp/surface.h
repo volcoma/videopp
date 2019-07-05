@@ -58,8 +58,6 @@ namespace video_ctrl
             compress
         };
 
-        bool load_png(const std::string &file_name);
-        bool load_dds(const std::string &file_name);
         void flip_horizontally();
         void flip_vertically();
 

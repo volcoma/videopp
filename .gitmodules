@@ -10,6 +10,3 @@
 [submodule "3rdparty/glm/glm"]
 	path = 3rdparty/glm/glm
 	url = https://github.com/g-truc/glm.git
-[submodule "3rdparty/libpng/libpng"]
-	path = 3rdparty/libpng/libpng
-	url = https://github.com/glennrp/libpng.git
