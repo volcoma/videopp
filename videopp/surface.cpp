@@ -12,30 +12,31 @@ namespace video_ctrl
     surface::surface(const std::string &file_name)
     {
         int w = 0,h = 0,n = 0;
-        unsigned char *data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
-        if(data)
+        unsigned char* data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
+        if(!data)
         {
-            switch(n)
-            {
-                case 1:
-                    type_ = pix_type::gray;
-                break;
-                case 3:
-                    type_ = pix_type::rgb;
-                break;
-                case 4:
-                    type_ = pix_type::rgba;
-                break;
-                default:
-                    stbi_image_free(data);
-                    throw video_ctrl::exception("Cannot create surface from file " + file_name);
-                break;
-            }
-            rect_= rect(0, 0, w, h);
-            data_ = std::vector<uint8_t>(data, data + (w * h * n));
-            stbi_image_free(data);
+            throw video_ctrl::exception("Cannot create surface from file " + file_name);
+
         }
-        throw video_ctrl::exception("Cannot create surface from file " + file_name);
+        switch(n)
+        {
+            case 1:
+                type_ = pix_type::gray;
+            break;
+            case 3:
+                type_ = pix_type::rgb;
+            break;
+            case 4:
+                type_ = pix_type::rgba;
+            break;
+            default:
+                stbi_image_free(data);
+                throw video_ctrl::exception("Cannot create surface from file " + file_name);
+            break;
+        }
+        rect_= rect(0, 0, w, h);
+        data_ = std::vector<uint8_t>(data, data + (w * h * n));
+        stbi_image_free(data);
     }
 
     surface::surface(int width, int height, pix_type type)
@@ -355,149 +356,6 @@ namespace video_ctrl
         return true;
     }
 
-    bool surface::load_png(const std::string &file_name)
-    {
-        std::unique_ptr<FILE, file_deleter> fp(fopen(file_name.c_str(), "rb"));
-        if (!fp)
-        {
-            return false;
-        }
-
-        { //check file is it png.
-            uint8_t png_header[8] = {0x00, };
-            auto result = fread(png_header, sizeof(png_header), 1, fp.get());
-            if (result <= 0)
-            {
-                return false;
-            }
-
-            if (png_sig_cmp(png_header, 0, sizeof(png_header)))
-            {
-                return false;
-            }
-        }
-
-        struct file_reader
-        {
-            png_structp png_ptr = nullptr;
-            png_infop info_ptr = nullptr;
-
-            ~file_reader()
-            {
-                if (png_ptr != nullptr)
-                {
-                    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-                }
-            }
-        };
-
-        const auto warrning_fn = [](png_structp, png_const_charp) {
-
-        };
-
-        file_reader file_reader;
-
-        file_reader.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, warrning_fn);
-
-        if (!file_reader.png_ptr)
-        {
-            return false;
-        }
-
-        png_init_io(file_reader.png_ptr, fp.get());
-        png_set_sig_bytes(file_reader.png_ptr, 8);
-
-        file_reader.info_ptr = png_create_info_struct(file_reader.png_ptr);
-        if (!file_reader.info_ptr)
-        {
-            return false;
-        }
-        png_read_info(file_reader.png_ptr, file_reader.info_ptr);
-
-        rect_.w = static_cast<int> (png_get_image_width(file_reader.png_ptr, file_reader.info_ptr));
-        rect_.h = static_cast<int> (png_get_image_height(file_reader.png_ptr, file_reader.info_ptr));
-        auto color_type = png_get_color_type(file_reader.png_ptr, file_reader.info_ptr);
-        auto bit_depth = png_get_bit_depth(file_reader.png_ptr, file_reader.info_ptr);
-
-        if (bit_depth == 16 /* bits per color */)
-        {
-            // set strip for 16 bits to 8 bits. We need only 8bits per color quality.
-            png_set_strip_16(file_reader.png_ptr);
-        }
-
-        switch (color_type)
-        {
-        case PNG_COLOR_TYPE_GRAY:
-            if (bit_depth < 8 /* bits per color */)
-            {
-                png_set_expand_gray_1_2_4_to_8(file_reader.png_ptr);
-            }
-            type_ = pix_type::gray;
-            break;
-
-        case PNG_COLOR_TYPE_GRAY_ALPHA:
-            // this type is always 8 or 16 bits but we already strip 16 bits
-            png_set_gray_to_rgb(file_reader.png_ptr);
-            if (png_get_valid(file_reader.png_ptr, file_reader.info_ptr, PNG_INFO_tRNS))
-            {
-                png_set_tRNS_to_alpha(file_reader.png_ptr);
-            }
-            type_ = pix_type::rgba;
-            break;
-
-        case PNG_COLOR_TYPE_RGB:
-            // set alpha for opengl texture create optimization
-            //log("WARNING: Input file " + file_name + " is RGB format. Please convert it to RGBA format.");
-            png_set_filler(file_reader.png_ptr, 0xFF, PNG_FILLER_AFTER);
-            type_ = pix_type::rgba;
-            break;
-
-        case PNG_COLOR_TYPE_RGBA:
-            type_ = pix_type::rgba;
-            break;
-
-        case PNG_COLOR_TYPE_PALETTE:
-            //log("WARNING: Input file " + file_name +
-            //    " is COLOR PALETTE format. Please convert it to RGBA format.");
-            png_set_palette_to_rgb(file_reader.png_ptr);
-            if (png_get_valid(file_reader.png_ptr, file_reader.info_ptr, PNG_INFO_tRNS))
-            {
-                png_set_tRNS_to_alpha(file_reader.png_ptr);
-            }
-            else
-            {
-                png_set_filler(file_reader.png_ptr, 0xFF, PNG_FILLER_AFTER);
-            }
-            type_ = pix_type::rgba;
-            break;
-
-        default:
-            return false;
-        }
-
-        png_read_update_info(file_reader.png_ptr, file_reader.info_ptr);
-        auto pitch = png_get_rowbytes(file_reader.png_ptr, file_reader.info_ptr);
-
-        std::vector<uint8_t*> row_pointers;
-        row_pointers.reserve(static_cast<uint32_t> (rect_.h));
-        data_.resize(pitch * static_cast<uint32_t> (rect_.h));
-
-        for (uint32_t i = 0; i < static_cast<uint32_t> (rect_.h); i++)
-        {
-            //png_read_row(file_reader.png_ptr, data_.data() + i * pitch, nullptr);
-            row_pointers.push_back(data_.data() + i * pitch);
-        }
-
-        png_read_image(file_reader.png_ptr, row_pointers.data());
-        surface_type_ = surface_type::raw;
-
-        return true;
-    }
-
-    bool surface::load_dds(const std::string& file_name)
-    {
-        return false;
-    }
 
     void surface::flip_horizontally()
     {

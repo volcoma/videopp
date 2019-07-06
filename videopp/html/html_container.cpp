@@ -1,9 +1,44 @@
 #include <utility>
 
 #include "html_container.h"
+#include "uri/uri.h"
 
 namespace video_ctrl
 {
+
+litehtml::tstring urljoin(const litehtml::tstring& base_url, const litehtml::tstring& relative)
+{
+	try
+	{
+		Web::URI uri_base(base_url);
+		Web::URI uri_res(uri_base, relative);
+		return uri_res.toString();
+	}
+	catch(...)
+	{
+		return relative;
+	}
+}
+
+void html_container::make_url(const litehtml::tchar_t* url, const litehtml::tchar_t* basepath,
+							  litehtml::tstring& out)
+{
+	if(!basepath || (basepath && !basepath[0]))
+	{
+		if(!base_url_.empty())
+		{
+			out = urljoin(base_url_, std::string(url));
+		}
+		else
+		{
+			out = url;
+		}
+	}
+	else
+	{
+		out = urljoin(std::string(basepath), std::string(url));
+	}
+}
 
 html_container::html_container(html_context& ctx)
 	: ctx_(ctx)
@@ -22,10 +57,36 @@ void html_container::invalidate()
 	list_ = {};
 }
 
+void html_container::set_url(const std::string& url)
+{
+	url_ = url;
+	base_url_ = url;
+}
+
 litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_name, int size, int weight,
 											   litehtml::font_style style, unsigned int decoration,
 											   litehtml::font_metrics* fm)
 {
+	std::string fnt_name = "sans-serif";
+
+	litehtml::string_vector fonts;
+	litehtml::split_string(face_name, fonts, _t(","));
+	if(!fonts.empty())
+	{
+		litehtml::trim(fonts[0]);
+
+		fnt_name = fonts[0];
+		if(fnt_name.front() == '"')
+		{
+			fnt_name.erase(0, 1);
+		}
+		if(fnt_name.back() == '"')
+		{
+			fnt_name.erase(fnt_name.length() - 1, 1);
+		}
+	}
+
+	bool italic = style == litehtml::fontStyleItalic;
 	auto extract_font_metrics = [&](const html_font* fnt, litehtml::font_metrics* fm) {
 		if(fnt && fm)
 		{
@@ -37,11 +98,11 @@ litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_nam
 			fm->descent = static_cast<int>(-font->descent * scale);
 			fm->height = static_cast<int>(font->line_height * scale);
 			fm->x_height = static_cast<int>((x_glyph.y1 - x_glyph.y0) * scale);
-			fm->draw_spaces = style == litehtml::fontStyleItalic || decoration;
+			fm->draw_spaces = italic || decoration;
 		}
 	};
 
-	auto font = ctx_.get_font(id_, face_name, size, weight);
+	auto font = ctx_.get_font(id_, fnt_name, size, weight, italic);
 	extract_font_metrics(font.get(), fm);
 	return reinterpret_cast<litehtml::uint_ptr>(font.get());
 }
@@ -132,20 +193,16 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 {
 	if(!marker.image.empty())
 	{
-		/*litehtml::tstring url;
+		std::string url;
 		make_url(marker.image.c_str(), marker.baseurl, url);
 
-		lock_images_cache();
-		images_map::iterator img_i = m_images.find(url.c_str());
-		if(img_i != m_images.end())
+		auto image = ctx_.get_image(url);
+		if(image)
 		{
-			if(img_i->second)
-			{
-				draw_txdib((cairo_t*) hdc, img_i->second, marker.pos.x, marker.pos.y, marker.pos.width,
-		marker.pos.height);
-			}
+			rect src = image->get_rect();
+			rect dst = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+			list_.add_image(image, src, dst);
 		}
-		unlock_images_cache();*/
 	}
 	else
 	{
@@ -155,7 +212,7 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			{
 				// draw_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
 				// marker.pos.height, 			 marker.color, 0.5);
-                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
 				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
 
 				list_.add_rect(fill_rect, col);
@@ -165,7 +222,7 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			{
 				// fill_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
 				// marker.pos.height, 			 marker.color);
-                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
 				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
 
 				list_.add_rect(fill_rect, col);
@@ -180,21 +237,33 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			}
 			break;
 			default:
-				break;
+			{
+				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+
+				list_.add_rect(fill_rect, col);
+			}
+			break;
 		}
 	}
 }
 
-void html_container::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* /*baseurl*/,
+void html_container::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl,
 								bool /*redraw_on_ready*/)
 {
-	ctx_.get_image(src);
+	std::string url;
+	make_url(src, baseurl, url);
+
+	ctx_.get_image(url);
 }
 
-void html_container::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* /*baseurl*/,
+void html_container::get_image_size(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl,
 									litehtml::size& sz)
 {
-	auto image = ctx_.get_image(src);
+	std::string url;
+	make_url(src, baseurl, url);
+
+	auto image = ctx_.get_image(url);
 	if(image)
 	{
 		const auto& rect = image->get_rect();
@@ -221,8 +290,10 @@ void html_container::draw_background(litehtml::uint_ptr, const litehtml::backgro
 	}
 	else
 	{
+		std::string url;
+		make_url(bg.image.c_str(), bg.baseurl.c_str(), url);
 
-		auto image = ctx_.get_image(bg.image);
+		auto image = ctx_.get_image(url);
 
 		if(image)
 		{
@@ -253,8 +324,16 @@ void html_container::set_caption(const litehtml::tchar_t*)
 {
 }
 
-void html_container::set_base_url(const litehtml::tchar_t*)
+void html_container::set_base_url(const litehtml::tchar_t* base_url)
 {
+	if(base_url)
+	{
+		base_url_ = urljoin(url_, std::string(base_url));
+	}
+	else
+	{
+		base_url_ = url_;
+	}
 }
 
 void html_container::link(const std::shared_ptr<litehtml::document>&, const litehtml::element::ptr&)
@@ -276,7 +355,14 @@ void html_container::transform_text(litehtml::tstring&, litehtml::text_transform
 void html_container::import_css(litehtml::tstring& text, const litehtml::tstring& url,
 								litehtml::tstring& baseurl)
 {
-    ctx_.load_file(path + "/" + url, text);
+	std::string css_url;
+	make_url(url.c_str(), baseurl.c_str(), css_url);
+	ctx_.load_file(css_url, text);
+
+	if(!text.empty())
+	{
+		baseurl = css_url;
+	}
 }
 
 void html_container::set_clip(const litehtml::position& pos, const litehtml::border_radiuses& /*bdr_radius*/,

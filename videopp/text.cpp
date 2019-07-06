@@ -503,11 +503,10 @@ void text::update_geometry() const
             auto x1 = g.x1 + xadvance;
             auto y0 = g.y0 + yadvance;
             auto y1 = g.y1 + yadvance;
-
-            *vptr++ = {{x0, y0}, {g.u0, g.v0}, color_};
-            *vptr++ = {{x1, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0, y1}, {g.u0, g.v1}, color_};
+            *vptr++ = {{x0 + lean_, y0}, {g.u0, g.v0}, color_};
+            *vptr++ = {{x1 + lean_, y0}, {g.u1, g.v0}, color_};
+            *vptr++ = {{x1 - lean_, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0 - lean_, y1}, {g.u0, g.v1}, color_};
 
             line_offset += 4;
 

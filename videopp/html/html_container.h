@@ -16,7 +16,7 @@ public:
 
     void present();
     void invalidate();
-    std::string path;
+    void set_url(const std::string& url);
 
     litehtml::uint_ptr create_font(const litehtml::tchar_t* face_name, int size, int weight,
                                    litehtml::font_style style, unsigned int decoration,
@@ -59,7 +59,11 @@ public:
     void get_language(litehtml::tstring& language, litehtml::tstring& culture) const override;
 
 private:
+    void make_url(const litehtml::tchar_t* url, const litehtml::tchar_t* basepath, litehtml::tstring& out);
+
     size_t id_{};
+    std::string url_;
+    std::string base_url_;
     html_context& ctx_;
     draw_list list_;
     std::vector<rect> clip_rects_;

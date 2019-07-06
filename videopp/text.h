@@ -113,7 +113,7 @@ private:
     std::string utf8_text_;
     std::vector<uint32_t> unicode_text_;
 
-
+    float lean_{};
     font_ptr font_;
 
     color color_ = color::white();
@@ -126,7 +126,7 @@ private:
 
     alignment alignment_ = alignment::top_left;
     float max_width_ = 0;
-    math::vec2 advance_ = {0, 0};\
+    math::vec2 advance_ = {0, 0};
     bool kerning_enabled_ = false;
 };
 

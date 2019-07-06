@@ -1,7 +1,7 @@
 #include "html_context.h"
 #include <master.css>
 #include <fstream>
-
+#include "../logger.h"
 namespace video_ctrl
 {
 
@@ -105,7 +105,7 @@ void html_context::delete_font(html_font* /*font*/)
 
 texture_ptr html_context::get_image(const std::string &src)
 {
-    std::string key = options.images_dir + "/" + src;
+    const auto& key = src;
     auto it = images.find(key);
 	if(it != images.end())
 	{
@@ -127,15 +127,32 @@ texture_ptr html_context::get_image(const std::string &src)
     }
 }
 
-html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_name, int size, int weight)
+html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_name, int size, int weight, bool italic)
 {
+    int bold_weight = 500;
+    bool bold = weight > bold_weight;
 
-    if(face_name == "monospace")
+    auto mapping_it = options.font_families.find(face_name);
+    if(mapping_it != std::end(options.font_families))
     {
-        return get_font(page_uid, options.default_monospace_font, size, weight);
+        const auto& family = mapping_it->second;
+        if(bold && italic)
+        {
+            return get_font(page_uid, family.italic, size, weight, italic);
+        }
+        else if(bold)
+        {
+            return get_font(page_uid, family.regular, size, weight, italic);
+        }
+        else if(italic)
+        {
+            return get_font(page_uid, family.italic, size, weight, italic);
+        }
+
+        return get_font(page_uid, family.regular, size, weight, italic);
     }
 
-    std::string key = face_name + "#" + std::to_string(size) + "#"+ std::to_string(weight) + "#" + std::to_string(page_uid);
+    std::string key = face_name + "#" + std::to_string(size) + "#"+ std::to_string(weight) + "#"+ std::to_string(italic) + "#" + std::to_string(page_uid);
 	auto it = html_fonts.find(key);
 	if(it != html_fonts.end())
 	{
@@ -144,17 +161,15 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 
 	auto font = std::make_shared<html_font>();
     font->key = key;
-	int bold_weight = 500;
-	if(weight > bold_weight)
+	if(bold)
 	{
 		float step = (weight - bold_weight) / 100.0f;
 		font->boldness = step * 0.1f;
 	}
 
 	constexpr int rasterize_size = 50;
-	auto font_path = options.fonts_dir + "/" + face_name + ".ttf";
 
-	auto find_it = fonts.find(font_path);
+	auto find_it = fonts.find(face_name);
 	if(find_it != std::end(fonts))
 	{
 		font->face = find_it->second;
@@ -166,18 +181,20 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 		builder.add(get_cyrillic_glyph_range());
 		try
 		{
-			font->face = rend.create_font(create_font_from_ttf(font_path, builder.get(), rasterize_size, 2, true));
+			font->face = rend.create_font(create_font_from_ttf(face_name, builder.get(), rasterize_size, 2, true));
         }
-		catch(...)
+		catch(const std::exception& e)
 		{
+            log(e.what());
+            std::string default_font = options.default_font;
             if(face_name != options.default_font)
             {
-                return get_font(page_uid, options.default_font, size, weight);
+                return get_font(page_uid,  default_font, size, weight, italic);
             }
 
             font->face = rend.create_font(create_default_font(rasterize_size, 2));
 		}
-		fonts[font_path] = font->face;
+		fonts[face_name] = font->face;
 	}
 
 	font->scale = size / float(font->face->size);

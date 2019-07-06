@@ -10,12 +10,20 @@
 
 namespace video_ctrl
 {
+
+struct font_family
+{
+    std::string regular;
+    std::string italic;
+    std::string bold;
+    std::string bold_italic;
+};
+
 struct html_defaults
 {
-    std::string fonts_dir{};
-    std::string images_dir{};
     std::string default_font{};
-    std::string default_monospace_font{};
+    std::unordered_map<std::string, font_family> font_families;
+
     int default_font_size{};
 };
 
@@ -35,7 +43,7 @@ struct html_context
 {
     html_context(renderer& r, html_defaults opts);
 
-    html_font_ptr get_font(size_t page_uid, const std::string& face_name, int size, int weight);
+    html_font_ptr get_font(size_t page_uid, const std::string& face_name, int size, int weight, bool italic);
     void delete_font(html_font* font);
 
     texture_ptr get_image(const std::string& src);

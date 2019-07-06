@@ -1,17 +1,16 @@
 #include <ospp/os.h>
-#include <videopp/renderer.h>
 #include <videopp/html/html_page.h>
+#include <videopp/renderer.h>
 #include <videopp/ttf_font.h>
 
 #include <algorithm>
 #include <chrono>
-#include <iostream>
-#include <thread>
 #include <fstream>
 #include <iostream>
+#include <thread>
 
 static std::string html =
-R"(
+	R"(
 <!DOCTYPE html>
 <html>
 <body>
@@ -39,27 +38,66 @@ int main()
 	os::init();
 	video_ctrl::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
 
-
-    os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-    video_ctrl::renderer master_rend(master_win, true);
+	os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
+	video_ctrl::renderer master_rend(master_win, true);
 
 	{
 		auto centerd = os::window::centered;
 		auto flags = os::window::resizable;
-        os::window win("win", centerd, centerd, 1366, 768, flags);
-        video_ctrl::renderer rend(win, false);
+		os::window win("win", centerd, centerd, 1366, 768, flags);
+		video_ctrl::renderer rend(win, false);
 
-        video_ctrl::html_defaults options;
-        options.fonts_dir = DATA;
-        options.images_dir = DATA"/html/template";
+		video_ctrl::html_defaults options;
+		options.default_font = "sans-serif";
+		options.default_font_size = 16;
 
-        options.default_font = "FreeSerif";
-        options.default_monospace_font = "FreeMono";
-        options.default_font_size = 16;
+		options.font_families = {{
+									 "monospace",
+									 {
+										 R"(C:/Windows/Fonts/COUR.ttf)",
+										 R"(C:/Windows/Fonts/COURI.ttf)",
+										 R"(C:/Windows/Fonts/COURBD.ttf)",
+										 R"(C:/Windows/Fonts/COURBI.ttf)",
+									 },
+								 },
+								 {
+									 "serif",
+									 {
+										 R"(C:/Windows/Fonts/TIMES.ttf)",
+										 R"(C:/Windows/Fonts/TIMESI.ttf)",
+										 R"(C:/Windows/Fonts/TIMESBD.ttf)",
+										 R"(C:/Windows/Fonts/TIMESBI.ttf)",
+									 },
+								 },
+								 {
+									 "sans-serif",
+									 {
+										 R"(C:/Windows/Fonts/ARIAL.ttf)",
+										 R"(C:/Windows/Fonts/ARIALI.ttf)",
+										 R"(C:/Windows/Fonts/ARIALBD.ttf)",
+										 R"(C:/Windows/Fonts/ARIALBI.ttf)",
+									 },
+								 },
+								 {
+									 "cursive",
+									 {
+										 R"(C:/Windows/Fonts/INKFREE.ttf)",
+										 R"(C:/Windows/Fonts/INKFREE.ttf)",
+										 R"(C:/Windows/Fonts/INKFREE.ttf)",
+										 R"(C:/Windows/Fonts/INKFREE.ttf)",
+									 },
+								 },
+								 {"fantasy",
+								  {
+									  R"(C:/Windows/Fonts/COMIC.ttf)",
+									  R"(C:/Windows/Fonts/COMICI.ttf)",
+									  R"(C:/Windows/Fonts/COMICBD.ttf)",
+									  R"(C:/Windows/Fonts/COMICZ.ttf)",
+								  }}};
 
-        video_ctrl::html_context html_ctx(rend, std::move(options));
-        video_ctrl::html_page page(html_ctx);
-        page.load(html, DATA"/html");
+		video_ctrl::html_context html_ctx(rend, std::move(options));
+		video_ctrl::html_page page(html_ctx);
+		page.load_from_utf8(html, DATA);
 		bool running = true;
 		while(running)
 		{
@@ -77,33 +115,29 @@ int main()
 					if(e.window.type == os::window_event_id::close)
 					{
 
-                        std::cout << "quit (all windows were closed)" << std::endl;
-                        running = false;
-
+						std::cout << "quit (all windows were closed)" << std::endl;
+						running = false;
 					}
 				}
-                if(e.type == os::events::key_down)
-                {
-                    if(e.key.code == os::key::r)
-                    {
-                        if(html_ctx.load_file(DATA"/html/index.html", html))
-                        {
-                            page.load(html, DATA"/html");
-                        }
-                    }
-                }
+				if(e.type == os::events::key_down)
+				{
+					if(e.key.code == os::key::r)
+					{
+						page.load_from_file(DATA "html/simple_page/index.html");
+					}
+				}
 			}
 
-            auto mouse_pos = os::mouse::get_position(win);
+			auto mouse_pos = os::mouse::get_position(win);
 
 			using namespace std::chrono_literals;
 			auto start = std::chrono::high_resolution_clock::now();
 
-            rend.clear(video_ctrl::color::white());
+			rend.clear(video_ctrl::color::white());
 
-            page.draw(0, 0, rend.get_rect().w);
+			page.draw(0, 0, rend.get_rect().w);
 
-            rend.present();
+			rend.present();
 
 			auto end = std::chrono::high_resolution_clock::now();
 			auto dur = std::chrono::duration_cast<std::chrono::duration<float>>(end - start);
@@ -118,7 +152,7 @@ int main()
 			}
 			count++;
 			avg_dur += dur;
-			std::cout << (avg_dur.count() * 1000) / count << std::endl;
+			// std::cout << (avg_dur.count() * 1000) / count << std::endl;
 		}
 	}
 	os::shutdown();
