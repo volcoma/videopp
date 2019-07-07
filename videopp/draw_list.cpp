@@ -96,14 +96,20 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
         command.hash = hash;
     };
 
+    list.commands_requested++;
+    rect clip{};
     if(!setup.calc_uniforms_hash)
     {
         add_new_command(0);
     }
     else
     {
+        if(!list.clip_rects.empty())
+        {
+            clip = list.clip_rects.back();
+        }
         auto hash = setup.calc_uniforms_hash();
-        utils::hash(hash, type, setup.program.shader.get());
+        utils::hash(hash, clip, type, setup.program.shader.get());
 
         if(list.commands.empty() || !can_be_batched(list.commands.back(), hash, type))
         {
@@ -116,7 +122,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
-
+    command.clip_rect = clip;
 }
 }
 
@@ -875,6 +881,19 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     }
 
     detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
+}
+
+void draw_list::push_clip(const rect& clip)
+{
+    clip_rects.emplace_back(clip);
+}
+
+void draw_list::pop_clip()
+{
+    if(!clip_rects.empty())
+    {
+        clip_rects.pop_back();
+    }
 }
 
 

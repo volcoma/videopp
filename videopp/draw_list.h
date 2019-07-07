@@ -101,6 +101,9 @@ struct draw_list
     void add_vertices(const vertex_2d* verts, size_t count, primitive_type type, float line_width = 1.0f,
                       const texture_view& texture = {}, const program_setup& setup = {});
 
+    void push_clip(const rect& clip);
+    void pop_clip();
+
     void reserve_vertices(size_t count);
     void reserve_rects(size_t count);
 
@@ -118,6 +121,9 @@ struct draw_list
     std::vector<vertex_2d> vertices;    // vertices to draw
     std::vector<index_t> indices;       // indices to draw
     std::vector<draw_cmd> commands;     // draw commands
+
+    std::vector<rect> clip_rects;
+    int commands_requested = 0;
 };
 
 }

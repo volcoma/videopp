@@ -86,6 +86,32 @@ void litehtml::el_text::parse_styles(bool is_reparse)
 		m_size.width	= get_document()->container()->text_width(m_use_transformed ? m_transformed_text.c_str() : m_text.c_str(), font);
 	}
 	m_draw_spaces = fm.draw_spaces;
+
+
+
+    const tchar_t* shadow = get_style_property(_t("text-shadow"), true,	_t("none"));
+    if(shadow)
+    {
+        std::vector<tstring> tokens;
+        split_string(shadow, tokens, _t(" "));
+
+        if(tokens.size() >= 2)
+        {
+            m_shadow.h_shadow = get_document()->cvt_units(tokens[0].c_str(), fm.height);
+            m_shadow.v_shadow = get_document()->cvt_units(tokens[1].c_str(), fm.height);
+        }
+
+        if(tokens.size() >= 3)
+        {
+            m_shadow.blur_radius = get_document()->cvt_units(tokens[2].c_str(), fm.height);
+            m_shadow.color = web_color::from_string(tokens[2].c_str(), get_document()->container());
+        }
+
+        if(tokens.size() >= 4)
+        {
+            m_shadow.color = web_color::from_string(tokens[3].c_str(), get_document()->container());
+        }
+    }
 }
 
 int litehtml::el_text::get_base_line()
@@ -118,7 +144,7 @@ void litehtml::el_text::draw( uint_ptr hdc, int x, int y, const position* clip )
 
 			uint_ptr font = el_parent->get_font();
 			litehtml::web_color color = el_parent->get_color(_t("color"), true, doc->get_def_color());
-			doc->container()->draw_text(hdc, m_use_transformed ? m_transformed_text.c_str() : m_text.c_str(), font, color, pos);
+			doc->container()->draw_text(hdc, m_use_transformed ? m_transformed_text.c_str() : m_text.c_str(), font, color, pos, m_shadow);
 		}
 	}
 }

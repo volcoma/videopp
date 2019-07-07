@@ -3,7 +3,7 @@
 #include "ttf_font.h"
 #include "texture.h"
 #include "shaders.h"
-#include "utils.h"
+#include "detail/utils.h"
 
 #ifdef WGL_CONTEXT
 #include "detail/wgl/context_wgl.h"
@@ -60,17 +60,10 @@ renderer::renderer(os::window& win, bool vsync)
     rect_.w = win_.get_size().w;
     rect_.h = win_.get_size().h;
 
-    // Enable Texture Mapping (NEW)
-    //gl_call(glEnable(GL_TEXTURE_2D));
-
-    // Depth calculation
-    //gl_call(glClearDepth(1.0));
-    //gl_call(glDepthFunc(GL_LEQUAL));
     gl_call(glDisable(GL_DEPTH_TEST));
     gl_call(glDepthMask(GL_FALSE));
 
     // Default blending mode
-    //gl_call(glAlphaFunc(GL_GREATER, 0.1f));
     set_blending_mode(blending_mode::blend_normal);
 
     // Default texture interpolation methods

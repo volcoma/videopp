@@ -1,6 +1,7 @@
 #pragma once
 
 #include "point.h"
+#include "utils.h"
 
 namespace video_ctrl
 {
@@ -157,3 +158,20 @@ namespace video_ctrl
     using frect = rect_t<float>;
     using tcoords = frect;
 }
+
+
+namespace std
+{
+    template<> struct hash<video_ctrl::rect>
+    {
+        using argument_type = video_ctrl::rect;
+        using result_type = std::size_t;
+        result_type operator()(argument_type const& s) const noexcept
+        {
+            uint64_t seed{0};
+            utils::hash(seed, s.x, s.y, s.w, s.h);
+            return seed;
+        }
+    };
+}
+

@@ -2,7 +2,6 @@
 
 #include "html_container.h"
 #include "uri/uri.h"
-
 namespace video_ctrl
 {
 
@@ -37,7 +36,18 @@ void html_container::make_url(const litehtml::tchar_t* url, const litehtml::tcha
 	else
 	{
 		out = urljoin(std::string(basepath), std::string(url));
-	}
+    }
+}
+
+rect html_container::get_clip()
+{
+    rect clip{};
+    if(!clip_rects_.empty())
+    {
+        clip = clip_rects_.back();
+    }
+
+    return clip;
 }
 
 html_container::html_container(html_context& ctx)
@@ -67,26 +77,13 @@ litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_nam
 											   litehtml::font_style style, unsigned int decoration,
 											   litehtml::font_metrics* fm)
 {
-	std::string fnt_name = "sans-serif";
+	std::string fnt_name = "serif";
 
 	litehtml::string_vector fonts;
 	litehtml::split_string(face_name, fonts, _t(","));
-	if(!fonts.empty())
-	{
-		litehtml::trim(fonts[0]);
 
-		fnt_name = fonts[0];
-		if(fnt_name.front() == '"')
-		{
-			fnt_name.erase(0, 1);
-		}
-		if(fnt_name.back() == '"')
-		{
-			fnt_name.erase(fnt_name.length() - 1, 1);
-		}
-	}
 
-	bool italic = style == litehtml::fontStyleItalic;
+	bool italic = style == litehtml::fontStyleItalic || style == litehtml::fontStyleOblique;
 	auto extract_font_metrics = [&](const html_font* fnt, litehtml::font_metrics* fm) {
 		if(fnt && fm)
 		{
@@ -102,8 +99,40 @@ litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_nam
 		}
 	};
 
-	auto font = ctx_.get_font(id_, fnt_name, size, weight, italic);
-	extract_font_metrics(font.get(), fm);
+
+
+	html_font_ptr font{};
+	for(auto& family : fonts)
+	{
+		litehtml::trim(family);
+
+		fnt_name = family;
+		if(fnt_name.front() == '"')
+		{
+			fnt_name.erase(0, 1);
+		}
+		if(fnt_name.back() == '"')
+		{
+			fnt_name.pop_back();
+		}
+		font = ctx_.get_font(id_, fnt_name, size, weight, italic, decoration);
+
+		if(font)
+		{
+            break;
+        }
+	}
+	if(!font)
+	{
+        font = ctx_.get_font(id_, get_default_font_name(), size, weight, italic, decoration);
+	}
+
+	if(!font)
+	{
+        font = ctx_.get_font(id_, "embedded", size, weight, italic, decoration);
+	}
+
+    extract_font_metrics(font.get(), fm);
 	return reinterpret_cast<litehtml::uint_ptr>(font.get());
 }
 
@@ -130,6 +159,7 @@ int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr
 	const auto& font = font_data->face;
 	auto scale = font_data->scale;
 	auto boldness = font_data->boldness;
+	auto leaning = font_data->leaning;
 
 	video_ctrl::text t;
 	t.set_font(font);
@@ -139,12 +169,16 @@ int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr
 	{
 		t.set_outline_width(boldness);
 	}
+	if(leaning > 0.0f)
+	{
+        t.set_leaning(leaning);
+	}
 
 	return static_cast<int>(t.get_width() * scale);
 }
 
 void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text, litehtml::uint_ptr hFont,
-							   litehtml::web_color color, const litehtml::position& pos)
+							   litehtml::web_color color, const litehtml::position& pos, const litehtml::text_shadow& shadow)
 {
 	auto font_data = reinterpret_cast<html_font*>(hFont);
 
@@ -156,6 +190,10 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 	const auto& font = font_data->face;
 	auto scale = font_data->scale;
 	auto boldness = font_data->boldness;
+	auto leaning = font_data->leaning;
+	auto underline = font_data->underline;
+	auto overline = font_data->overline;
+	auto linethrough = font_data->linethrough;
 
 	video_ctrl::color col = {color.red, color.green, color.blue, color.alpha};
 	video_ctrl::text t;
@@ -168,10 +206,64 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 		t.set_outline_color(col);
 		t.set_outline_width(boldness);
 	}
+	if(leaning > 0.0f)
+	{
+        t.set_leaning(leaning);
+	}
+
+	video_ctrl::color shadow_col = {shadow.color.red, shadow.color.green, shadow.color.blue, shadow.color.alpha};
+	t.set_shadow_offsets({shadow.h_shadow, shadow.v_shadow});
+	t.set_shadow_color(shadow_col);
+
 	math::transformf transform;
 	transform.set_scale(scale, scale, 1.0f);
 	transform.set_position(pos.x, pos.y, 0.0f);
+
+	list_.push_clip(get_clip());
 	list_.add_text(t, transform);
+    list_.pop_clip();
+
+    auto line_width = scale * font->size / float(get_default_font_size());
+	if(underline)
+	{
+        const auto& rect = t.get_rect();
+        const auto& lines = t.get_descent_lines();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({rect.x, line});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line});
+
+            list_.add_line(v1, v2, col, line_width);
+        }
+	}
+
+	if(overline)
+	{
+        const auto& rect = t.get_rect();
+        const auto& lines = t.get_ascent_lines();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({rect.x, line});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line});
+
+            list_.add_line(v1, v2, col, line_width);
+        }
+	}
+
+	if(linethrough)
+	{
+        const auto& g = font->get_glyph('x');
+        float half_x_height = (g.y1 - g.y0) * 0.5f;
+        const auto& rect = t.get_rect();
+        const auto& lines = t.get_baseline_lines();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({rect.x, line - half_x_height});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line - half_x_height});
+
+            list_.add_line(v1, v2, col, line_width);
+        }
+	}
 }
 
 int html_container::pt_to_px(int pt)
@@ -191,6 +283,8 @@ const litehtml::tchar_t* html_container::get_default_font_name() const
 
 void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml::list_marker& marker)
 {
+    list_.push_clip(get_clip());
+
 	if(!marker.image.empty())
 	{
 		std::string url;
@@ -246,6 +340,8 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 			break;
 		}
 	}
+
+    list_.pop_clip();
 }
 
 void html_container::load_image(const litehtml::tchar_t* src, const litehtml::tchar_t* baseurl,
@@ -279,6 +375,8 @@ void html_container::get_image_size(const litehtml::tchar_t* src, const litehtml
 
 void html_container::draw_background(litehtml::uint_ptr, const litehtml::background_paint& bg)
 {
+    list_.push_clip(get_clip());
+
 	if(bg.image.empty())
 	{
 		color col{bg.color.red, bg.color.green, bg.color.blue, bg.color.alpha};
@@ -302,22 +400,70 @@ void html_container::draw_background(litehtml::uint_ptr, const litehtml::backgro
 			list_.add_image(image, src, dst);
 		}
 	}
+
+	list_.pop_clip();
 }
 
 void html_container::draw_borders(litehtml::uint_ptr /*hdc*/, const litehtml::borders& borders,
 								  const litehtml::position& draw_pos, bool /*root*/)
 {
+    list_.push_clip(get_clip());
+
+    int bdr_top		= 0;
+	int bdr_bottom	= 0;
+	int bdr_left	= 0;
+	int bdr_right	= 0;
+
 	if(borders.top.width != 0 && borders.top.style > litehtml::border_style_hidden)
 	{
-		rect hollow_rect = {draw_pos.x, draw_pos.y, draw_pos.width, draw_pos.height};
+		bdr_top = borders.top.width;
+	}
+	if(borders.bottom.width != 0 && borders.bottom.style > litehtml::border_style_hidden)
+	{
+		bdr_bottom = borders.bottom.width;
+	}
+	if(borders.left.width != 0 && borders.left.style > litehtml::border_style_hidden)
+	{
+		bdr_left = borders.left.width;
+	}
+	if(borders.right.width != 0 && borders.right.style > litehtml::border_style_hidden)
+	{
+		bdr_right = borders.right.width;
+	}
+
+	// draw right border
+	if (bdr_right)
+	{
+        color col{borders.right.color.red, borders.right.color.green, borders.right.color.blue,
+				  borders.right.color.alpha};
+        list_.add_rect({draw_pos.right() - bdr_right, draw_pos.top(), bdr_right, draw_pos.height}, col);
+	}
+
+	// draw bottom border
+	if(bdr_bottom)
+	{
+        color col{borders.bottom.color.red, borders.bottom.color.green, borders.bottom.color.blue,
+				  borders.bottom.color.alpha};
+        list_.add_rect({draw_pos.left(), draw_pos.bottom() - bdr_bottom, draw_pos.width, bdr_bottom}, col);
+	}
+
+	// draw top border
+	if(bdr_top)
+	{
 		color col{borders.top.color.red, borders.top.color.green, borders.top.color.blue,
 				  borders.top.color.alpha};
-
-		if(hollow_rect)
-		{
-			list_.add_rect(hollow_rect, col, false, 1.0f);
-		}
+        list_.add_rect({draw_pos.left(), draw_pos.top(), draw_pos.width, bdr_top}, col);
 	}
+
+	// draw left border
+	if (bdr_left)
+	{
+		color col{borders.left.color.red, borders.left.color.green, borders.left.color.blue,
+				  borders.left.color.alpha};
+        list_.add_rect({draw_pos.left(), draw_pos.top(), bdr_left, draw_pos.height}, col);
+	}
+
+	list_.pop_clip();
 }
 
 void html_container::set_caption(const litehtml::tchar_t*)

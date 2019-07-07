@@ -12,7 +12,7 @@ public:
     html_page(html_context& ctx);
 
     void draw(int x, int y, int max_width);
-    void load_from_utf8(const std::string& html, const std::string& cwd = {});
+    void load_from_utf8(const std::string& html, const std::string& url = {});
     void load_from_file(const std::string& url);
 
 private:
@@ -21,9 +21,9 @@ private:
     html_container container_;
     litehtml::document::ptr document_{};
 
-    int posx{-1};
-    int posy{-1};
-    int width{-1};
+    int x_{-1};
+    int y_{-1};
+    int width_{-1};
 };
 
 }

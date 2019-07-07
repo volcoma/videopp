@@ -24,7 +24,7 @@ public:
     void delete_font(litehtml::uint_ptr hFont) override;
     int text_width(const litehtml::tchar_t* text, litehtml::uint_ptr hFont) override;
     void draw_text(litehtml::uint_ptr hdc, const litehtml::tchar_t* text, litehtml::uint_ptr hFont,
-                   litehtml::web_color color, const litehtml::position& pos) override;
+                   litehtml::web_color color, const litehtml::position& pos, const litehtml::text_shadow& shadow) override;
 
     int pt_to_px(int pt) override;
     int get_default_font_size() const override;
@@ -60,7 +60,7 @@ public:
 
 private:
     void make_url(const litehtml::tchar_t* url, const litehtml::tchar_t* basepath, litehtml::tstring& out);
-
+    rect get_clip();
     size_t id_{};
     std::string url_;
     std::string base_url_;

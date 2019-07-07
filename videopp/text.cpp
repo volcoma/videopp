@@ -312,6 +312,16 @@ void text::set_kerning(bool enabled)
     clear_geometry();
 }
 
+void text::set_leaning(float leaning)
+{
+    if(math::epsilonEqual(leaning_, leaning, math::epsilon<float>()))
+    {
+        return;
+    }
+    leaning_ = leaning;
+    clear_geometry();
+}
+
 float text::get_advance_offset_x() const
 {
     if(font_ && font_->sdf_spread > 0)
@@ -503,10 +513,10 @@ void text::update_geometry() const
             auto x1 = g.x1 + xadvance;
             auto y0 = g.y0 + yadvance;
             auto y1 = g.y1 + yadvance;
-            *vptr++ = {{x0 + lean_, y0}, {g.u0, g.v0}, color_};
-            *vptr++ = {{x1 + lean_, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1 - lean_, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0 - lean_, y1}, {g.u0, g.v1}, color_};
+            *vptr++ = {{x0 + leaning_, y0}, {g.u0, g.v0}, color_};
+            *vptr++ = {{x1 + leaning_, y0}, {g.u1, g.v0}, color_};
+            *vptr++ = {{x1 - leaning_, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0 - leaning_, y1}, {g.u0, g.v1}, color_};
 
             line_offset += 4;
 
@@ -675,7 +685,8 @@ const color& text::get_outline_color() const
         return outline_color_;
     }
 
-    return get_color();
+    static color fallback{0, 0, 0, 0};
+    return fallback;
 }
 
 float text::get_outline_width() const

@@ -89,6 +89,7 @@ public:
     float get_advance_offset_y() const;
 
     void set_kerning(bool enabled);
+    void set_leaning(float leaning);
 private:
     void clear_geometry();
     void clear_lines();
@@ -113,7 +114,7 @@ private:
     std::string utf8_text_;
     std::vector<uint32_t> unicode_text_;
 
-    float lean_{};
+    float leaning_{};
     font_ptr font_;
 
     color color_ = color::white();

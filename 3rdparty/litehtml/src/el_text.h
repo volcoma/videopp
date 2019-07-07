@@ -8,6 +8,7 @@ namespace litehtml
 	class el_text : public element
 	{
 	protected:
+        text_shadow     m_shadow;
 		tstring			m_text;
 		tstring			m_transformed_text;
 		size			m_size;

@@ -4,6 +4,7 @@
 #include <memory>
 #include "stylesheet.h"
 #include "css_offsets.h"
+#include "background.h"
 
 namespace litehtml
 {

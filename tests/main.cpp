@@ -48,52 +48,56 @@ int main()
 		video_ctrl::renderer rend(win, false);
 
 		video_ctrl::html_defaults options;
-		options.default_font = "sans-serif";
+		options.default_font = "serif";
 		options.default_font_size = 16;
-
-		options.font_families = {{
-									 "monospace",
-									 {
-										 R"(C:/Windows/Fonts/COUR.ttf)",
-										 R"(C:/Windows/Fonts/COURI.ttf)",
-										 R"(C:/Windows/Fonts/COURBD.ttf)",
-										 R"(C:/Windows/Fonts/COURBI.ttf)",
-									 },
-								 },
-								 {
-									 "serif",
-									 {
-										 R"(C:/Windows/Fonts/TIMES.ttf)",
-										 R"(C:/Windows/Fonts/TIMESI.ttf)",
-										 R"(C:/Windows/Fonts/TIMESBD.ttf)",
-										 R"(C:/Windows/Fonts/TIMESBI.ttf)",
-									 },
-								 },
-								 {
-									 "sans-serif",
-									 {
-										 R"(C:/Windows/Fonts/ARIAL.ttf)",
-										 R"(C:/Windows/Fonts/ARIALI.ttf)",
-										 R"(C:/Windows/Fonts/ARIALBD.ttf)",
-										 R"(C:/Windows/Fonts/ARIALBI.ttf)",
-									 },
-								 },
-								 {
-									 "cursive",
-									 {
-										 R"(C:/Windows/Fonts/INKFREE.ttf)",
-										 R"(C:/Windows/Fonts/INKFREE.ttf)",
-										 R"(C:/Windows/Fonts/INKFREE.ttf)",
-										 R"(C:/Windows/Fonts/INKFREE.ttf)",
-									 },
-								 },
-								 {"fantasy",
-								  {
-									  R"(C:/Windows/Fonts/COMIC.ttf)",
-									  R"(C:/Windows/Fonts/COMICI.ttf)",
-									  R"(C:/Windows/Fonts/COMICBD.ttf)",
-									  R"(C:/Windows/Fonts/COMICZ.ttf)",
-								  }}};
+		options.default_font_options = video_ctrl::font_flags::use_kerning /*| video_ctrl::font_flags::simulate_all*/;
+		options.default_font_families = {
+			{
+				"monospace",
+				{
+					DATA"fonts/Free/FreeMono.ttf",
+					DATA"fonts/Free/FreeMonoOblique.ttf",
+					DATA"fonts/Free/FreeMonoBold.ttf",
+					DATA"fonts/Free/FreeMonoBoldOblique.ttf",
+				},
+			},
+			{
+				"serif",
+                {
+					DATA"fonts/Free/FreeSerif.ttf",
+					DATA"fonts/Free/FreeSerifItalic.ttf",
+					DATA"fonts/Free/FreeSerifBold.ttf",
+					DATA"fonts/Free/FreeSerifBoldItalic.ttf",
+				},
+			},
+			{
+				"sans-serif",
+				{
+					DATA"fonts/Free/FreeSans.ttf",
+					DATA"fonts/Free/FreeSansOblique.ttf",
+					DATA"fonts/Free/FreeSansBold.ttf",
+					DATA"fonts/Free/FreeSansBoldOblique.ttf",
+				},
+			},
+			{
+				"cursive",
+				{
+					DATA"fonts/Mali/Mali-Regular.ttf",
+					DATA"fonts/Mali/Mali-Italic.ttf",
+					DATA"fonts/Mali/Mali-Bold.ttf",
+					DATA"fonts/Mali/Mali-BoldItalic.ttf",
+				},
+			},
+			{
+				"fantasy",
+				{
+					DATA"fonts/LobsterTwo/LobsterTwo-Regular.ttf",
+					DATA"fonts/LobsterTwo/LobsterTwo-Italic.ttf",
+					DATA"fonts/LobsterTwo/LobsterTwo-Bold.ttf",
+					DATA"fonts/LobsterTwo/LobsterTwo-BoldItalic.ttf",
+				},
+			},
+		};
 
 		video_ctrl::html_context html_ctx(rend, std::move(options));
 		video_ctrl::html_page page(html_ctx);
@@ -121,14 +125,12 @@ int main()
 				}
 				if(e.type == os::events::key_down)
 				{
-					if(e.key.code == os::key::r)
+					if(e.key.code == os::key::f5)
 					{
 						page.load_from_file(DATA "html/simple_page/index.html");
 					}
 				}
 			}
-
-			auto mouse_pos = os::mouse::get_position(win);
 
 			using namespace std::chrono_literals;
 			auto start = std::chrono::high_resolution_clock::now();

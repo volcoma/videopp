@@ -58,6 +58,15 @@ namespace litehtml
 		static litehtml::tstring    resolve_name(const tchar_t* name, litehtml::document_container* callback);
         static bool                 is_color(const tchar_t* str);
 	};
+
+
+	struct text_shadow
+	{
+        float h_shadow{};
+        float v_shadow{};
+        float blur_radius{};
+        web_color color{};
+	};
 }
 
 #endif  // LH_WEB_COLOR_H

@@ -1,7 +1,7 @@
 #include "vertex.h"
 #include "logger.h"
 
-#include "utils.h"
+#include "detail/utils.h"
 
 namespace video_ctrl
 {

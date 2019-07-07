@@ -231,12 +231,13 @@ namespace litehtml
 		fontSize_larger,
 	};
 
-#define  font_style_strings		_t("normal;italic")
+#define  font_style_strings		_t("normal;italic;oblique")
 
 	enum font_style
 	{
 		fontStyleNormal,
-		fontStyleItalic
+		fontStyleItalic,
+		fontStyleOblique
 	};
 
 #define  font_variant_strings		_t("normal;small-caps")
