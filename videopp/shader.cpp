@@ -101,8 +101,8 @@ namespace video_ctrl
 
         if (info_len > 1)
         {
-            std::vector<char> shader_log(info_len, 0);
-            gl_call(glGetShaderInfoLog(id, shader_log.size(), nullptr, shader_log.data()));
+            std::vector<char> shader_log(size_t(info_len), 0);
+            gl_call(glGetShaderInfoLog(id, GLsizei(shader_log.size()), nullptr, shader_log.data()));
 
             log(std::string("errors linking : ") + shader_log.data());
         }
@@ -232,7 +232,7 @@ namespace video_ctrl
     {
         for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
         {
-            rend_.set_texture(0, slot);
+            rend_.set_texture(0, uint32_t(slot));
         }
         max_bound_slot_ = -1;
     }

@@ -97,13 +97,13 @@ void litehtml::el_text::parse_styles(bool is_reparse)
 
         if(tokens.size() >= 2)
         {
-            m_shadow.h_shadow = get_document()->cvt_units(tokens[0].c_str(), fm.height);
-            m_shadow.v_shadow = get_document()->cvt_units(tokens[1].c_str(), fm.height);
+            m_shadow.h_shadow = float(get_document()->cvt_units(tokens[0].c_str(), fm.height));
+            m_shadow.v_shadow = float(get_document()->cvt_units(tokens[1].c_str(), fm.height));
         }
 
         if(tokens.size() >= 3)
         {
-            m_shadow.blur_radius = get_document()->cvt_units(tokens[2].c_str(), fm.height);
+            m_shadow.blur_radius = float(get_document()->cvt_units(tokens[2].c_str(), fm.height));
             m_shadow.color = web_color::from_string(tokens[2].c_str(), get_document()->container());
         }
 

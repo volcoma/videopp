@@ -467,7 +467,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     const auto& font = t.get_font();
     float unit_length_in_pixels_at_font_position = 1.0f;
-    float sdf_spread = font->sdf_spread;
+    int sdf_spread = font->sdf_spread;
     float pixel_density = font->pixel_density;
     float scale = std::max(transform.get_scale().x, transform.get_scale().y);
     float distance_field_multiplier = (2 * sdf_spread + 1) * pixel_density * unit_length_in_pixels_at_font_position * scale;

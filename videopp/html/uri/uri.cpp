@@ -1,6 +1,6 @@
 #include "uri.h"
 #include <stdexcept>
-
+#include <cctype>
 namespace Web
 {
 
