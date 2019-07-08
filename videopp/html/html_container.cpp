@@ -164,6 +164,7 @@ int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr
 	video_ctrl::text t;
 	t.set_font(font);
 	t.set_utf8_text(text);
+    t.set_kerning(true);
 
 	if(boldness > 0.0f)
 	{
@@ -201,6 +202,8 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 	t.set_utf8_text(text);
 	t.set_alignment(text::alignment::top_left);
 	t.set_color(col);
+    t.set_kerning(true);
+
 	if(boldness > 0.0f)
 	{
 		t.set_outline_color(col);

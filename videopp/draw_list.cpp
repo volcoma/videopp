@@ -86,6 +86,11 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
         break;
     }
 
+    rect clip{};
+    if(!list.clip_rects.empty())
+    {
+        clip = list.clip_rects.back();
+    }
     auto add_new_command = [&](uint64_t hash)
     {
         list.commands.emplace_back();
@@ -94,20 +99,17 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
         command.indices_offset = indices_before;
         command.setup = setup;
         command.hash = hash;
+        command.clip_rect = clip;
     };
 
     list.commands_requested++;
-    rect clip{};
     if(!setup.calc_uniforms_hash)
     {
         add_new_command(0);
     }
     else
     {
-        if(!list.clip_rects.empty())
-        {
-            clip = list.clip_rects.back();
-        }
+
         auto hash = setup.calc_uniforms_hash();
         utils::hash(hash, clip, type, setup.program.shader.get());
 
@@ -122,7 +124,6 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
-    command.clip_rect = clip;
 }
 }
 
@@ -570,65 +571,31 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     }
 }
 
-void draw_list::add_text_superscript(const font_ptr& font, const std::string& whole,
-                                     const std::string& partial, const math::transformf& transform,
-                                     const text::alignment align, const color& col,
-                                     float outline_width, const color& outline_col,
+void draw_list::add_text_superscript(const text& text_whole, const text& text_partial,
+                                     const math::transformf& transform, text::alignment align,
                                      float partial_scale, const program_setup& setup)
 {
-    video_ctrl::text text_whole;
-    text_whole.set_font(font);
-    text_whole.set_utf8_text(whole);
-    text_whole.set_alignment(align);
-    text_whole.set_color(col);
-    text_whole.set_outline_color(outline_col);
-    text_whole.set_outline_width(outline_width);
-
-    video_ctrl::text text_partial;
-    text_partial.set_font(font);
-    text_partial.set_utf8_text(partial);
-    text_partial.set_alignment(align);
-    text_partial.set_color(col);
-    text_partial.set_outline_color(outline_col);
-    text_partial.set_outline_width(outline_width);
-
-    add_text_superscript(text_whole, text_partial, transform, align, partial_scale, setup);
-}
-
-void draw_list::add_text_superscript(const text& text_whole,
-                                     const text& text_partial,
-                                     const math::transformf& transform,
-                                     text::alignment align,
-                                     float partial_scale,
-                                     const program_setup& setup)
-{
     math::transformf transform_whole;
     math::transformf transform_partial;
     transform_partial.scale({partial_scale, partial_scale, 1.0f});
 
-    add_text_superscript_impl(text_whole, text_partial, transform, transform_whole, transform_partial, align, partial_scale, setup);
+    add_text_superscript_impl(text_whole, text_partial, transform, transform_whole, transform_partial, align,
+                              partial_scale, setup);
 }
 
-void draw_list::add_text_superscript(const text& whole_text,
-                                     const text& partial_text,
-                                     const math::transformf& transform,
-                                     const rect& dst_rect,
-                                     text::alignment align,
-                                     float partial_scale,
-                                     size_fit sz_fit,
-                                     dimension_fit dim_fit,
-                                     const program_setup& setup)
+void draw_list::add_text_superscript(const text& whole_text, const text& partial_text,
+                                     const math::transformf& transform, const rect& dst_rect,
+                                     text::alignment align, float partial_scale, size_fit sz_fit,
+                                     dimension_fit dim_fit, const program_setup& setup)
 {
     math::transformf transform_whole;
     math::transformf transform_partial;
 
     transform_partial.scale({partial_scale, partial_scale, 1.0f});
-
 
     auto scale_whole = transform_whole.get_scale() * transform.get_scale();
     auto scale_partial = transform_partial.get_scale() * transform.get_scale();
-    float text_width = whole_text.get_width() * scale_whole.x +
-                       partial_text.get_width() * scale_partial.x;
+    float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
     math::transformf scale_trans;
@@ -701,11 +668,15 @@ void draw_list::add_text_superscript(const text& whole_text,
             break;
     }
 
-
-    add_text_superscript_impl(whole_text, partial_text, transform * scale_trans, transform_whole, transform_partial, align, partial_scale, setup);
+    add_text_superscript_impl(whole_text, partial_text, transform * scale_trans, transform_whole,
+                              transform_partial, align, partial_scale, setup);
 }
 
-void draw_list::add_text_superscript_impl(const text& text_whole, const text& text_partial, const math::transformf& transform, math::transformf& transform_whole, math::transformf& transform_partial, text::alignment align, float partial_scale, const program_setup& setup)
+void draw_list::add_text_superscript_impl(const text& text_whole, const text& text_partial,
+                                          const math::transformf& transform,
+                                          math::transformf& transform_whole,
+                                          math::transformf& transform_partial, text::alignment align,
+                                          float partial_scale, const program_setup& setup)
 {
     if(text_whole.get_lines().size() > 1)
     {
@@ -713,19 +684,33 @@ void draw_list::add_text_superscript_impl(const text& text_whole, const text& te
     }
     const auto text_whole_width = detail::align_to_pixel(text_whole.get_width());
 
-    const auto text_whole_min_baseline_height = detail::align_to_pixel(text_whole.get_min_baseline_height());
-    const auto text_whole_max_baseline_height = detail::align_to_pixel(text_whole.get_max_baseline_height());
+    const auto text_whole_min_baseline_height = text_whole.get_utf8_text().empty() ?
+                                                detail::align_to_pixel(text_partial.get_min_baseline_height()) :
+                                                detail::align_to_pixel(text_whole.get_min_baseline_height());
+    const auto text_whole_max_baseline_height = text_whole.get_utf8_text().empty() ?
+                                                detail::align_to_pixel(text_partial.get_max_baseline_height()) :
+                                                detail::align_to_pixel(text_whole.get_max_baseline_height());
 
     const auto text_partial_width = detail::align_to_pixel(text_partial.get_width() * partial_scale);
-    const auto text_parital_height = detail::align_to_pixel(text_partial.get_height() * (1.0f - partial_scale));
+    const auto text_parital_height = text_whole.get_utf8_text().empty() ?
+                                     detail::align_to_pixel(text_partial.get_height() * (1.0f - partial_scale)) :
+                                     detail::align_to_pixel(text_whole.get_height() - (text_partial.get_height() * partial_scale));
 
-    const auto text_partial_min_baseline_height = detail::align_to_pixel(text_partial.get_min_baseline_height() * (partial_scale));
-    const auto text_partial_max_baseline_height = detail::align_to_pixel(text_partial.get_max_baseline_height() * (partial_scale));
-
+    const auto text_partial_min_baseline_height =
+        detail::align_to_pixel(text_partial.get_min_baseline_height() * partial_scale);
+    const auto text_partial_max_baseline_height =
+        detail::align_to_pixel(text_partial.get_max_baseline_height() * partial_scale);
 
     const auto half_text_whole_width = detail::align_to_pixel(text_whole_width * 0.5f);
     const auto half_text_partial_width = detail::align_to_pixel(text_partial_width * 0.5f);
     const auto half_text_parital_height = detail::align_to_pixel(text_parital_height * 0.5f);
+
+    const auto text_whole_shadow_height = text_whole.get_utf8_text().empty() ?
+                                          detail::align_to_pixel(text_partial.get_shadow_offsets().y) :
+                                          detail::align_to_pixel(text_whole.get_shadow_offsets().y);
+    const auto text_partial_shadow_height = detail::align_to_pixel(text_partial.get_shadow_offsets().y * partial_scale);
+    const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
+    const auto half_shadows_height_dif = detail::align_to_pixel(shadows_height_dif * 0.5f);
 
     switch(align)
     {
@@ -737,7 +722,9 @@ void draw_list::add_text_superscript_impl(const text& text_whole, const text& te
         case text::alignment::baseline_top_left:
         {
             transform_partial.translate({text_whole_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, -(text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
+            transform_partial.translate(
+                {0.0f, shadows_height_dif -
+                 (text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
         }
         break;
 
@@ -750,7 +737,10 @@ void draw_list::add_text_superscript_impl(const text& text_whole, const text& te
         case text::alignment::baseline_top:
         {
             transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, -(text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
+            transform_partial.translate({half_text_whole_width,
+                                         shadows_height_dif -
+                                         (text_whole_min_baseline_height - text_partial_min_baseline_height),
+                                         0.0f});
         }
         break;
 
@@ -762,73 +752,344 @@ void draw_list::add_text_superscript_impl(const text& text_whole, const text& te
         case text::alignment::baseline_top_right:
         {
             transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, -(text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
-
+            transform_partial.translate(
+                {0.0f, shadows_height_dif -
+                 (text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
         }
         break;
 
         case text::alignment::left:
         {
-            transform_partial.translate({text_whole_width, -half_text_parital_height, 0.0f});
+            transform_partial.translate({text_whole_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::center:
         {
             transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, -half_text_parital_height, 0.0f});
+            transform_partial.translate({half_text_whole_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::right:
         {
             transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, -half_text_parital_height, 0.0f});
+            transform_partial.translate({0.0f, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::bottom_left:
         {
-            transform_partial.translate({text_whole_width, -text_parital_height, 0.0f});
+            transform_partial.translate({text_whole_width, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_left:
         {
-            transform_partial.translate({text_whole_width, -(text_whole_max_baseline_height - text_partial_max_baseline_height), 0.0f});
+            transform_partial.translate({text_whole_width,
+                                         shadows_height_dif -
+                                         (text_whole_max_baseline_height - text_partial_max_baseline_height),
+                                         0.0f});
         }
         break;
 
         case text::alignment::bottom:
         {
             transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, -text_parital_height, 0.0f});
+            transform_partial.translate({half_text_whole_width, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom:
         {
             transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, -(text_whole_max_baseline_height - text_partial_max_baseline_height), 0.0f});
+            transform_partial.translate({half_text_whole_width,
+                                         shadows_height_dif -
+                                         (text_whole_max_baseline_height - text_partial_max_baseline_height),
+                                         0.0f});
         }
         break;
 
         case text::alignment::bottom_right:
         {
             transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, -text_parital_height, 0.0f});
+            transform_partial.translate({0.0f, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_right:
         {
             transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, -(text_whole_max_baseline_height - text_partial_max_baseline_height), 0.0f});
+            transform_partial.translate(
+                {0.0f, shadows_height_dif -
+                 (text_whole_max_baseline_height - text_partial_max_baseline_height), 0.0f});
         }
         break;
         default:
-        break;
+            break;
     }
     add_text(text_whole, transform * transform_whole, setup);
     add_text(text_partial, transform * transform_partial, setup);
 }
+
+void draw_list::add_text_subscript(const text& whole_text,
+                                   const text& partial_text,
+                                   const math::transformf& transform,
+                                   text::alignment align,
+                                   float partial_scale,
+                                   const program_setup& setup)
+{
+    math::transformf transform_whole;
+    math::transformf transform_partial;
+    transform_partial.scale({partial_scale, partial_scale, 1.0f});
+
+    add_text_subscript_impl(whole_text, partial_text, transform, transform_whole, transform_partial, align,
+                            partial_scale, setup);
+}
+
+void draw_list::add_text_subscript(const text& whole_text,
+                                   const text& partial_text,
+                                   const math::transformf& transform,
+                                   const rect& dst_rect,
+                                   text::alignment align,
+                                   float partial_scale,
+                                   size_fit sz_fit,
+                                   dimension_fit dim_fit,
+                                   const program_setup& setup)
+{
+    math::transformf transform_whole;
+    math::transformf transform_partial;
+
+    transform_partial.scale({partial_scale, partial_scale, 1.0f});
+
+    auto scale_whole = transform_whole.get_scale() * transform.get_scale();
+    auto scale_partial = transform_partial.get_scale() * transform.get_scale();
+    float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
+    float text_height = whole_text.get_height() * scale_whole.y;
+
+    math::transformf scale_trans;
+    float xscale = 1.0f;
+    float yscale = 1.0f;
+
+    switch(sz_fit)
+    {
+        case size_fit::shrink_to_fit:
+        {
+            if(text_width > dst_rect.w)
+            {
+                xscale = std::min(xscale, float(dst_rect.w) / text_width);
+            }
+            if(text_height > dst_rect.h)
+            {
+                yscale = std::min(yscale, float(dst_rect.h) / text_height);
+            }
+        }
+        break;
+
+        case size_fit::stretch_to_fit:
+        {
+            if(text_width < dst_rect.w)
+            {
+                xscale = std::max(xscale, float(dst_rect.w) / text_width);
+            }
+            if(text_height < dst_rect.h)
+            {
+                yscale = std::max(yscale, float(dst_rect.h) / text_height);
+            }
+        }
+        break;
+
+        case size_fit::auto_fit:
+        {
+            if(text_width > dst_rect.w)
+            {
+                xscale = std::min(xscale, float(dst_rect.w) / text_width);
+            }
+            else
+            {
+                xscale = std::max(xscale, float(dst_rect.w) / text_width);
+            }
+
+            if(text_height > dst_rect.h)
+            {
+                yscale = std::min(yscale, float(dst_rect.h) / text_height);
+            }
+            else
+            {
+                yscale = std::max(yscale, float(dst_rect.h) / text_height);
+            }
+        }
+    }
+
+    switch(dim_fit)
+    {
+        case dimension_fit::x:
+            scale_trans.set_scale(xscale, 1.0f, 1.0f);
+            break;
+
+        case dimension_fit::y:
+            scale_trans.set_scale(1.0f, yscale, 1.0f);
+            break;
+
+        case dimension_fit::uniform:
+            float uniform_scale = std::min(xscale, yscale);
+            scale_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
+            break;
+    }
+
+    add_text_subscript_impl(whole_text, partial_text, transform * scale_trans, transform_whole,
+                            transform_partial, align, partial_scale, setup);
+}
+
+void draw_list::add_text_subscript_impl(const text& whole_text,
+                                        const text& partial_text,
+                                        const math::transformf& transform,
+                                        math::transformf& whole_transform,
+                                        math::transformf& partial_transform,
+                                        text::alignment align,
+                                        float partial_scale,
+                                        const program_setup& setup)
+{
+    if(whole_text.get_lines().size() > 1)
+    {
+        log("Subscript text should not be multiline. This api will not behave properly.");
+    }
+
+    const auto text_whole_width = detail::align_to_pixel(whole_text.get_width());
+
+    const auto text_whole_height = whole_text.get_utf8_text().empty() ?
+                                   detail::align_to_pixel(partial_text.get_height()) :
+                                   detail::align_to_pixel(whole_text.get_height());
+
+    const auto text_whole_shadow_height = whole_text.get_utf8_text().empty() ?
+                                          detail::align_to_pixel(partial_text.get_shadow_offsets().y) :
+                                          detail::align_to_pixel(whole_text.get_shadow_offsets().y);
+
+    const auto text_whole_max_baseline_height = whole_text.get_utf8_text().empty() ?
+                                                detail::align_to_pixel(partial_text.get_max_baseline_height()) :
+                                                detail::align_to_pixel(whole_text.get_max_baseline_height());
+
+    const auto text_partial_width = detail::align_to_pixel(partial_text.get_width() * partial_scale);
+    const auto text_parital_height = detail::align_to_pixel(partial_scale * partial_text.get_height());
+    const auto text_parital_height_dif = detail::align_to_pixel(text_whole_height - text_parital_height);
+
+    const auto text_partial_shadow_height = detail::align_to_pixel(partial_text.get_shadow_offsets().y * partial_scale);
+    const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
+    const auto half_shadows_height_dif = detail::align_to_pixel(shadows_height_dif * 0.5f);
+
+    const auto text_partial_max_baseline_height =
+        detail::align_to_pixel(partial_text.get_max_baseline_height() * partial_scale);
+
+    const auto half_text_whole_width = detail::align_to_pixel(text_whole_width * 0.5f);
+    const auto half_text_partial_width = detail::align_to_pixel(text_partial_width * 0.5f);
+    const auto half_text_parital_height_dif = detail::align_to_pixel(text_parital_height_dif * 0.5f);
+
+    const auto top_y_aligns_parial_offset = text_whole_max_baseline_height - text_partial_max_baseline_height - shadows_height_dif;
+    const auto center_y_aligns_parial_offset = text_whole_max_baseline_height - (half_text_parital_height_dif + text_partial_max_baseline_height) - half_shadows_height_dif;
+    const auto bottom_y_aligns_parial_offset = - ((text_whole_height - text_whole_max_baseline_height) -
+                                                  (text_parital_height - text_partial_max_baseline_height));
+
+    switch(align)
+    {
+        case text::alignment::top_left:
+        {
+            partial_transform.translate({text_whole_width, top_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_top_left:
+        {
+            partial_transform.translate({text_whole_width, 0.0f, 0.0f});
+        }
+        break;
+
+        case text::alignment::top:
+        {
+            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({half_text_whole_width, top_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_top:
+        {
+            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({half_text_whole_width, 0.0f, 0.0f});
+        }
+        break;
+
+        case text::alignment::top_right:
+        {
+            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({0.0f, top_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_top_right:
+        {
+            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+        }
+        break;
+
+        case text::alignment::left:
+        {
+            partial_transform.translate({text_whole_width,
+                                         center_y_aligns_parial_offset,
+                                         0.0f});
+        }
+        break;
+
+        case text::alignment::center:
+        {
+            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({half_text_whole_width,
+                                         center_y_aligns_parial_offset,
+                                         0.0f});
+        }
+        break;
+
+        case text::alignment::right:
+        {
+            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({0.0f, center_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+
+        case text::alignment::bottom_left:
+        {
+            partial_transform.translate({text_whole_width, bottom_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_bottom_left:
+        {
+            partial_transform.translate({text_whole_width, 0.0f, 0.0f});
+        }
+        break;
+
+        case text::alignment::bottom:
+        {
+            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({half_text_whole_width, bottom_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_bottom:
+        {
+            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({half_text_whole_width, 0.0f, 0.0f});
+        }
+        break;
+
+        case text::alignment::bottom_right:
+        {
+            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+            partial_transform.translate({0.0f, bottom_y_aligns_parial_offset, 0.0f});
+        }
+        break;
+        case text::alignment::baseline_bottom_right:
+        {
+            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+        }
+        break;
+        default:
+            break;
+    }
+
+    add_text(whole_text, transform * whole_transform, setup);
+    add_text(partial_text, transform * partial_transform, setup);
+};
 
 
 void draw_list::add_vertices(const std::vector<vertex_2d>& verts, const primitive_type type, float line_width,
@@ -883,6 +1144,214 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
 }
 
+void draw_list::add_polyline(const polyline& poly)
+{
+    program_setup setup{};
+    setup.program = simple_program();
+    setup.calc_uniforms_hash = [=]()
+    {
+        uint64_t seed{0};
+        utils::hash(seed, 0.0f);
+        return seed;
+    };
+    detail::add_indices(*this, 0, 0, primitive_type::triangles, setup);
+
+    int points_count = poly.points.size();
+    bool closed = poly.closed;
+    float thickness = poly.thickness;
+    color col = poly.col;
+    bool antialised = poly.antialiased;
+    const auto& points = poly.points;
+
+    if (points_count < 2)
+        return;
+
+    int count = points_count;
+    if (!closed)
+        count = points_count-1;
+
+    const bool thick_line = thickness > 1.0f;
+    if (antialised)
+    {
+        // Anti-aliased stroke
+        const float AA_SIZE = 1.0f;
+        color col_trans = col;
+        col_trans.a = 0;
+
+        const int idx_count = thick_line ? count*18 : count*12;
+        const int vtx_count = thick_line ? points_count*4 : points_count*3;
+
+        size_t idx_current_idx{};
+        size_t vtx_current_idx{};
+        prim_reserve(idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+
+        auto idx_write_ptr = &indices[idx_current_idx];
+        auto vtx_write_ptr = &vertices[vtx_current_idx];
+
+
+        // Temporary buffer
+        std::vector<math::vec2> temp_normals(points_count * (thick_line ? 5 : 3));
+        math::vec2* temp_points = temp_normals.data() + points_count;
+
+        for (int i1 = 0; i1 < count; i1++)
+        {
+            const int i2 = (i1+1) == points_count ? 0 : i1+1;
+            auto diff = points[i2] - points[i1];
+            diff *= math::dot(diff, diff) > 0.0f ? 1.0f/math::length(diff) : 1.0f;
+            temp_normals[i1].x = diff.y;
+            temp_normals[i1].y = -diff.x;
+        }
+        if (!closed)
+            temp_normals[points_count-1] = temp_normals[points_count-2];
+
+        if (!thick_line)
+        {
+            if (!closed)
+            {
+                temp_points[0] = points[0] + temp_normals[0] * AA_SIZE;
+                temp_points[1] = points[0] - temp_normals[0] * AA_SIZE;
+                temp_points[(points_count-1)*2+0] = points[points_count-1] + temp_normals[points_count-1] * AA_SIZE;
+                temp_points[(points_count-1)*2+1] = points[points_count-1] - temp_normals[points_count-1] * AA_SIZE;
+            }
+
+            // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
+            unsigned int idx1 = vtx_current_idx;
+            for (int i1 = 0; i1 < count; i1++)
+            {
+                const int i2 = (i1+1) == points_count ? 0 : i1+1;
+                unsigned int idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+3;
+
+                // Average normals
+                auto dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+                float dmr2 = dm.x*dm.x + dm.y*dm.y;
+                if (dmr2 > 0.000001f)
+                {
+                    float scale = 1.0f / dmr2;
+                    if (scale > 100.0f) scale = 100.0f;
+                    dm *= scale;
+                }
+                dm *= AA_SIZE;
+                temp_points[i2*2+0] = points[i2] + dm;
+                temp_points[i2*2+1] = points[i2] - dm;
+
+                // Add indexes
+                idx_write_ptr[0] = (index_t)(idx2+0); idx_write_ptr[1] = (index_t)(idx1+0); idx_write_ptr[2] = (index_t)(idx1+2);
+                idx_write_ptr[3] = (index_t)(idx1+2); idx_write_ptr[4] = (index_t)(idx2+2); idx_write_ptr[5] = (index_t)(idx2+0);
+                idx_write_ptr[6] = (index_t)(idx2+1); idx_write_ptr[7] = (index_t)(idx1+1); idx_write_ptr[8] = (index_t)(idx1+0);
+                idx_write_ptr[9] = (index_t)(idx1+0); idx_write_ptr[10]= (index_t)(idx2+0); idx_write_ptr[11]= (index_t)(idx2+1);
+                idx_write_ptr += 12;
+
+                idx1 = idx2;
+            }
+
+            // Add vertexes
+            for (int i = 0; i < points_count; i++)
+            {
+                vtx_write_ptr[0].pos = points[i];          vtx_write_ptr[0].col = col;
+                vtx_write_ptr[1].pos = temp_points[i*2+0]; vtx_write_ptr[1].col = col_trans;
+                vtx_write_ptr[2].pos = temp_points[i*2+1]; vtx_write_ptr[2].col = col_trans;
+                vtx_write_ptr += 3;
+            }
+        }
+        else
+        {
+            const float half_inner_thickness = (thickness - AA_SIZE) * 0.5f;
+            if (!closed)
+            {
+                temp_points[0] = points[0] + temp_normals[0] * (half_inner_thickness + AA_SIZE);
+                temp_points[1] = points[0] + temp_normals[0] * (half_inner_thickness);
+                temp_points[2] = points[0] - temp_normals[0] * (half_inner_thickness);
+                temp_points[3] = points[0] - temp_normals[0] * (half_inner_thickness + AA_SIZE);
+                temp_points[(points_count-1)*4+0] = points[points_count-1] + temp_normals[points_count-1] * (half_inner_thickness + AA_SIZE);
+                temp_points[(points_count-1)*4+1] = points[points_count-1] + temp_normals[points_count-1] * (half_inner_thickness);
+                temp_points[(points_count-1)*4+2] = points[points_count-1] - temp_normals[points_count-1] * (half_inner_thickness);
+                temp_points[(points_count-1)*4+3] = points[points_count-1] - temp_normals[points_count-1] * (half_inner_thickness + AA_SIZE);
+            }
+
+            // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
+            unsigned int idx1 = vtx_current_idx;
+            for (int i1 = 0; i1 < count; i1++)
+            {
+                const int i2 = (i1+1) == points_count ? 0 : i1+1;
+                unsigned int idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+4;
+
+                // Average normals
+                auto dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+                float dmr2 = dm.x*dm.x + dm.y*dm.y;
+                if (dmr2 > 0.000001f)
+                {
+                    float scale = 1.0f / dmr2;
+                    if (scale > 100.0f) scale = 100.0f;
+                    dm *= scale;
+                }
+                auto dm_out = dm * (half_inner_thickness + AA_SIZE);
+                auto dm_in = dm * half_inner_thickness;
+                temp_points[i2*4+0] = points[i2] + dm_out;
+                temp_points[i2*4+1] = points[i2] + dm_in;
+                temp_points[i2*4+2] = points[i2] - dm_in;
+                temp_points[i2*4+3] = points[i2] - dm_out;
+
+                // Add indexes
+                idx_write_ptr[0]  = (index_t)(idx2+1); idx_write_ptr[1]  = (index_t)(idx1+1); idx_write_ptr[2]  = (index_t)(idx1+2);
+                idx_write_ptr[3]  = (index_t)(idx1+2); idx_write_ptr[4]  = (index_t)(idx2+2); idx_write_ptr[5]  = (index_t)(idx2+1);
+                idx_write_ptr[6]  = (index_t)(idx2+1); idx_write_ptr[7]  = (index_t)(idx1+1); idx_write_ptr[8]  = (index_t)(idx1+0);
+                idx_write_ptr[9]  = (index_t)(idx1+0); idx_write_ptr[10] = (index_t)(idx2+0); idx_write_ptr[11] = (index_t)(idx2+1);
+                idx_write_ptr[12] = (index_t)(idx2+2); idx_write_ptr[13] = (index_t)(idx1+2); idx_write_ptr[14] = (index_t)(idx1+3);
+                idx_write_ptr[15] = (index_t)(idx1+3); idx_write_ptr[16] = (index_t)(idx2+3); idx_write_ptr[17] = (index_t)(idx2+2);
+                idx_write_ptr += 18;
+
+                idx1 = idx2;
+            }
+
+            // Add vertexes
+            for (int i = 0; i < points_count; i++)
+            {
+                vtx_write_ptr[0].pos = temp_points[i*4+0]; vtx_write_ptr[0].col = col_trans;
+                vtx_write_ptr[1].pos = temp_points[i*4+1]; vtx_write_ptr[1].col = col;
+                vtx_write_ptr[2].pos = temp_points[i*4+2]; vtx_write_ptr[2].col = col;
+                vtx_write_ptr[3].pos = temp_points[i*4+3]; vtx_write_ptr[3].col = col_trans;
+                vtx_write_ptr += 4;
+            }
+        }
+        vtx_current_idx += (index_t)vtx_count;
+    }
+    else
+    {
+        // Non Anti-aliased Stroke
+        const int idx_count = count*6;
+        const int vtx_count = count*4;      // FIXME-OPT: Not sharing edges
+        size_t idx_current_idx{};
+        size_t vtx_current_idx{};
+        prim_reserve(idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+
+        auto idx_write_ptr = &indices[idx_current_idx];
+        auto vtx_write_ptr = &vertices[vtx_current_idx];
+
+        for (int i1 = 0; i1 < count; i1++)
+        {
+            const int i2 = (i1+1) == points_count ? 0 : i1+1;
+            const auto& p1 = points[i1];
+            const auto& p2 = points[i2];
+            auto diff = p2 - p1;
+            diff *= math::dot(diff, diff) > 0.0f ? 1.0f/math::length(diff) : 1.0f;
+            //diff *= ImInvLength(diff, 1.0f);
+
+            const float dx = diff.x * (thickness * 0.5f);
+            const float dy = diff.y * (thickness * 0.5f);
+            vtx_write_ptr[0].pos.x = p1.x + dy; vtx_write_ptr[0].pos.y = p1.y - dx; vtx_write_ptr[0].col = col;
+            vtx_write_ptr[1].pos.x = p2.x + dy; vtx_write_ptr[1].pos.y = p2.y - dx; vtx_write_ptr[1].col = col;
+            vtx_write_ptr[2].pos.x = p2.x - dy; vtx_write_ptr[2].pos.y = p2.y + dx; vtx_write_ptr[2].col = col;
+            vtx_write_ptr[3].pos.x = p1.x - dy; vtx_write_ptr[3].pos.y = p1.y + dx; vtx_write_ptr[3].col = col;
+            vtx_write_ptr += 4;
+
+            idx_write_ptr[0] = (index_t)(vtx_current_idx); idx_write_ptr[1] = (index_t)(vtx_current_idx+1); idx_write_ptr[2] = (index_t)(vtx_current_idx+2);
+            idx_write_ptr[3] = (index_t)(vtx_current_idx); idx_write_ptr[4] = (index_t)(vtx_current_idx+2); idx_write_ptr[5] = (index_t)(vtx_current_idx+3);
+            idx_write_ptr += 6;
+            vtx_current_idx += 4;
+        }
+    }
+}
+
 void draw_list::push_clip(const rect& clip)
 {
     clip_rects.emplace_back(clip);
@@ -909,6 +1378,17 @@ void draw_list::reserve_vertices(size_t count)
 void draw_list::reserve_rects(size_t count)
 {
     reserve_vertices(count * 4);
+}
+
+void draw_list::prim_reserve(size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
+{
+    auto& cmd = commands.back();
+    cmd.indices_count += idx_count;
+
+    idx_current_idx = indices.size();
+    vtx_current_idx = vertices.size();
+    indices.resize(indices.size() + idx_count);
+    vertices.resize(vertices.size() + vtx_count);
 }
 
 void draw_list::add_text_debug_info(const text& t, const math::transformf& transform)
