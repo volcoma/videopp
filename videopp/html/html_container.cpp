@@ -444,12 +444,57 @@ void html_container::draw_borders(litehtml::uint_ptr /*hdc*/, const litehtml::bo
         list_.add_rect({draw_pos.left(), draw_pos.top(), draw_pos.width, bdr_top}, col);
 	}
 
+
 	// draw left border
 	if (bdr_left)
 	{
-		color col{borders.left.color.red, borders.left.color.green, borders.left.color.blue,
-				  borders.left.color.alpha};
+        color col{borders.left.color.red, borders.left.color.green, borders.left.color.blue,
+                  borders.left.color.alpha};
         list_.add_rect({draw_pos.left(), draw_pos.top(), bdr_left, draw_pos.height}, col);
+//        double r_top	= borders.radius.top_left_x;
+//        double r_bottom	= borders.radius.bottom_left_x;
+
+//        video_ctrl::polyline line;
+//        line.set_color(col);
+//        line.set_closed(true);
+//        if(r_top)
+//        {
+//            double start_angle	= M_PI;
+//            double end_angle	= start_angle + M_PI / 2.0  / ((double) bdr_top / (double) bdr_left + 0.5);
+
+//            line.arc_to({draw_pos.left() + r_top, draw_pos.top() + r_top},
+//                        r_top - bdr_left, start_angle, end_angle);
+
+//            line.arc_to_negative({draw_pos.left() + r_top, draw_pos.top() + r_top},
+//                        r_top, end_angle, start_angle);
+
+//        }
+//        else
+//        {
+//            line.line_to({draw_pos.left() + bdr_left, draw_pos.top() + bdr_top});
+//            line.line_to({draw_pos.left(), draw_pos.top()});
+//        }
+
+//        if(r_bottom)
+//        {
+//            line.line_to({draw_pos.left(),	draw_pos.bottom() - r_bottom});
+
+//            double end_angle	= M_PI;
+//            double start_angle	= end_angle - M_PI / 2.0  / ((double) bdr_bottom / (double) bdr_left + 0.5);
+
+//            line.arc_to_negative({draw_pos.left() + r_bottom, draw_pos.bottom() - r_bottom},
+//                        r_bottom, end_angle, start_angle);
+
+//            line.arc_to({draw_pos.left() + r_bottom, draw_pos.bottom() - r_bottom},
+//                        r_bottom - bdr_left, start_angle, end_angle);
+
+//        }
+//        else
+//        {
+//            line.line_to({draw_pos.left(),	draw_pos.bottom()});
+//            line.line_to({draw_pos.left() + bdr_left,	draw_pos.bottom() - bdr_bottom});
+//        }
+//        list_.add_polyline(line);
 	}
 
 	list_.pop_clip();
