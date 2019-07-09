@@ -76,6 +76,17 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     f.ascent = font->ascent;
     f.descent = font->descent;
     f.line_height = font->line_height;
+
+    if(!f.glyphs.empty())
+    {
+        const auto& x_glyph = f.get_glyph('x');
+        f.x_height = x_glyph.y1 - x_glyph.y0;
+    }
+    else
+    {
+        f.x_height = f.ascent - f.descent;
+    }
+
     f.kernings = std::move(font->kernings);
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
 

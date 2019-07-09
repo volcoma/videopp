@@ -88,13 +88,12 @@ litehtml::uint_ptr html_container::create_font(const litehtml::tchar_t* face_nam
 		if(fnt && fm)
 		{
 			const auto& font = fnt->face;
-			const auto& x_glyph = font->get_glyph('x');
 			auto scale = fnt->scale;
 
 			fm->ascent = static_cast<int>(font->ascent * scale);
 			fm->descent = static_cast<int>(-font->descent * scale);
 			fm->height = static_cast<int>(font->line_height * scale);
-			fm->x_height = static_cast<int>((x_glyph.y1 - x_glyph.y0) * scale);
+			fm->x_height = static_cast<int>(font->x_height * scale);
 			fm->draw_spaces = italic || decoration;
 		}
 	};
@@ -229,12 +228,13 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
     auto line_width = scale * font->size / float(get_default_font_size());
 	if(underline)
 	{
+        float quarter_x_height = font->x_height * 0.25f;
         const auto& rect = t.get_rect();
-        const auto& lines = t.get_descent_lines();
+        const auto& lines = t.get_baseline_lines();
         for(const auto& line : lines)
         {
-            auto v1 = transform.transform_coord({rect.x, line});
-            auto v2 = transform.transform_coord({rect.x + rect.w, line});
+            auto v1 = transform.transform_coord({rect.x, line + quarter_x_height});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line + quarter_x_height});
 
             list_.add_line(v1, v2, col, line_width);
         }
@@ -255,8 +255,7 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 
 	if(linethrough)
 	{
-        const auto& g = font->get_glyph('x');
-        float half_x_height = (g.y1 - g.y0) * 0.5f;
+        float half_x_height = font->x_height * 0.5f;
         const auto& rect = t.get_rect();
         const auto& lines = t.get_baseline_lines();
         for(const auto& line : lines)
@@ -307,38 +306,25 @@ void html_container::draw_list_marker(litehtml::uint_ptr /*hdc*/, const litehtml
 		{
 			case litehtml::list_style_type_circle:
 			{
-				// draw_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
-				// marker.pos.height, 			 marker.color, 0.5);
-				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
-				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
-
-				list_.add_rect(fill_rect, col);
+                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+                list_.add_circle({marker.pos.x + marker.pos.width / 2, marker.pos.y + marker.pos.height / 2}, std::min(marker.pos.width, marker.pos.height) / 2.0f, col);
 			}
 			break;
+            case litehtml::list_style_type_square:
+            {
+                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+                rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+                list_.add_rect(fill_rect, col);
+            }
+            break;
+            case litehtml::list_style_type_none:
+                break;
 			case litehtml::list_style_type_disc:
-			{
-				// fill_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width,
-				// marker.pos.height, 			 marker.color);
-				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
-				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
-
-				list_.add_rect(fill_rect, col);
-			}
-			break;
-			case litehtml::list_style_type_square:
-			{
-				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
-				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
-
-				list_.add_rect(fill_rect, col);
-			}
-			break;
 			default:
 			{
-				color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
-				rect fill_rect = {marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height};
+                color col{marker.color.red, marker.color.green, marker.color.blue, marker.color.alpha};
+                list_.add_circle_filled({marker.pos.x + marker.pos.width / 2, marker.pos.y + marker.pos.height / 2}, std::min(marker.pos.width, marker.pos.height) / 2.0f, col);
 
-				list_.add_rect(fill_rect, col);
 			}
 			break;
 		}

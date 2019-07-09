@@ -14,6 +14,20 @@ namespace video_ctrl
 namespace detail
 {
 
+namespace
+{
+std::array<math::vec2, 12> circle_vtx12 = []()
+{
+    std::array<math::vec2, 12> vtx12;
+    for (size_t i = 0; i < vtx12.size(); i++)
+    {
+        const float a = (float(i) * 2 * math::pi<float>()) / float(vtx12.size());
+        vtx12[i] = {math::cos(a), math::sin(a)};
+    }
+    return vtx12;
+}();
+}
+
 float align_to_pixel(float val)
 {
     return val;//static_cast<float>(static_cast<int>(val));
@@ -124,6 +138,17 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
+}
+
+void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
+{
+    auto& cmd = list.commands.back();
+    cmd.indices_count += idx_count;
+
+    idx_current_idx = list.indices.size();
+    vtx_current_idx = list.vertices.size();
+    list.indices.resize(list.indices.size() + idx_count);
+    list.vertices.resize(list.vertices.size() + vtx_count);
 }
 }
 
@@ -1144,6 +1169,9 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
 }
 
+#define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
+#define FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; if (d2 < 0.5f) d2 = 0.5f; float inv_lensq = 1.0f / d2; VX *= inv_lensq; VY *= inv_lensq; }
+
 void draw_list::add_polyline(const polyline& poly)
 {
     program_setup setup{};
@@ -1156,7 +1184,7 @@ void draw_list::add_polyline(const polyline& poly)
     };
     detail::add_indices(*this, 0, 0, primitive_type::triangles, setup);
 
-    int points_count = poly.points.size();
+    size_t points_count = poly.points.size();
     bool closed = poly.closed;
     float thickness = poly.thickness;
     color col = poly.col;
@@ -1166,7 +1194,7 @@ void draw_list::add_polyline(const polyline& poly)
     if (points_count < 2)
         return;
 
-    int count = points_count;
+    size_t count = points_count;
     if (!closed)
         count = points_count-1;
 
@@ -1178,12 +1206,12 @@ void draw_list::add_polyline(const polyline& poly)
         color col_trans = col;
         col_trans.a = 0;
 
-        const int idx_count = thick_line ? count*18 : count*12;
-        const int vtx_count = thick_line ? points_count*4 : points_count*3;
+        const size_t idx_count = thick_line ? count*18 : count*12;
+        const size_t vtx_count = thick_line ? points_count*4 : points_count*3;
 
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1193,13 +1221,15 @@ void draw_list::add_polyline(const polyline& poly)
         std::vector<math::vec2> temp_normals(points_count * (thick_line ? 5 : 3));
         math::vec2* temp_points = temp_normals.data() + points_count;
 
-        for (int i1 = 0; i1 < count; i1++)
+        for (size_t i1 = 0; i1 < count; i1++)
         {
-            const int i2 = (i1+1) == points_count ? 0 : i1+1;
-            auto diff = points[i2] - points[i1];
-            diff *= math::dot(diff, diff) > 0.0f ? 1.0f/math::length(diff) : 1.0f;
-            temp_normals[i1].x = diff.y;
-            temp_normals[i1].y = -diff.x;
+            const size_t i2 = (i1+1) == points_count ? 0 : i1+1;
+            float dx = points[i2].x - points[i1].x;
+            float dy = points[i2].y - points[i1].y;
+            NORMALIZE2F_OVER_ZERO(dx, dy);
+            temp_normals[i1].x = dy;
+            temp_normals[i1].y = -dx;
+
         }
         if (!closed)
             temp_normals[points_count-1] = temp_normals[points_count-2];
@@ -1215,37 +1245,38 @@ void draw_list::add_polyline(const polyline& poly)
             }
 
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = vtx_current_idx;
-            for (int i1 = 0; i1 < count; i1++)
+            size_t idx1 = vtx_current_idx;
+            for (size_t i1 = 0; i1 < count; i1++)
             {
-                const int i2 = (i1+1) == points_count ? 0 : i1+1;
-                unsigned int idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+3;
+                const size_t i2 = (i1+1) == points_count ? 0 : i1+1;
+                size_t idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+3;
 
                 // Average normals
-                auto dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
-                float dmr2 = dm.x*dm.x + dm.y*dm.y;
-                if (dmr2 > 0.000001f)
-                {
-                    float scale = 1.0f / dmr2;
-                    if (scale > 100.0f) scale = 100.0f;
-                    dm *= scale;
-                }
-                dm *= AA_SIZE;
-                temp_points[i2*2+0] = points[i2] + dm;
-                temp_points[i2*2+1] = points[i2] - dm;
+                float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
+                float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
+                FIXNORMAL2F(dm_x, dm_y)
+                dm_x *= AA_SIZE;
+                dm_y *= AA_SIZE;
+
+                // Add temporary vertexes
+                auto* out_vtx = &temp_points[i2*2];
+                out_vtx[0].x = points[i2].x + dm_x;
+                out_vtx[0].y = points[i2].y + dm_y;
+                out_vtx[1].x = points[i2].x - dm_x;
+                out_vtx[1].y = points[i2].y - dm_y;
 
                 // Add indexes
-                idx_write_ptr[0] = (index_t)(idx2+0); idx_write_ptr[1] = (index_t)(idx1+0); idx_write_ptr[2] = (index_t)(idx1+2);
-                idx_write_ptr[3] = (index_t)(idx1+2); idx_write_ptr[4] = (index_t)(idx2+2); idx_write_ptr[5] = (index_t)(idx2+0);
-                idx_write_ptr[6] = (index_t)(idx2+1); idx_write_ptr[7] = (index_t)(idx1+1); idx_write_ptr[8] = (index_t)(idx1+0);
-                idx_write_ptr[9] = (index_t)(idx1+0); idx_write_ptr[10]= (index_t)(idx2+0); idx_write_ptr[11]= (index_t)(idx2+1);
+                idx_write_ptr[0] = index_t(idx2+0); idx_write_ptr[1] = index_t(idx1+0); idx_write_ptr[2] = index_t(idx1+2);
+                idx_write_ptr[3] = index_t(idx1+2); idx_write_ptr[4] = index_t(idx2+2); idx_write_ptr[5] = index_t(idx2+0);
+                idx_write_ptr[6] = index_t(idx2+1); idx_write_ptr[7] = index_t(idx1+1); idx_write_ptr[8] = index_t(idx1+0);
+                idx_write_ptr[9] = index_t(idx1+0); idx_write_ptr[10]= index_t(idx2+0); idx_write_ptr[11]= index_t(idx2+1);
                 idx_write_ptr += 12;
 
                 idx1 = idx2;
             }
 
             // Add vertexes
-            for (int i = 0; i < points_count; i++)
+            for (size_t i = 0; i < points_count; i++)
             {
                 vtx_write_ptr[0].pos = points[i];          vtx_write_ptr[0].col = col;
                 vtx_write_ptr[1].pos = temp_points[i*2+0]; vtx_write_ptr[1].col = col_trans;
@@ -1269,42 +1300,46 @@ void draw_list::add_polyline(const polyline& poly)
             }
 
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = vtx_current_idx;
-            for (int i1 = 0; i1 < count; i1++)
+            size_t idx1 = vtx_current_idx;
+            for (size_t i1 = 0; i1 < count; i1++)
             {
-                const int i2 = (i1+1) == points_count ? 0 : i1+1;
-                unsigned int idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+4;
+                const size_t i2 = (i1+1) == points_count ? 0 : i1+1;
+                size_t idx2 = (i1+1) == points_count ? vtx_current_idx : idx1+4;
 
                 // Average normals
-                auto dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
-                float dmr2 = dm.x*dm.x + dm.y*dm.y;
-                if (dmr2 > 0.000001f)
-                {
-                    float scale = 1.0f / dmr2;
-                    if (scale > 100.0f) scale = 100.0f;
-                    dm *= scale;
-                }
-                auto dm_out = dm * (half_inner_thickness + AA_SIZE);
-                auto dm_in = dm * half_inner_thickness;
-                temp_points[i2*4+0] = points[i2] + dm_out;
-                temp_points[i2*4+1] = points[i2] + dm_in;
-                temp_points[i2*4+2] = points[i2] - dm_in;
-                temp_points[i2*4+3] = points[i2] - dm_out;
+                float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
+                float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
+                FIXNORMAL2F(dm_x, dm_y);
+                float dm_out_x = dm_x * (half_inner_thickness + AA_SIZE);
+                float dm_out_y = dm_y * (half_inner_thickness + AA_SIZE);
+                float dm_in_x = dm_x * half_inner_thickness;
+                float dm_in_y = dm_y * half_inner_thickness;
+
+                // Add temporary vertexes
+                auto* out_vtx = &temp_points[i2*4];
+                out_vtx[0].x = points[i2].x + dm_out_x;
+                out_vtx[0].y = points[i2].y + dm_out_y;
+                out_vtx[1].x = points[i2].x + dm_in_x;
+                out_vtx[1].y = points[i2].y + dm_in_y;
+                out_vtx[2].x = points[i2].x - dm_in_x;
+                out_vtx[2].y = points[i2].y - dm_in_y;
+                out_vtx[3].x = points[i2].x - dm_out_x;
+                out_vtx[3].y = points[i2].y - dm_out_y;
 
                 // Add indexes
-                idx_write_ptr[0]  = (index_t)(idx2+1); idx_write_ptr[1]  = (index_t)(idx1+1); idx_write_ptr[2]  = (index_t)(idx1+2);
-                idx_write_ptr[3]  = (index_t)(idx1+2); idx_write_ptr[4]  = (index_t)(idx2+2); idx_write_ptr[5]  = (index_t)(idx2+1);
-                idx_write_ptr[6]  = (index_t)(idx2+1); idx_write_ptr[7]  = (index_t)(idx1+1); idx_write_ptr[8]  = (index_t)(idx1+0);
-                idx_write_ptr[9]  = (index_t)(idx1+0); idx_write_ptr[10] = (index_t)(idx2+0); idx_write_ptr[11] = (index_t)(idx2+1);
-                idx_write_ptr[12] = (index_t)(idx2+2); idx_write_ptr[13] = (index_t)(idx1+2); idx_write_ptr[14] = (index_t)(idx1+3);
-                idx_write_ptr[15] = (index_t)(idx1+3); idx_write_ptr[16] = (index_t)(idx2+3); idx_write_ptr[17] = (index_t)(idx2+2);
+                idx_write_ptr[0]  = index_t(idx2+1); idx_write_ptr[1]  = index_t(idx1+1); idx_write_ptr[2]  = index_t(idx1+2);
+                idx_write_ptr[3]  = index_t(idx1+2); idx_write_ptr[4]  = index_t(idx2+2); idx_write_ptr[5]  = index_t(idx2+1);
+                idx_write_ptr[6]  = index_t(idx2+1); idx_write_ptr[7]  = index_t(idx1+1); idx_write_ptr[8]  = index_t(idx1+0);
+                idx_write_ptr[9]  = index_t(idx1+0); idx_write_ptr[10] = index_t(idx2+0); idx_write_ptr[11] = index_t(idx2+1);
+                idx_write_ptr[12] = index_t(idx2+2); idx_write_ptr[13] = index_t(idx1+2); idx_write_ptr[14] = index_t(idx1+3);
+                idx_write_ptr[15] = index_t(idx1+3); idx_write_ptr[16] = index_t(idx2+3); idx_write_ptr[17] = index_t(idx2+2);
                 idx_write_ptr += 18;
 
                 idx1 = idx2;
             }
 
             // Add vertexes
-            for (int i = 0; i < points_count; i++)
+            for (size_t i = 0; i < points_count; i++)
             {
                 vtx_write_ptr[0].pos = temp_points[i*4+0]; vtx_write_ptr[0].col = col_trans;
                 vtx_write_ptr[1].pos = temp_points[i*4+1]; vtx_write_ptr[1].col = col;
@@ -1313,43 +1348,189 @@ void draw_list::add_polyline(const polyline& poly)
                 vtx_write_ptr += 4;
             }
         }
-        vtx_current_idx += (index_t)vtx_count;
     }
     else
     {
         // Non Anti-aliased Stroke
-        const int idx_count = count*6;
-        const int vtx_count = count*4;      // FIXME-OPT: Not sharing edges
+        const size_t idx_count = count*6;
+        const size_t vtx_count = count*4;      // FIXME-OPT: Not sharing edges
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
 
-        for (int i1 = 0; i1 < count; i1++)
+        for (size_t i1 = 0; i1 < count; i1++)
         {
-            const int i2 = (i1+1) == points_count ? 0 : i1+1;
+            const size_t i2 = (i1+1) == points_count ? 0 : i1+1;
             const auto& p1 = points[i1];
             const auto& p2 = points[i2];
-            auto diff = p2 - p1;
-            diff *= math::dot(diff, diff) > 0.0f ? 1.0f/math::length(diff) : 1.0f;
-            //diff *= ImInvLength(diff, 1.0f);
 
-            const float dx = diff.x * (thickness * 0.5f);
-            const float dy = diff.y * (thickness * 0.5f);
+            float dx = p2.x - p1.x;
+            float dy = p2.y - p1.y;
+            NORMALIZE2F_OVER_ZERO(dx, dy);
+            dx *= (thickness * 0.5f);
+            dy *= (thickness * 0.5f);
+
             vtx_write_ptr[0].pos.x = p1.x + dy; vtx_write_ptr[0].pos.y = p1.y - dx; vtx_write_ptr[0].col = col;
             vtx_write_ptr[1].pos.x = p2.x + dy; vtx_write_ptr[1].pos.y = p2.y - dx; vtx_write_ptr[1].col = col;
             vtx_write_ptr[2].pos.x = p2.x - dy; vtx_write_ptr[2].pos.y = p2.y + dx; vtx_write_ptr[2].col = col;
             vtx_write_ptr[3].pos.x = p1.x - dy; vtx_write_ptr[3].pos.y = p1.y + dx; vtx_write_ptr[3].col = col;
             vtx_write_ptr += 4;
 
-            idx_write_ptr[0] = (index_t)(vtx_current_idx); idx_write_ptr[1] = (index_t)(vtx_current_idx+1); idx_write_ptr[2] = (index_t)(vtx_current_idx+2);
-            idx_write_ptr[3] = (index_t)(vtx_current_idx); idx_write_ptr[4] = (index_t)(vtx_current_idx+2); idx_write_ptr[5] = (index_t)(vtx_current_idx+3);
+            idx_write_ptr[0] = index_t(vtx_current_idx); idx_write_ptr[1] = index_t(vtx_current_idx+1); idx_write_ptr[2] = index_t(vtx_current_idx+2);
+            idx_write_ptr[3] = index_t(vtx_current_idx); idx_write_ptr[4] = index_t(vtx_current_idx+2); idx_write_ptr[5] = index_t(vtx_current_idx+3);
             idx_write_ptr += 6;
             vtx_current_idx += 4;
         }
     }
+}
+
+void draw_list::add_polyline_filled(const polyline &poly)
+{
+
+    program_setup setup{};
+    setup.program = simple_program();
+    setup.calc_uniforms_hash = [=]()
+    {
+        uint64_t seed{0};
+        utils::hash(seed, 0.0f);
+        return seed;
+    };
+    detail::add_indices(*this, 0, 0, primitive_type::triangles, setup);
+
+    size_t points_count = poly.points.size();
+    color col = poly.col;
+    bool antialised = poly.antialiased;
+    const auto& points = poly.points;
+
+    if (points_count < 3)
+            return;
+
+    if (antialised)
+    {
+        // Anti-aliased Fill
+        const float AA_SIZE = 1.0f;
+        color col_trans = col;
+        col_trans.a = 0;
+        const size_t idx_count = (points_count-2)*3 + points_count*6;
+        const size_t vtx_count = (points_count*2);
+
+        size_t idx_current_idx{};
+        size_t vtx_current_idx{};
+        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+
+        auto idx_write_ptr = &indices[idx_current_idx];
+        auto vtx_write_ptr = &vertices[vtx_current_idx];
+
+        // Add indexes for fill
+        size_t vtx_inner_idx = vtx_current_idx;
+        size_t vtx_outer_idx = vtx_current_idx+1;
+        for (size_t i = 2; i < points_count; i++)
+        {
+            idx_write_ptr[0] = index_t(vtx_inner_idx); idx_write_ptr[1] = index_t(vtx_inner_idx+((i-1)<<1)); idx_write_ptr[2] = index_t(vtx_inner_idx+(i<<1));
+            idx_write_ptr += 3;
+        }
+
+        // Compute normals
+        std::vector<math::vec2> temp_normals(points_count);
+
+        for (size_t i0 = points_count-1, i1 = 0; i1 < points_count; i0 = i1++)
+        {
+            const auto& p0 = points[i0];
+            const auto& p1 = points[i1];
+            float dx = p1.x - p0.x;
+            float dy = p1.y - p0.y;
+            NORMALIZE2F_OVER_ZERO(dx, dy);
+            temp_normals[i0].x = dy;
+            temp_normals[i0].y = -dx;
+        }
+
+        for (size_t i0 = points_count-1, i1 = 0; i1 < points_count; i0 = i1++)
+        {
+            // Average normals
+            const auto& n0 = temp_normals[i0];
+            const auto& n1 = temp_normals[i1];
+            float dm_x = (n0.x + n1.x) * 0.5f;
+            float dm_y = (n0.y + n1.y) * 0.5f;
+            FIXNORMAL2F(dm_x, dm_y);
+            dm_x *= AA_SIZE * 0.5f;
+            dm_y *= AA_SIZE * 0.5f;
+
+            // Add vertices
+            vtx_write_ptr[0].pos.x = (points[i1].x - dm_x); vtx_write_ptr[0].pos.y = (points[i1].y - dm_y); vtx_write_ptr[0].col = col;        // Inner
+            vtx_write_ptr[1].pos.x = (points[i1].x + dm_x); vtx_write_ptr[1].pos.y = (points[i1].y + dm_y); vtx_write_ptr[1].col = col_trans;  // Outer
+            vtx_write_ptr += 2;
+
+            // Add indexes for fringes
+            idx_write_ptr[0] = index_t(vtx_inner_idx+(i1<<1)); idx_write_ptr[1] = index_t(vtx_inner_idx+(i0<<1)); idx_write_ptr[2] = index_t(vtx_outer_idx+(i0<<1));
+            idx_write_ptr[3] = index_t(vtx_outer_idx+(i0<<1)); idx_write_ptr[4] = index_t(vtx_outer_idx+(i1<<1)); idx_write_ptr[5] = index_t(vtx_inner_idx+(i1<<1));
+            idx_write_ptr += 6;
+        }
+    }
+    else
+    {
+        // Non Anti-aliased Fill
+        const size_t idx_count = (points_count-2)*3;
+        const size_t vtx_count = points_count;
+        size_t idx_current_idx{};
+        size_t vtx_current_idx{};
+        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+
+        auto idx_write_ptr = &indices[idx_current_idx];
+        auto vtx_write_ptr = &vertices[vtx_current_idx];
+        for (size_t i = 0; i < vtx_count; i++)
+        {
+            vtx_write_ptr[0].pos = points[i]; vtx_write_ptr[0].col = col;
+            vtx_write_ptr++;
+        }
+        for (size_t i = 2; i < points_count; i++)
+        {
+            idx_write_ptr[0] = index_t(vtx_current_idx); idx_write_ptr[1] = index_t(vtx_current_idx+i-1); idx_write_ptr[2] = index_t(vtx_current_idx+i);
+            idx_write_ptr += 3;
+        }
+    }
+
+}
+
+void draw_list::add_circle(const math::vec2& center, float radius, const color& col, size_t num_segments, float thickness)
+{
+    if (col.a == 0 || num_segments <= 2)
+        return;
+
+    // Because we are filling a closed shape we remove 1 from the count of segments/points
+    const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
+    polyline line;
+    line.arc_to(center, radius-0.5f, 0.0f, a_max, num_segments - 1);
+    line.closed = true;
+    line.thickness = thickness;
+    line.col = col;
+    add_polyline(line);
+
+}
+
+void draw_list::add_circle_filled(const math::vec2& center, float radius, const color& col, size_t num_segments)
+{
+    const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
+    polyline line;
+    line.arc_to(center, radius-0.5f, 0.0f, a_max, num_segments - 1);
+    line.closed = true;
+    line.col = col;
+    add_polyline_filled(line);
+}
+
+void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness, int num_segments)
+{
+    if (col.a == 0)
+        return;
+
+    polyline line;
+    line.line_to(pos0);
+    line.bezier_curve_to(cp0, cp1, pos1, num_segments);
+    line.closed = false;
+    line.thickness = thickness;
+    add_polyline(line);
 }
 
 void draw_list::push_clip(const rect& clip)
@@ -1378,17 +1559,6 @@ void draw_list::reserve_vertices(size_t count)
 void draw_list::reserve_rects(size_t count)
 {
     reserve_vertices(count * 4);
-}
-
-void draw_list::prim_reserve(size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
-{
-    auto& cmd = commands.back();
-    cmd.indices_count += idx_count;
-
-    idx_current_idx = indices.size();
-    vtx_current_idx = vertices.size();
-    indices.resize(indices.size() + idx_count);
-    vertices.resize(vertices.size() + vtx_count);
 }
 
 void draw_list::add_text_debug_info(const text& t, const math::transformf& transform)
@@ -1507,6 +1677,131 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
 
+}
+
+void polyline::line_to(const math::vec2 &pos)
+{
+    points.push_back(pos);
+}
+
+void polyline::line_to_merge_duplicate(const math::vec2 &pos)
+{
+    if(points.empty() || points.back() != pos)
+        points.push_back(pos);
+}
+
+void polyline::arc_to(const math::vec2 &centre, float radius, float a_min, float a_max, size_t num_segments)
+{
+    if (radius == 0.0f)
+    {
+        points.push_back(centre);
+        return;
+    }
+
+    // Note that we are adding a point at both a_min and a_max.
+    // If you are trying to draw a full closed circle you don't want the overlapping points!
+    points.reserve(points.size() + (num_segments + 1));
+    for (size_t i = 0; i <= num_segments; i++)
+    {
+        const float a = a_min + (float(i) / float(num_segments)) * (a_max - a_min);
+        points.emplace_back(centre.x + math::cos(a) * radius, centre.y + math::sin(a) * radius);
+    }
+
+}
+
+void polyline::arc_to_fast(const glm::vec2 &centre, float radius, size_t a_min_of_12, size_t a_max_of_12)
+{
+    if (radius == 0.0f || a_min_of_12 > a_max_of_12)
+    {
+        points.emplace_back(centre);
+        return;
+    }
+    points.reserve(points.size() + (a_max_of_12 - a_min_of_12 + 1));
+    for (size_t a = a_min_of_12; a <= a_max_of_12; a++)
+    {
+        const auto& c = detail::circle_vtx12[a % detail::circle_vtx12.size()];
+        points.emplace_back(centre.x + c.x * radius, centre.y + c.y * radius);
+    }
+}
+
+static void bezier_to_casteljau(std::vector<math::vec2>& path, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float tess_tol, int level)
+{
+    float dx = x4 - x1;
+    float dy = y4 - y1;
+    float d2 = ((x2 - x4) * dy - (y2 - y4) * dx);
+    float d3 = ((x3 - x4) * dy - (y3 - y4) * dx);
+    d2 = (d2 >= 0) ? d2 : -d2;
+    d3 = (d3 >= 0) ? d3 : -d3;
+    if ((d2+d3) * (d2+d3) < tess_tol * (dx*dx + dy*dy))
+    {
+        path.emplace_back(x4, y4);
+    }
+    else if (level < 10)
+    {
+        float x12 = (x1+x2)*0.5f,       y12 = (y1+y2)*0.5f;
+        float x23 = (x2+x3)*0.5f,       y23 = (y2+y3)*0.5f;
+        float x34 = (x3+x4)*0.5f,       y34 = (y3+y4)*0.5f;
+        float x123 = (x12+x23)*0.5f,    y123 = (y12+y23)*0.5f;
+        float x234 = (x23+x34)*0.5f,    y234 = (y23+y34)*0.5f;
+        float x1234 = (x123+x234)*0.5f, y1234 = (y123+y234)*0.5f;
+
+        bezier_to_casteljau(path, x1,y1,        x12,y12,    x123,y123,  x1234,y1234, tess_tol, level+1);
+        bezier_to_casteljau(path, x1234,y1234,  x234,y234,  x34,y34,    x4,y4,       tess_tol, level+1);
+    }
+}
+
+void polyline::bezier_curve_to(const math::vec2 &p2, const math::vec2 &p3, const math::vec2 &p4, int num_segments)
+{
+    if(points.empty())
+    {
+        points.emplace_back();
+    }
+    auto p1 = points.back();
+    if (num_segments == 0)
+    {
+        // Auto-tessellated
+        bezier_to_casteljau(points, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, 1, 0);
+    }
+    else
+    {
+        float t_step = 1.0f / float(num_segments);
+        for (int i_step = 1; i_step <= num_segments; i_step++)
+        {
+            float t = t_step * i_step;
+            float u = 1.0f - t;
+            float w1 = u*u*u;
+            float w2 = 3*u*u*t;
+            float w3 = 3*u*t*t;
+            float w4 = t*t*t;
+            points.emplace_back(w1*p1.x + w2*p2.x + w3*p3.x + w4*p4.x, w1*p1.y + w2*p2.y + w3*p3.y + w4*p4.y);
+        }
+    }
+
+}
+
+void polyline::rectangle(const math::vec2& a, const math::vec2& b, float rounding, uint32_t rounding_corners)
+{
+    rounding = math::min(rounding, math::abs(b.x - a.x) * ( ((rounding_corners & corner_flags::top)  == corner_flags::top)  || ((rounding_corners & corner_flags::bot)   == corner_flags::bot)   ? 0.5f : 1.0f ) - 1.0f);
+    rounding = math::min(rounding, math::abs(b.y - a.y) * ( ((rounding_corners & corner_flags::left) == corner_flags::left) || ((rounding_corners & corner_flags::right) == corner_flags::right) ? 0.5f : 1.0f ) - 1.0f);
+
+    if (rounding <= 0.0f || rounding_corners == 0)
+    {
+        line_to(a);
+        line_to({b.x, a.y});
+        line_to(b);
+        line_to({a.x, b.y});
+    }
+    else
+    {
+        const float rounding_tl = (rounding_corners & corner_flags::top_left) ? rounding : 0.0f;
+        const float rounding_tr = (rounding_corners & corner_flags::top_right) ? rounding : 0.0f;
+        const float rounding_br = (rounding_corners & corner_flags::bot_right) ? rounding : 0.0f;
+        const float rounding_bl = (rounding_corners & corner_flags::bot_left) ? rounding : 0.0f;
+        arc_to_fast({a.x + rounding_tl, a.y + rounding_tl}, rounding_tl, 6, 9);
+        arc_to_fast({b.x - rounding_tr, a.y + rounding_tr}, rounding_tr, 9, 12);
+        arc_to_fast({b.x - rounding_br, b.y - rounding_br}, rounding_br, 0, 3);
+        arc_to_fast({a.x + rounding_bl, b.y - rounding_bl}, rounding_bl, 3, 6);
+    }
 }
 
 }

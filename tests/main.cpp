@@ -10,7 +10,7 @@
 #include <thread>
 
 static std::string html =
-	R"(
+R"(
 <!DOCTYPE html>
 <html>
 <body>

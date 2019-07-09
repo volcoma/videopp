@@ -2,92 +2,70 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Font families</title>
+	<title>Rounded corners: border-radius</title>
 	<style>
-		h2 { color: green; }
+		body {
+			font: 14px courier;
+			background: #06c;
+			color: #000;
+		}
 	
-		#p1 { font-family: Times, "Times New Roman", serif; }
-		#p2 { font-family: Helvetica, Arial, sans-serif; }
-		#p3 { font-family: serif; }
-		#p4 { font-family: sans-serif; }
-		#p5 { font-family: monospace; }
-		#p6 { font-family: cursive; }
-		#p7 { font-family: fantasy; }
-	
-		.s1 { font-style: italic; }
-		.s2 { font-style: oblique; }
-		.s3 { font-weight: bold; }
-		.s4 { font-weight: 100; }
+		p {
+			width: 300px;
+			height: 100px;
+			padding: 50px;
+			margin: 20px 0 0 20px;
+			background: white;
+			float: left;
+		}
+		code {
+			display: block;
+			padding: 10px;
+			background: #def;
+			border-radius: 10px;
+		}
+		#corners1 {
+			border-top-left-radius: 100px;
+		}
+		#corners2 {
+			border-radius: 100px;
+		}
+		#corners3 {
+			border-radius: 0 50px 100px 200px;
+		}
+		#corners4 {
+			padding: 30px;
+			background: none;
+			border-radius: 50px;
+			border: 20px solid #fff;
+		}
+		#corners5 {
+			border-radius: 25%;
+		}
+		#corners6 {
+			border-radius: 200px/100px;
+		}
+		#borderCollie {
+			border-radius: 75px/125px;
+			border-bottom-left-radius: 75px;
+			border-bottom-right-radius: 75px;
+			width: 120px;
+			height: 90px;
+			padding: 80px 15px 30px 15px;
+		}
 	</style>
 </head>
 <body>
-	<h1>Font Families</h1>
-	<p>Used with CSS. Two common font combination lists and the five generic fallback font families.</p>
+	<p id="corners1"><code>border-top-left-radius: 100px;</code></p>
+	<p id="corners2"><code>border-radius: 100px;</code></p>
+	<p id="corners3"><code>border-radius: 0 50px 100px 200px;</code></p>
+	<p id="corners4"><code>border-radius: 50px;<br>border: 20px solid #fff;</code></p>
+	<p id="corners5"><code>border-radius: 25%;</code></p>
+	<p id="corners6"><code>border-radius: 200px/100px;</code></p>
 
-	<h2>font-family: Times, "Times New Roman", serif</h2>
-	<p id="p1">
-			Behold! A serif font family list!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
 
-	<h2>font-family: Helvetica, Arial, sans-serif</h2>
-	<p id="p2">
-			Behold! A sans-serif font family list!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
-
-	<h2>font-family: serif</h2>
-	<p id="p3">
-			Behold! The serif generic font family!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
-
-	<h2>font-family: sans-serif</h2>
-	<p id="p4">
-			Behold! The sans-serif generic font family!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
-
-	<h2>font-family: monospace</h2>
-	<p id="p5">
-			Behold! The monospace generic font family!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
-
-	<h2>font-family: cursive</h2>
-	<p id="p6">
-			Behold! The cursive font family!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
-
-	<h2>font-family: fantasy</h2>
-	<p id="p7">
-			Behold! The fantasy generic font family!
-			<span class="s1">It swooshes with an italic font-style!</span>
-			<span class="s2">It leans with an oblique font-style!</span>
-			<span class="s3">It puffs out with a bold font-weight!</span>
-			<span class="s4">It sucks in with a 100 font-weight!</span>
-	</p>
 
 	<!-- Link back to HTML Dog: -->
-	<p><a href="http://www.htmldog.com/examples/"><img src="http://www.htmldog.com/badge1.gif" alt="HTML Dog"></a></p>
+	<p id="borderCollie"><a href="http://www.htmldog.com/examples/"><img src="http://www.htmldog.com/badge1.gif" alt="HTML Dog"></a></p>
 </body>
 </html>
