@@ -30,7 +30,12 @@ void polyline::line_to(const math::vec2 &pos)
 
 void polyline::arc_to(const math::vec2 &centre, float radius, float a_min, float a_max, size_t num_segments)
 {
-    if (radius == 0.0f)
+    arc_to(centre, {radius, radius}, a_min, a_max, num_segments);
+}
+
+void polyline::arc_to(const math::vec2 &centre, const math::vec2& radii, float a_min, float a_max, size_t num_segments)
+{
+    if(math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>())))
     {
         points_.push_back(centre);
         return;
@@ -42,14 +47,19 @@ void polyline::arc_to(const math::vec2 &centre, float radius, float a_min, float
     for (size_t i = 0; i <= num_segments; i++)
     {
         const float a = a_min + (float(i) / float(num_segments)) * (a_max - a_min);
-        points_.emplace_back(centre.x + math::cos(a) * radius, centre.y + math::sin(a) * radius);
+        points_.emplace_back(centre.x + math::cos(a) * radii.x, centre.y + math::sin(a) * radii.y);
     }
 
 }
 
 void polyline::arc_to_negative(const math::vec2 &centre, float radius, float a_min, float a_max, size_t num_segments)
 {
-    if (radius == 0.0f)
+    arc_to_negative(centre, {radius, radius}, a_min, a_max, num_segments);
+}
+
+void polyline::arc_to_negative(const math::vec2 &centre, const math::vec2& radii, float a_min, float a_max, size_t num_segments)
+{
+    if(math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>())))
     {
         points_.push_back(centre);
         return;
@@ -61,14 +71,19 @@ void polyline::arc_to_negative(const math::vec2 &centre, float radius, float a_m
     for (size_t i = num_segments; i > 0; i--)
     {
         const float a = a_max - (float(i-1) / float(num_segments)) * (a_max - a_min);
-        points_.emplace_back(centre.x + math::cos(a) * radius, centre.y + math::sin(a) * radius);
+        points_.emplace_back(centre.x + math::cos(a) * radii.x, centre.y + math::sin(a) * radii.y);
     }
 
 }
 
 void polyline::arc_to_fast(const math::vec2 &centre, float radius, size_t a_min_of_12, size_t a_max_of_12)
 {
-    if (radius == 0.0f || a_min_of_12 > a_max_of_12)
+    arc_to_fast(centre, {radius, radius}, a_min_of_12, a_max_of_12);
+}
+
+void polyline::arc_to_fast(const math::vec2 &centre, const math::vec2& radii, size_t a_min_of_12, size_t a_max_of_12)
+{
+    if ((math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>()))) || a_min_of_12 > a_max_of_12)
     {
         points_.emplace_back(centre);
         return;
@@ -77,9 +92,10 @@ void polyline::arc_to_fast(const math::vec2 &centre, float radius, size_t a_min_
     for (size_t a = a_min_of_12; a <= a_max_of_12; a++)
     {
         const auto& c = circle_vtx12[a % circle_vtx12.size()];
-        points_.emplace_back(centre.x + c.x * radius, centre.y + c.y * radius);
+        points_.emplace_back(centre.x + c.x * radii.x, centre.y + c.y * radii.y);
     }
 }
+
 
 static void bezier_to_casteljau(std::vector<math::vec2>& path, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float tess_tol, int level)
 {

@@ -243,46 +243,12 @@ void draw_list::add_rect(const rect& r, const math::transformf& transform, const
     add_rect(points, col, filled, border_width, setup);
 }
 
-void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float line_width,
-                         const program_setup& setup)
+void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
 {
-
-    const math::vec2 min_uv = {0.0f, 0.0f};
-    const math::vec2 max_uv = {1.0f, 1.0f};
-    const auto index_offset = std::uint32_t(vertices.size());
-
-    vertices.emplace_back();
-    auto& v1 = vertices.back();
-    v1.pos = start;
-    v1.uv = min_uv;
-    v1.col = col;
-
-    vertices.emplace_back();
-    auto& v2 = vertices.back();
-    v2.pos = end;
-    v2.uv = {max_uv.x, min_uv.y};
-    v2.col = col;
-
-    const auto type = primitive_type::lines;
-
-    auto program = setup;
-
-    if(program.program.shader == nullptr)
-    {
-        program.program = simple_program();
-        program.calc_uniforms_hash = [=]()
-        {
-            uint64_t seed{0};
-            utils::hash(seed, line_width);
-            return seed;
-        };
-        program.begin = [=](const gpu_context& ctx)
-        {
-            ctx.rend.set_line_width(line_width);
-        };
-    }
-
-    detail::add_indices(*this, 2, index_offset, type, program);
+    polyline line;
+    line.line_to(start + math::vec2(0.5f,0.5f));
+    line.line_to(end + math::vec2(0.5f,0.5f));
+    add_polyline(line, col, false, thickness);
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst,
@@ -1158,7 +1124,7 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
 #define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
 #define FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; if (d2 < 0.5f) d2 = 0.5f; float inv_lensq = 1.0f / d2; VX *= inv_lensq; VY *= inv_lensq; }
 
-void draw_list::add_polyline(const polyline& poly)
+void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, bool antialiased)
 {
     program_setup setup{};
     setup.program = simple_program();
@@ -1172,10 +1138,6 @@ void draw_list::add_polyline(const polyline& poly)
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
-    auto closed = poly.get_closed();
-    auto thickness = poly.get_thickness();
-    auto col = poly.get_color();
-    auto antialised = poly.get_antialiased();
 
     if (points_count < 2)
         return;
@@ -1185,7 +1147,7 @@ void draw_list::add_polyline(const polyline& poly)
         count = points_count-1;
 
     const bool thick_line = thickness > 1.0f;
-    if (antialised)
+    if (antialiased)
     {
         // Anti-aliased stroke
         const float AA_SIZE = 1.0f;
@@ -1373,7 +1335,7 @@ void draw_list::add_polyline(const polyline& poly)
     }
 }
 
-void draw_list::add_polyline_filled(const polyline &poly)
+void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, bool antialiased)
 {
 
     program_setup setup{};
@@ -1388,13 +1350,11 @@ void draw_list::add_polyline_filled(const polyline &poly)
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
-    auto col = poly.get_color();
-    auto antialised = poly.get_antialiased();
 
     if (points_count < 3)
             return;
 
-    if (antialised)
+    if (antialiased)
     {
         // Anti-aliased Fill
         const float AA_SIZE = 1.0f;
@@ -1480,7 +1440,103 @@ void draw_list::add_polyline_filled(const polyline &poly)
 
 }
 
-void draw_list::add_circle(const math::vec2& center, float radius, const color& col, size_t num_segments, float thickness)
+void draw_list::add_polyline_filled_scan_flood(const polyline &poly, const color& col, int gap, int stroke_width)
+{
+    std::vector<math::vec2> scanHits;
+    math::vec2 min{}, max{}; // polygon min/max points
+    const auto& points = poly.get_points();
+    unsigned int points_count = points.size();
+
+    if (points_count < 2)
+        return;
+    // find the orthagonal bounding box
+    // probably can put this as a predefined
+    min.x = min.y = DBL_MAX;
+    max.x = max.y = DBL_MIN;
+    for (const auto& p : points) {
+        if (p.x < min.x) min.x = p.x;
+        if (p.y < min.y) min.y = p.y;
+        if (p.x > max.x) max.x = p.x;
+        if (p.y > max.y) max.y = p.y;
+    }
+
+
+    // so we know we start on the outside of the object we step out by 1.
+    min.x -= 1;
+    max.x += 1;
+
+    // Initialise our starting conditions
+    auto y = min.y;
+
+    // Go through each scan line iteratively, jumping by 'gap' pixels each time
+    while (y < max.y)
+    {
+        scanHits.clear();
+        {
+            int jump = 1;
+            auto fp = points.at(0);
+
+            for (size_t i = 0; i < points_count - 1; i++)
+            {
+                auto pa = points.at(i);
+                auto pb = points.at(i+1);
+
+                // jump double/dud points
+                if (pa.x == pb.x && pa.y == pb.y)
+                    continue;
+
+                // if we encounter our hull/poly start point, then we've now created the
+                // closed
+                // hull, jump the next segment and reset the first-point
+                if ((!jump) && (fp.x == pb.x) && (fp.y == pb.y))
+                {
+                    if (i < points_count - 2) {
+                        fp   = points.at(i + 2);
+                        jump = 1;
+                        i++;
+                    }
+                } else {
+                    jump = 0;
+                }
+
+                // test to see if this segment makes the scan-cut.
+                if ((pa.y > pb.y && y < pa.y && y > pb.y) || (pa.y < pb.y && y > pa.y && y < pb.y))
+                {
+                    math::vec2 intersect{};
+
+                    intersect.y = y;
+                    if (pa.x == pb.x)
+                    {
+                        intersect.x = pa.x;
+                    }
+                    else
+                    {
+                        intersect.x = (pb.x - pa.x) / (pb.y - pa.y) * (y - pa.y) + pa.x;
+                    }
+                    scanHits.push_back(intersect);
+                }
+            }
+
+            // Sort the scan hits by X, so we have a proper left->right ordering
+            //sort(scanHits.begin(), scanHits.end(), [](auto const &a, auto const &b) { return a.x < b.x; });
+
+            // generate the line segments.
+            if(scanHits.size() >= 2)
+            {
+                size_t l = scanHits.size() - 1; // we need pairs of points, this prevents segfault.
+                for (size_t i = 0; i < l; i += 2)
+                {
+                    add_line(scanHits[i], scanHits[i + 1], col, stroke_width);
+                }
+            }
+        }
+        y += gap;
+    } // for each scan line
+    scanHits.clear();
+
+}
+
+void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
 {
     if (col.a == 0 || num_segments <= 2)
         return;
@@ -1488,22 +1544,17 @@ void draw_list::add_circle(const math::vec2& center, float radius, const color& 
     // Because we are filling a closed shape we remove 1 from the count of segments/points
     const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
     polyline line;
-    line.arc_to(center, radius-0.5f, 0.0f, a_max, num_segments - 1);
-    line.set_closed(true);
-    line.set_thickness(thickness);
-    line.set_color(col);
-    add_polyline(line);
+    line.arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+    add_polyline(line, col, true, thickness);
 
 }
 
-void draw_list::add_circle_filled(const math::vec2& center, float radius, const color& col, size_t num_segments)
+void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments)
 {
     const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
     polyline line;
-    line.arc_to(center, radius-0.5f, 0.0f, a_max, num_segments - 1);
-    line.set_closed(true);
-    line.set_color(col);
-    add_polyline_filled(line);
+    line.arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+    add_polyline_filled_convex(line, col, true);
 }
 
 void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness, int num_segments)
@@ -1514,9 +1565,7 @@ void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, 
     polyline line;
     line.line_to(pos0);
     line.bezier_curve_to(cp0, cp1, pos1, num_segments);
-    line.set_closed(false);
-    line.set_thickness(thickness);
-    add_polyline(line);
+    add_polyline(line, col, false, thickness);
 }
 
 void draw_list::push_clip(const rect& clip)

@@ -36,8 +36,14 @@ public:
     void arc_to(const math::vec2& centre, float radius, float a_min, float a_max, size_t num_segments = 10);
     void arc_to_negative(const math::vec2& centre, float radius, float a_min, float a_max, size_t num_segments = 10);
 
-    void arc_to_fast(const math::vec2& centre, float radius, size_t a_min_of_12,
+    void arc_to(const math::vec2& centre, const math::vec2& radii, float a_min, float a_max, size_t num_segments = 10);
+    void arc_to_negative(const math::vec2& centre, const math::vec2& radii, float a_min, float a_max, size_t num_segments = 10);
+
+    void arc_to_fast(const math::vec2& centre, float raius, size_t a_min_of_12,
                        size_t a_max_of_12); // Use precomputed angles for a 12 steps circle
+    void arc_to_fast(const math::vec2& centre, const math::vec2& radii, size_t a_min_of_12,
+                       size_t a_max_of_12); // Use precomputed angles for a 12 steps circle
+
     void bezier_curve_to(const math::vec2& p1, const math::vec2& p2, const math::vec2& p3,
                            int num_segments = 0);
     void rectangle(const math::vec2& rect_min, const math::vec2& rect_max, float rounding = 0.0f,
@@ -46,24 +52,8 @@ public:
     void rectangle(const rect& r, float rounding = 0.0f,
                   uint32_t rounding_corners_flags = corner_flags::all);
 
-    void set_color(const color& col) noexcept{ color_ = col; }
-    const color& get_color() const noexcept { return color_; }
-
-    void set_thickness(float thickness) noexcept{ thickness_ = thickness; }
-    float get_thickness() const noexcept { return thickness_; }
-
-    void set_closed(bool closed) noexcept { closed_ = closed; }
-    bool get_closed() const { return closed_; }
-
-    void set_antialiased(bool antialiased) noexcept { antialiased_ = antialiased; }
-    bool get_antialiased() const noexcept { return antialiased_; }
-
     const std::vector<math::vec2>& get_points() const { return points_; }
 private:
     std::vector<math::vec2> points_;
-    color color_;
-    float thickness_{1.0f};
-    bool closed_{};
-    bool antialiased_{true};
 };
 }

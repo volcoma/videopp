@@ -39,7 +39,7 @@ struct draw_list
                   const program_setup& setup = {});
 
     void add_line(const math::vec2& start, const math::vec2& end, const color& col = color::white(),
-                  float line_width = 1.0f, const program_setup& setup = {});
+                  float thickness = 1.0f);
 
     void add_image(const texture_view& texture, const rect& src, const rect& dst,
                    const math::transformf& transform, const color& col = color::white(),
@@ -110,11 +110,12 @@ struct draw_list
     void add_vertices(const vertex_2d* verts, size_t count, primitive_type type, float line_width = 1.0f,
                       const texture_view& texture = {}, const program_setup& setup = {});
 
-    void add_polyline(const polyline& poly);
-    void add_polyline_filled(const polyline& poly);
+    void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, bool antialiased = true);
+    void add_polyline_filled_convex(const polyline& poly, const color& colf, bool antialiased = true);
+    void add_polyline_filled_scan_flood(const polyline& poly, const color& col, int gap = 1, int stroke_width = 1);
 
-    void add_circle(const math::vec2& center, float radius, const color& col, size_t num_segments = 12, float thickness = 1.0f);
-    void add_circle_filled(const math::vec2& center, float radius, const color& col, size_t num_segments = 12);
+    void add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12, float thickness = 1.0f);
+    void add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12);
     void add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness = 1.0f, int num_segments = 0);
 
     void push_clip(const rect& clip);
