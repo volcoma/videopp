@@ -1124,7 +1124,7 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
 #define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
 #define FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; if (d2 < 0.5f) d2 = 0.5f; float inv_lensq = 1.0f / d2; VX *= inv_lensq; VY *= inv_lensq; }
 
-void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, bool antialiased)
+void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
     program_setup setup{};
     setup.program = simple_program();
@@ -1147,10 +1147,10 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
         count = points_count-1;
 
     const bool thick_line = thickness > 1.0f;
-    if (antialiased)
+    if (antialias_size > 0.0f)
     {
         // Anti-aliased stroke
-        const float AA_SIZE = 1.0f;
+        const float AA_SIZE = antialias_size;
         color col_trans = col;
         col_trans.a = 0;
 
@@ -1335,7 +1335,7 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
     }
 }
 
-void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, bool antialiased)
+void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, float antialias_size)
 {
 
     program_setup setup{};
@@ -1354,10 +1354,10 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
     if (points_count < 3)
             return;
 
-    if (antialiased)
+    if (antialias_size > 0.0f)
     {
         // Anti-aliased Fill
-        const float AA_SIZE = 1.0f;
+        const float AA_SIZE = antialias_size;
         color col_trans = col;
         col_trans.a = 0;
         const size_t idx_count = (points_count-2)*3 + points_count*6;

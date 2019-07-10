@@ -110,8 +110,8 @@ struct draw_list
     void add_vertices(const vertex_2d* verts, size_t count, primitive_type type, float line_width = 1.0f,
                       const texture_view& texture = {}, const program_setup& setup = {});
 
-    void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, bool antialiased = true);
-    void add_polyline_filled_convex(const polyline& poly, const color& colf, bool antialiased = true);
+    void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
+    void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);
     void add_polyline_filled_scan_flood(const polyline& poly, const color& col, int gap = 1, int stroke_width = 1);
 
     void add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12, float thickness = 1.0f);
