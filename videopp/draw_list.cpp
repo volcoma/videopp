@@ -1121,10 +1121,18 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
 }
 
+
 #define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
 #define FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; /*if (d2 < 0.5f) d2 = 0.5f;*/ float inv_lensq = 1.0f / d2; VX *= inv_lensq; VY *= inv_lensq; }
 
+
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
+{
+    add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
+}
+
+
+void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
     program_setup setup{};
     setup.program = simple_program();
@@ -1151,13 +1159,10 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
     {
         // Anti-aliased stroke
         const float AA_SIZE = antialias_size;
-        color col_trans_top = col;
-        col_trans_top.a = 0;
-        color col_trans_bottom = col;
-        col_trans_bottom.a = 0;
-//        col_trans_bottom.r *= 0.75;
-//        col_trans_bottom.g *= 0.75;
-//        col_trans_bottom.b *= 0.75;
+        color coltop_trans = coltop;
+        coltop_trans.a = 0;
+        color colbot_trans = colbot;
+        colbot_trans.a = 0;
         const size_t idx_count = thick_line ? count*18 : count*12;
         const size_t vtx_count = thick_line ? points_count*4 : points_count*3;
 
@@ -1230,9 +1235,9 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
             // Add vertexes
             for (size_t i = 0; i < points_count; i++)
             {
-                vtx_write_ptr[0].pos = points[i];          vtx_write_ptr[0].col = col;
-                vtx_write_ptr[1].pos = temp_points[i*2+0]; vtx_write_ptr[1].col = col_trans_top;
-                vtx_write_ptr[2].pos = temp_points[i*2+1]; vtx_write_ptr[2].col = col_trans_bottom;
+                vtx_write_ptr[0].pos = points[i];          vtx_write_ptr[0].col = coltop;
+                vtx_write_ptr[1].pos = temp_points[i*2+0]; vtx_write_ptr[1].col = coltop_trans;
+                vtx_write_ptr[2].pos = temp_points[i*2+1]; vtx_write_ptr[2].col = colbot_trans;
                 vtx_write_ptr += 3;
             }
         }
@@ -1293,10 +1298,12 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
             // Add vertexes
             for (size_t i = 0; i < points_count; i++)
             {
-                vtx_write_ptr[0].pos = temp_points[i*4+0]; vtx_write_ptr[0].col = col_trans_top;
-                vtx_write_ptr[1].pos = temp_points[i*4+1]; vtx_write_ptr[1].col = col;
-                vtx_write_ptr[2].pos = temp_points[i*4+2]; vtx_write_ptr[2].col = col;
-                vtx_write_ptr[3].pos = temp_points[i*4+3]; vtx_write_ptr[3].col = col_trans_bottom;
+
+                vtx_write_ptr[0].pos = temp_points[i*4+0]; vtx_write_ptr[0].col = coltop_trans;
+                vtx_write_ptr[1].pos = temp_points[i*4+1]; vtx_write_ptr[1].col = coltop;
+                vtx_write_ptr[2].pos = temp_points[i*4+2]; vtx_write_ptr[2].col = colbot;
+                vtx_write_ptr[3].pos = temp_points[i*4+3]; vtx_write_ptr[3].col = colbot_trans;
+
                 vtx_write_ptr += 4;
             }
         }
@@ -1325,10 +1332,10 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
             dx *= (thickness * 0.5f);
             dy *= (thickness * 0.5f);
 
-            vtx_write_ptr[0].pos.x = p1.x + dy; vtx_write_ptr[0].pos.y = p1.y - dx; vtx_write_ptr[0].col = col;
-            vtx_write_ptr[1].pos.x = p2.x + dy; vtx_write_ptr[1].pos.y = p2.y - dx; vtx_write_ptr[1].col = col;
-            vtx_write_ptr[2].pos.x = p2.x - dy; vtx_write_ptr[2].pos.y = p2.y + dx; vtx_write_ptr[2].col = col;
-            vtx_write_ptr[3].pos.x = p1.x - dy; vtx_write_ptr[3].pos.y = p1.y + dx; vtx_write_ptr[3].col = col;
+            vtx_write_ptr[0].pos.x = p1.x + dy; vtx_write_ptr[0].pos.y = p1.y - dx; vtx_write_ptr[0].col = coltop;
+            vtx_write_ptr[1].pos.x = p2.x + dy; vtx_write_ptr[1].pos.y = p2.y - dx; vtx_write_ptr[1].col = coltop;
+            vtx_write_ptr[2].pos.x = p2.x - dy; vtx_write_ptr[2].pos.y = p2.y + dx; vtx_write_ptr[2].col = colbot;
+            vtx_write_ptr[3].pos.x = p1.x - dy; vtx_write_ptr[3].pos.y = p1.y + dx; vtx_write_ptr[3].col = colbot;
             vtx_write_ptr += 4;
 
             idx_write_ptr[0] = index_t(vtx_current_idx); idx_write_ptr[1] = index_t(vtx_current_idx+1); idx_write_ptr[2] = index_t(vtx_current_idx+2);
@@ -1364,6 +1371,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
         const float AA_SIZE = antialias_size;
         color col_trans = col;
         col_trans.a = 0;
+
         const size_t idx_count = (points_count-2)*3 + points_count*6;
         const size_t vtx_count = (points_count*2);
 

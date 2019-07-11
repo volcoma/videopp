@@ -32,4 +32,14 @@ namespace video_ctrl
         return *this;
     }
 
+    color &color::operator*=(float scalar) noexcept
+    {
+        r = static_cast<uint8_t> (((r / 255.0) * scalar) * 255.0);
+        g = static_cast<uint8_t> (((g / 255.0) * scalar) * 255.0);
+        b = static_cast<uint8_t> (((b / 255.0) * scalar) * 255.0);
+        a = static_cast<uint8_t> (((a / 255.0) * scalar) * 255.0);
+
+        return *this;
+    }
+
 }

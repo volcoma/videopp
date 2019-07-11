@@ -40,6 +40,7 @@ namespace video_ctrl
         static const color white();
 
         color& operator *= (const color& rhs) noexcept;
+        color& operator *= (float scalar) noexcept;
     };
     
     /// Blending modes                                                                  

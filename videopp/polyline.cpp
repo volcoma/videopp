@@ -37,8 +37,13 @@ void polyline::arc_to(const math::vec2 &centre, const math::vec2& radii, float a
 {
     if(math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>())))
     {
-        points_.push_back(centre);
+        line_to(centre);
         return;
+    }
+
+    while(a_max < a_min)
+    {
+        a_max += 2.0f * math::pi<float>();
     }
 
     // Note that we are adding a point at both a_min and a_max.
@@ -61,8 +66,13 @@ void polyline::arc_to_negative(const math::vec2 &centre, const math::vec2& radii
 {
     if(math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>())))
     {
-        points_.push_back(centre);
+        line_to(centre);
         return;
+    }
+
+    while(a_max > a_min)
+    {
+        a_max -= 2.0f * math::pi<float>();
     }
 
     // Note that we are adding a point at both a_min and a_max.
@@ -85,7 +95,7 @@ void polyline::arc_to_fast(const math::vec2 &centre, const math::vec2& radii, si
 {
     if ((math::any(math::epsilonEqual(radii, {0.0f, 0.0f}, math::epsilon<float>()))) || a_min_of_12 > a_max_of_12)
     {
-        points_.emplace_back(centre);
+        line_to(centre);
         return;
     }
     points_.reserve(points_.size() + (a_max_of_12 - a_min_of_12 + 1));

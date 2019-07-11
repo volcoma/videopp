@@ -111,6 +111,7 @@ struct draw_list
                       const texture_view& texture = {}, const program_setup& setup = {});
 
     void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
+    void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);
     void add_polyline_filled_scan_flood(const polyline& poly, const color& col, int gap = 1, int stroke_width = 1);
 
