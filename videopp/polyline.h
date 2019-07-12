@@ -33,6 +33,8 @@ class polyline
 public:
     void clear();
     void line_to(const math::vec2& pos);
+    void arc_between(const math::vec2& p1, const math::vec2& p, const math::vec2& p2, float radius);
+
     void arc_to(const math::vec2& centre, float radius, float a_min, float a_max, size_t num_segments = 10);
     void arc_to_negative(const math::vec2& centre, float radius, float a_min, float a_max, size_t num_segments = 10);
 

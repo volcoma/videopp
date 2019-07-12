@@ -15,6 +15,18 @@ std::array<math::vec2, 12> circle_vtx12 = []()
     }
     return vtx12;
 }();
+
+
+static inline float sqr (float a)
+{
+    return a * a;
+}
+
+static inline float positive_angle (float angle)
+{
+    return angle < 0 ? angle + 2 * math::pi<float>() : angle;
+}
+
 }
 
 void polyline::clear()
@@ -26,6 +38,78 @@ void polyline::line_to(const math::vec2 &pos)
 {
     if(points_.empty() || points_.back() != pos)
         points_.push_back(pos);
+}
+
+void polyline::arc_between(const math::vec2& p1, const math::vec2& p, const math::vec2& p2, float radius)
+{
+    if(math::epsilonEqual(radius, 0.0f, math::epsilon<float>()))
+    {
+        line_to(p);
+        return;
+    }
+
+    // 2
+    float angle = positive_angle (math::atan2<float, math::highp> (p.y - p1.y, p.x - p1.x) - math::atan2<float, math::highp>(p.y - p2.y, p.x - p2.x));
+
+
+    if(math::epsilonEqual(angle, 0.0f, math::epsilon<float>()))
+    {
+        line_to(p);
+        return;
+    }
+
+    // 3
+    float segment = radius / math::abs (math::tan (angle / 2.0f));
+    float p_c1 = segment;
+    float p_c2 = segment;
+
+    // 4
+    float p_p1 = math::sqrt(sqr (p.x - p1.x) + sqr (p.y - p1.y));
+    float p_p2 = math::sqrt(sqr (p.x - p2.x) + sqr (p.y - p2.y));
+    float min = math::min(p_p1, p_p2);
+    if (segment > min)
+    {
+        segment = min;
+        radius = segment * math::abs (math::tan (angle / 2.0f));
+    }
+
+    // 5
+    float p_o = math::sqrt (sqr (radius) + sqr (segment));
+
+    // 6
+    math::vec2 c1;
+    c1.x =  (p.x - (p.x - p1.x) * p_c1 / p_p1);
+    c1.y =  (p.y - (p.y - p1.y) * p_c1 / p_p1);
+
+    //  7
+    math::vec2 c2;
+    c2.x = (p.x - (p.x - p2.x) * p_c2 / p_p2);
+    c2.y = (p.y - (p.y - p2.y) * p_c2 / p_p2);
+
+    // 8
+    float dx = p.x * 2 - c1.x - c2.x;
+    float dy = p.y * 2 - c1.y - c2.y;
+
+    float p_c = math::sqrt (sqr (dx) + sqr (dy));
+
+    math::vec2 o;
+    o.x = p.x - dx * p_o / p_c;
+    o.y = p.y - dy * p_o / p_c;
+
+    // 9
+    float start_angle = positive_angle (math::atan2<float, math::highp> ((c1.y - o.y), (c1.x - o.x)));
+    float end_angle = positive_angle (math::atan2<float, math::highp> ((c2.y - o.y), (c2.x - o.x)));
+
+
+
+    if(angle <= math::pi<float>())
+    {
+        arc_to(o, radius, start_angle, end_angle);
+    }
+    else
+    {
+        arc_to_negative(o, radius, start_angle, end_angle);
+    }
 }
 
 void polyline::arc_to(const math::vec2 &centre, float radius, float a_min, float a_max, size_t num_segments)
@@ -78,7 +162,7 @@ void polyline::arc_to_negative(const math::vec2 &centre, const math::vec2& radii
     // Note that we are adding a point at both a_min and a_max.
     // If you are trying to draw a full closed circle you don't want the overlapping points!
     points_.reserve(points_.size() + (num_segments + 1));
-    for (size_t i = num_segments; i > 0; i--)
+    for (size_t i = num_segments + 1; i > 0; i--)
     {
         const float a = a_max - (float(i-1) / float(num_segments)) * (a_max - a_min);
         points_.emplace_back(centre.x + math::cos(a) * radii.x, centre.y + math::sin(a) * radii.y);

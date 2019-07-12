@@ -33,6 +33,38 @@ line breaks
 </html>
 )";
 
+
+video_ctrl::polyline path_with_rounded_corners (const std::vector<math::vec2>& points, float corner_radius)
+{
+    video_ctrl::polyline path;
+    size_t count = points.size();
+
+    if(count < 3)
+    {
+        for (const auto& p : points)
+        {
+            path.line_to(p);
+        }
+        return path;
+    }
+
+    path.line_to(points.front());
+
+    for (size_t i = 1; i < count - 1; ++i)
+    {
+        math::vec2 prev = points[i - 1];
+        math::vec2 edge = points[i + 0];
+        math::vec2 next = points[i + 1];
+        path.arc_between(prev, edge, next, corner_radius);
+    }
+    path.line_to(points.back());
+
+    return path;
+}
+
+
+
+
 int main()
 {
 	os::init();
@@ -147,71 +179,30 @@ int main()
                 {600, 510},
                 {850, 60},
                 {1100, 250},
-                {1300, 250}
+                {1300, 250},
+
+
+//                {10, 200},
+//                {140, 250},
+//                {350, 60},
+//                {150, 100},
+//                {850, 60},
+//                {500, 250},
+//                {600, 100},
             };
 
+            //std::reverse(std::begin(points), std::end(points));
+
             float thickness = 20;
-#define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
-
-            std::vector<math::vec2> centers;
-            video_ctrl::polyline line;
-            for(size_t i = 0; i < points.size() - 2; i++)
-            {
-
-                const auto& p0 = points[i + 0];
-                if(i == 0)
-                    line.line_to(p0);
-
-                const auto& p1 = points[i + 1];
-                const auto& p2 = points[i + 2];
-
-                auto angle1 = atan2f(p0.y - p1.y, p0.x-p1.x) - math::radians(90.0f);
-                auto angle2 = atan2f(p1.y - p2.y, p1.x-p2.x) - math::radians(90.0f);
-                if(angle1 < 0)
-                {
-                    angle1 += math::radians(360.0f);
-                }
-                if(angle2 < 0)
-                {
-                    angle2 += math::radians(360.0f);
-                }
-                auto deg1 = math::degrees(angle1);
-                auto deg2 = math::degrees(angle2);
-
-                float dx = p1.x - p0.x;
-                float dy = p1.y - p0.y;
-                NORMALIZE2F_OVER_ZERO(dx, dy);
-                math::vec2 norm{dy, -dx};
-
-                float arc_radius = thickness * 0.5f;
-                centers.push_back(p1 + norm * arc_radius);
-                if(p2.y < p1.y || deg2 < deg1)
-                {
-                    line.arc_to_negative(p1 + norm * arc_radius, arc_radius, angle1, angle2);
-                }
-                else
-                {
-                    angle1 += math::radians(180.0f);
-                    angle2 += math::radians(180.0f);
-                    line.arc_to(p1 + norm * arc_radius, arc_radius, angle1, angle2);
-
-                }
-
-                if(i == points.size() - 3)
-                    line.line_to(p2);
-
-            }
 
             video_ctrl::draw_list list;
             auto c1 = video_ctrl::color::white();
             auto c2 = video_ctrl::color::black();
 
-            list.add_polyline_gradient(line, c1, c2, false, thickness, 1.0f);
 
-            for(const auto& p : centers)
-            {
-                list.add_rect({int(p.x), int(p.y), 2, 2}, video_ctrl::color::red());
-            }
+            auto path = path_with_rounded_corners(points, thickness * 0.5f);
+            list.add_polyline_gradient(path, c1, c2, false, thickness, 1.0f);
+
             rend.draw_cmd_list(list);
 			rend.present();
 
