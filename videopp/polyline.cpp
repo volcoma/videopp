@@ -17,12 +17,12 @@ std::array<math::vec2, 12> circle_vtx12 = []()
 }();
 
 
-static inline float sqr (float a)
+inline float sqr (float a)
 {
     return a * a;
 }
 
-static inline float positive_angle (float angle)
+inline float positive_angle (float angle)
 {
     return angle < 0 ? angle + 2 * math::pi<float>() : angle;
 }
@@ -274,6 +274,31 @@ void polyline::rectangle(const math::vec2& a, const math::vec2& b, float roundin
 void polyline::rectangle(const rect& r, float rounding, uint32_t rounding_corners_flags)
 {
     rectangle(math::vec2{r.x, r.y}, math::vec2{r.x + r.w, r.y + r.h}, rounding, rounding_corners_flags);
+}
+
+void polyline::path(const std::vector<glm::vec2>& points, float corner_radius)
+{
+    size_t count = points.size();
+
+    if(count < 3)
+    {
+        for (const auto& p : points)
+        {
+            line_to(p);
+        }
+        return;
+    }
+
+    line_to(points.front());
+
+    for (size_t i = 1; i < count - 1; ++i)
+    {
+        math::vec2 prev = points[i - 1];
+        math::vec2 edge = points[i + 0];
+        math::vec2 next = points[i + 1];
+        arc_between(prev, edge, next, corner_radius);
+    }
+    line_to(points.back());
 }
 
 }

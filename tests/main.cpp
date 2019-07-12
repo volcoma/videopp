@@ -135,6 +135,9 @@ int main()
 		video_ctrl::html_page page(html_ctx);
 		page.load_from_utf8(html, DATA);
 		bool running = true;
+
+        float aa = 1.0f;
+        float thickness = 12.0f;
 		while(running)
 		{
 			os::event e{};
@@ -161,6 +164,26 @@ int main()
 					{
 						page.load_from_file(DATA "html/simple_page/index.html");
 					}
+
+                    if(e.key.code == os::key::digit1)
+					{
+						aa += 0.5f;
+					}
+
+                    if(e.key.code == os::key::digit2)
+					{
+						aa -= 0.5f;
+					}
+
+                    if(e.key.code == os::key::digit3)
+					{
+						thickness += 0.5f;
+					}
+
+                    if(e.key.code == os::key::digit4)
+					{
+						thickness -= 0.5f;
+					}
 				}
 			}
 
@@ -173,35 +196,38 @@ int main()
 
             std::vector<math::vec2> points
             {
-                {10, 250},
-                {140, 250},
-                {350, 60},
-                {600, 510},
-                {850, 60},
-                {1100, 250},
-                {1300, 250},
-
-
-//                {10, 200},
-//                {140, 250},
-//                {350, 60},
-//                {150, 100},
-//                {850, 60},
-//                {500, 250},
-//                {600, 100},
+                {12, 212},
+                {132, 212},
+                {360, 10},
+                {615, 450},
+                {870, 10},
+                {1100, 212},
+                {1220, 212},
             };
 
-            //std::reverse(std::begin(points), std::end(points));
-
-            float thickness = 20;
 
             video_ctrl::draw_list list;
             auto c1 = video_ctrl::color::white();
-            auto c2 = video_ctrl::color::black();
+            c1 *= 0.7f;
+            c1.a = 255;
+            auto c2 = c1;
+            c2 *= 0.35f;
+            c2.a = 255;
 
 
-            auto path = path_with_rounded_corners(points, thickness * 0.5f);
-            list.add_polyline_gradient(path, c1, c2, false, thickness, 1.0f);
+
+            video_ctrl::polyline line_begin_rounding;
+            line_begin_rounding.arc_to(points.front(), 0.01f, math::radians(0.0f), math::radians(360.0f));
+
+            video_ctrl::polyline line;
+            line.path(points, thickness * 0.5f);
+
+            video_ctrl::polyline line_end_rounding;
+            line_end_rounding.arc_to(points.back(), 0.01f, math::radians(0.0f), math::radians(360.0f));
+
+            list.add_polyline_gradient(line_begin_rounding, c1, c2, false, thickness, aa);
+            list.add_polyline_gradient(line_end_rounding, c1, c2, false, thickness, aa);
+            list.add_polyline_gradient(line, c1, c2, false, thickness, aa);
 
             rend.draw_cmd_list(list);
 			rend.present();

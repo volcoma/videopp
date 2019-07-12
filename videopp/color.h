@@ -42,7 +42,9 @@ namespace video_ctrl
         color& operator *= (const color& rhs) noexcept;
         color& operator *= (float scalar) noexcept;
     };
-    
+
+    color operator * (const color& rhs, float scalar) noexcept;
+
     /// Blending modes                                                                  
     enum blending_mode
     {

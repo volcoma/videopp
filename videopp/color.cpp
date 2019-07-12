@@ -42,4 +42,11 @@ namespace video_ctrl
         return *this;
     }
 
+    color operator *(const color& rhs, float scalar) noexcept
+    {
+        color c = rhs;
+        c *= scalar;
+        return c;
+    }
+
 }

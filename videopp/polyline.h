@@ -32,6 +32,7 @@ class polyline
 {
 public:
     void clear();
+
     void line_to(const math::vec2& pos);
     void arc_between(const math::vec2& p1, const math::vec2& p, const math::vec2& p2, float radius);
 
@@ -53,6 +54,8 @@ public:
 
     void rectangle(const rect& r, float rounding = 0.0f,
                   uint32_t rounding_corners_flags = corner_flags::all);
+
+    void path(const std::vector<math::vec2>& points, float corner_radius);
 
     const std::vector<math::vec2>& get_points() const { return points_; }
 private:

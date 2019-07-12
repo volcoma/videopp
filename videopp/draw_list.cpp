@@ -1122,8 +1122,25 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
 }
 
 
-#define NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = 1.0f / math::sqrt(d2); VX *= inv_len; VY *= inv_len; } }
-#define FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; /*if (d2 < 0.5f) d2 = 0.5f;*/ float inv_lensq = 1.0f / d2; VX *= inv_lensq; VY *= inv_lensq; }
+void normalize2f_over_zero(float& VX, float& VY)
+{
+    float d2 = VX*VX + VY*VY;
+    if (d2 > 0.0f)
+    {
+        float inv_len = 1.0f / math::sqrt(d2);
+        VX *= inv_len;
+        VY *= inv_len;
+    }
+}
+void fixnormal2f(float& VX, float& VY)
+{
+    float d2 = VX*VX + VY*VY;
+    /*if (d2 < 0.5f)
+     * d2 = 0.5f;*/
+    float inv_lensq = 1.0f / d2;
+    VX *= inv_lensq;
+    VY *= inv_lensq;
+}
 
 
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
@@ -1183,7 +1200,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
             const size_t i2 = (i1+1) == points_count ? 0 : i1+1;
             float dx = points[i2].x - points[i1].x;
             float dy = points[i2].y - points[i1].y;
-            NORMALIZE2F_OVER_ZERO(dx, dy);
+            normalize2f_over_zero(dx, dy);
             temp_normals[i1].x = dy;
             temp_normals[i1].y = -dx;
 
@@ -1211,7 +1228,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
                 // Average normals
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
                 float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
-                FIXNORMAL2F(dm_x, dm_y)
+                fixnormal2f(dm_x, dm_y);
                 dm_x *= AA_SIZE;
                 dm_y *= AA_SIZE;
 
@@ -1266,7 +1283,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
                 // Average normals
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
                 float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
-                FIXNORMAL2F(dm_x, dm_y);
+                fixnormal2f(dm_x, dm_y);
                 float dm_out_x = dm_x * (half_inner_thickness + AA_SIZE);
                 float dm_out_y = dm_y * (half_inner_thickness + AA_SIZE);
                 float dm_in_x = dm_x * half_inner_thickness;
@@ -1298,7 +1315,6 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
             // Add vertexes
             for (size_t i = 0; i < points_count; i++)
             {
-
                 vtx_write_ptr[0].pos = temp_points[i*4+0]; vtx_write_ptr[0].col = coltop_trans;
                 vtx_write_ptr[1].pos = temp_points[i*4+1]; vtx_write_ptr[1].col = coltop;
                 vtx_write_ptr[2].pos = temp_points[i*4+2]; vtx_write_ptr[2].col = colbot;
@@ -1328,7 +1344,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
 
             float dx = p2.x - p1.x;
             float dy = p2.y - p1.y;
-            NORMALIZE2F_OVER_ZERO(dx, dy);
+            normalize2f_over_zero(dx, dy);
             dx *= (thickness * 0.5f);
             dy *= (thickness * 0.5f);
 
@@ -1400,7 +1416,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
             const auto& p1 = points[i1];
             float dx = p1.x - p0.x;
             float dy = p1.y - p0.y;
-            NORMALIZE2F_OVER_ZERO(dx, dy);
+            normalize2f_over_zero(dx, dy);
             temp_normals[i0].x = dy;
             temp_normals[i0].y = -dx;
         }
@@ -1412,7 +1428,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
             const auto& n1 = temp_normals[i1];
             float dm_x = (n0.x + n1.x) * 0.5f;
             float dm_y = (n0.y + n1.y) * 0.5f;
-            FIXNORMAL2F(dm_x, dm_y);
+            fixnormal2f(dm_x, dm_y);
             dm_x *= AA_SIZE * 0.5f;
             dm_y *= AA_SIZE * 0.5f;
 
@@ -1550,14 +1566,20 @@ void draw_list::add_polyline_filled_scan_flood(const polyline &poly, const color
 
 void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
 {
-    if (col.a == 0 || num_segments <= 2)
+    add_ellipse_gradient(center, radii, col, col, num_segments, thickness);
+
+}
+
+void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments, float thickness)
+{
+    if (col1.a == 0 || num_segments <= 2)
         return;
 
     // Because we are filling a closed shape we remove 1 from the count of segments/points
     const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
     polyline line;
     line.arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
-    add_polyline(line, col, true, thickness);
+    add_polyline_gradient(line, col1, col2, true, thickness);
 
 }
 
