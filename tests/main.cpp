@@ -192,44 +192,36 @@ int main()
 
 			rend.clear(video_ctrl::color::white());
 
-			//page.draw(0, 0, rend.get_rect().w);
+			page.draw(0, 0, rend.get_rect().w);
 
-            std::vector<math::vec2> points
-            {
-                {12, 212},
-                {132, 212},
-                {360, 10},
-                {615, 450},
-                {870, 10},
-                {1100, 212},
-                {1220, 212},
-            };
-
-
-            video_ctrl::draw_list list;
-            auto c1 = video_ctrl::color::white();
-            c1 *= 0.7f;
-            c1.a = 255;
-            auto c2 = c1;
-            c2 *= 0.35f;
-            c2.a = 255;
+//            std::vector<math::vec2> points
+//            {
+//                {12, 212},
+//                {132, 212},
+//                {360, 10},
+//                {615, 450},
+//                {870, 10},
+//                {1100, 212},
+//                {1220, 212},
+//            };
 
 
+//            video_ctrl::draw_list list;
+//            auto c1 = video_ctrl::color::white();
+//            c1 *= 0.7f;
+//            c1.a = 255;
+//            auto c2 = c1;
+//            c2 *= 0.35f;
+//            c2.a = 255;
 
-            video_ctrl::polyline line_begin_rounding;
-            line_begin_rounding.arc_to(points.front(), 0.01f, math::radians(0.0f), math::radians(360.0f));
+//            video_ctrl::polyline line;
+//            line.path(points, thickness * 0.5f);
 
-            video_ctrl::polyline line;
-            line.path(points, thickness * 0.5f);
+//            list.add_polyline_gradient(line, c1, c2, false, thickness, aa);
 
-            video_ctrl::polyline line_end_rounding;
-            line_end_rounding.arc_to(points.back(), 0.01f, math::radians(0.0f), math::radians(360.0f));
+//            list.add_rect({0, 0, 200, 200}, video_ctrl::color::red(), false);
 
-            list.add_polyline_gradient(line_begin_rounding, c1, c2, false, thickness, aa);
-            list.add_polyline_gradient(line_end_rounding, c1, c2, false, thickness, aa);
-            list.add_polyline_gradient(line, c1, c2, false, thickness, aa);
-
-            rend.draw_cmd_list(list);
+//            rend.draw_cmd_list(list);
 			rend.present();
 
 			auto end = std::chrono::high_resolution_clock::now();

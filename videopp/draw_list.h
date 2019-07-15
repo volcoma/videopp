@@ -27,16 +27,13 @@ struct draw_list
     draw_list();
 
     void add_rect(const rect& r, const color& col = color::white(), bool filled = true,
-                  float border_width = 0.0f, const program_setup& setup = {});
+                  float thickness = 1.0f);
 
     void add_rect(const rect& r, const math::transformf& transform, const color& col = color::white(),
-                  bool filled = true, float border_width = 0.0f, const program_setup& setup = {});
+                  bool filled = true, float thickness = 1.0f);
 
     void add_rect(const std::array<math::vec2, 4>& points, const color& col = color::white(),
-                  bool filled = true, float line_width = 0.0f, const program_setup& setup = {});
-
-    void add_rect(const std::vector<vertex_2d>& verts, bool filled = true, float line_width = 0.0f,
-                  const program_setup& setup = {});
+                  bool filled = true, float thickness = 1.0f);
 
     void add_line(const math::vec2& start, const math::vec2& end, const color& col = color::white(),
                   float thickness = 1.0f);
@@ -114,7 +111,6 @@ struct draw_list
     void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);
-    void add_polyline_filled_scan_flood(const polyline& poly, const color& col, int gap = 1, int stroke_width = 1);
 
     void add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12, float thickness = 1.0f);
     void add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments = 12, float thickness = 1.0f);

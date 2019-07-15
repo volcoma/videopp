@@ -41,9 +41,9 @@ std::array<math::vec2, 4> transform_rect(const rect& r, const math::transformf& 
 }
 
 
-bool can_be_batched(const draw_cmd& cmd, uint64_t hash, primitive_type type)
+bool can_be_batched(const draw_cmd& cmd, uint64_t hash)
 {
-    return cmd.hash == hash && type != primitive_type::lines_loop;
+    return cmd.hash == hash;
 }
 
 void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t index_offset,
@@ -113,7 +113,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
         auto hash = setup.calc_uniforms_hash();
         utils::hash(hash, clip, type, setup.program.shader.get());
 
-        if(list.commands.empty() || !can_be_batched(list.commands.back(), hash, type))
+        if(list.commands.empty() || !can_be_batched(list.commands.back(), hash))
         {
             add_new_command(hash);
         }
@@ -181,66 +181,46 @@ uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<m
     return 4;
 }
 
-void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& col, bool filled,
-                         float border_width, const program_setup& setup)
-{
-    const math::vec2 min_uv = {0.0f, 0.0f};
-    const math::vec2 max_uv = {1.0f, 1.0f};
-    const auto index_offset = std::uint32_t(vertices.size());
-
-    const auto type = filled ? primitive_type::triangles : primitive_type::lines_loop;
-
-    const auto vertices_added = add_rect_primitive(vertices, points, col, min_uv, max_uv);
-
-    auto program = setup;
-
-    if(program.program.shader == nullptr)
-    {
-        program.program = simple_program();
-        program.calc_uniforms_hash = [=]()
-        {
-            uint64_t seed{0};
-            utils::hash(seed, border_width);
-            return seed;
-        };
-        program.begin = [=](const gpu_context& ctx)
-        {
-            ctx.rend.set_line_width(border_width);
-        };
-    }
-
-    detail::add_indices(*this, vertices_added, index_offset, type, program);
-}
-
-void draw_list::add_rect(const std::vector<vertex_2d>& verts, bool filled, float line_width,
-                         const program_setup& setup)
-{
-    const auto type = filled ? primitive_type::triangles : primitive_type::lines_loop;
-    add_vertices(verts, type, line_width, {}, setup);
-}
-
 draw_list::draw_list()
 {
     reserve_rects(32);
 }
 
-void draw_list::add_rect(const rect& dst, const color& col, bool filled, float border_width,
-                         const program_setup& setup)
+void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& col, bool filled,
+                         float thickness)
+{
+    polyline line;
+    for(const auto& p : points)
+    {
+        line.line_to(p);
+    }
+
+    if(filled)
+    {
+        add_polyline_filled_convex(line, col, 0.0f);
+    }
+    else
+    {
+        add_polyline(line, col, true, thickness, 0.0f);
+    }
+}
+
+void draw_list::add_rect(const rect& dst, const color& col, bool filled, float thickness)
 {
     const std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y), math::vec2(dst.x + dst.w, dst.y),
                                                math::vec2(dst.x + dst.w, dst.y + dst.h),
                                                math::vec2(dst.x, dst.y + dst.h)}};
 
-    add_rect(points, col, filled, border_width, setup);
+    add_rect(points, col, filled, thickness);
 }
 
 void draw_list::add_rect(const rect& r, const math::transformf& transform, const color& col, bool filled,
-                         float border_width, const program_setup& setup)
+                         float thickness)
 {
     // If we want this to be batched with other calls we need to
     // do the transformations on the cpu side
     const auto points = detail::transform_rect(r, transform);
-    add_rect(points, col, filled, border_width, setup);
+    add_rect(points, col, filled, thickness);
 }
 
 void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
@@ -1468,102 +1448,6 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
 
 }
 
-void draw_list::add_polyline_filled_scan_flood(const polyline &poly, const color& col, int gap, int stroke_width)
-{
-    std::vector<math::vec2> scanHits;
-    math::vec2 min{}, max{}; // polygon min/max points
-    const auto& points = poly.get_points();
-    unsigned int points_count = points.size();
-
-    if (points_count < 2)
-        return;
-    // find the orthagonal bounding box
-    // probably can put this as a predefined
-    min.x = min.y = DBL_MAX;
-    max.x = max.y = DBL_MIN;
-    for (const auto& p : points) {
-        if (p.x < min.x) min.x = p.x;
-        if (p.y < min.y) min.y = p.y;
-        if (p.x > max.x) max.x = p.x;
-        if (p.y > max.y) max.y = p.y;
-    }
-
-
-    // so we know we start on the outside of the object we step out by 1.
-    min.x -= 1;
-    max.x += 1;
-
-    // Initialise our starting conditions
-    auto y = min.y;
-
-    // Go through each scan line iteratively, jumping by 'gap' pixels each time
-    while (y < max.y)
-    {
-        scanHits.clear();
-        {
-            int jump = 1;
-            auto fp = points.at(0);
-
-            for (size_t i = 0; i < points_count - 1; i++)
-            {
-                auto pa = points.at(i);
-                auto pb = points.at(i+1);
-
-                // jump double/dud points
-                if (pa.x == pb.x && pa.y == pb.y)
-                    continue;
-
-                // if we encounter our hull/poly start point, then we've now created the
-                // closed
-                // hull, jump the next segment and reset the first-point
-                if ((!jump) && (fp.x == pb.x) && (fp.y == pb.y))
-                {
-                    if (i < points_count - 2) {
-                        fp   = points.at(i + 2);
-                        jump = 1;
-                        i++;
-                    }
-                } else {
-                    jump = 0;
-                }
-
-                // test to see if this segment makes the scan-cut.
-                if ((pa.y > pb.y && y < pa.y && y > pb.y) || (pa.y < pb.y && y > pa.y && y < pb.y))
-                {
-                    math::vec2 intersect{};
-
-                    intersect.y = y;
-                    if (pa.x == pb.x)
-                    {
-                        intersect.x = pa.x;
-                    }
-                    else
-                    {
-                        intersect.x = (pb.x - pa.x) / (pb.y - pa.y) * (y - pa.y) + pa.x;
-                    }
-                    scanHits.push_back(intersect);
-                }
-            }
-
-            // Sort the scan hits by X, so we have a proper left->right ordering
-            //sort(scanHits.begin(), scanHits.end(), [](auto const &a, auto const &b) { return a.x < b.x; });
-
-            // generate the line segments.
-            if(scanHits.size() >= 2)
-            {
-                size_t l = scanHits.size() - 1; // we need pairs of points, this prevents segfault.
-                for (size_t i = 0; i < l; i += 2)
-                {
-                    add_line(scanHits[i], scanHits[i + 1], col, stroke_width);
-                }
-            }
-        }
-        y += gap;
-    } // for each scan line
-    scanHits.clear();
-
-}
-
 void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
 {
     add_ellipse_gradient(center, radii, col, col, num_segments, thickness);
@@ -1643,9 +1527,17 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             v.pos.x = detail::align_to_pixel(v.pos.x);
             v.pos.y = detail::align_to_pixel(v.pos.y);
         }
+
         for(size_t i = 0; i < geometry.size(); i+=4)
         {
-            add_vertices(&geometry[i], 4, primitive_type::lines_loop);
+            polyline line;
+            color col{};
+            for(size_t j = 0; j < 4; ++j)
+            {
+                col = geometry[i + j].col;
+                line.line_to(geometry[i + j].pos);
+            }
+            add_polyline(line, col, true);
         }
 
     }
