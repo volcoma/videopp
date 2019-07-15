@@ -276,7 +276,13 @@ void polyline::rectangle(const rect& r, float rounding, uint32_t rounding_corner
     rectangle(math::vec2{r.x, r.y}, math::vec2{r.x + r.w, r.y + r.h}, rounding, rounding_corners_flags);
 }
 
-void polyline::path(const std::vector<glm::vec2>& points, float corner_radius)
+void polyline::ellipse(const math::vec2& center, const math::vec2& radii, size_t num_segments)
+{
+    const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
+    arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+}
+
+void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
 {
     size_t count = points.size();
 

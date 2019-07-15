@@ -213,14 +213,9 @@ int main()
 //            auto c2 = c1;
 //            c2 *= 0.35f;
 //            c2.a = 255;
-
 //            video_ctrl::polyline line;
 //            line.path(points, thickness * 0.5f);
-
 //            list.add_polyline_gradient(line, c1, c2, false, thickness, aa);
-
-//            list.add_rect({0, 0, 200, 200}, video_ctrl::color::red(), false);
-
 //            rend.draw_cmd_list(list);
 			rend.present();
 

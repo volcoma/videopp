@@ -108,14 +108,14 @@ struct draw_list
                       const texture_view& texture = {}, const program_setup& setup = {});
 
 
-    void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
-    void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
-    void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);
-
     void add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12, float thickness = 1.0f);
     void add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments = 12, float thickness = 1.0f);
     void add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments = 12);
     void add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness = 1.0f, int num_segments = 0);
+
+    void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
+    void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
+    void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);
 
     void push_clip(const rect& clip);
     void pop_clip();

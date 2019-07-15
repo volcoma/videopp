@@ -197,29 +197,39 @@ void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& c
 
     if(filled)
     {
-        add_polyline_filled_convex(line, col, 0.0f);
+        add_polyline_filled_convex(line, col, 1.0f);
     }
     else
     {
-        add_polyline(line, col, true, thickness, 0.0f);
+        add_polyline(line, col, true, thickness, 1.0f);
     }
 }
 
 void draw_list::add_rect(const rect& dst, const color& col, bool filled, float thickness)
 {
-    const std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y), math::vec2(dst.x + dst.w, dst.y),
-                                               math::vec2(dst.x + dst.w, dst.y + dst.h),
-                                               math::vec2(dst.x, dst.y + dst.h)}};
+    float offset = (int(thickness) % 2 == 0) ? 0.0f : 0.5f;
+    const std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y) + offset, math::vec2(dst.x + dst.w, dst.y) + math::vec2(-offset, offset),
+                                               math::vec2(dst.x + dst.w, dst.y + dst.h) - offset,
+                                               math::vec2(dst.x, dst.y + dst.h) + math::vec2(offset, -offset)}};
 
     add_rect(points, col, filled, thickness);
 }
 
-void draw_list::add_rect(const rect& r, const math::transformf& transform, const color& col, bool filled,
+void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
+    float offset = (int(thickness) % 2 == 0) ? 0.0f : 0.5f;
     // If we want this to be batched with other calls we need to
     // do the transformations on the cpu side
-    const auto points = detail::transform_rect(r, transform);
+    std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y) + offset, math::vec2(dst.x + dst.w, dst.y) + math::vec2(-offset, offset),
+                                         math::vec2(dst.x + dst.w, dst.y + dst.h) - offset,
+                                         math::vec2(dst.x, dst.y + dst.h) + math::vec2(offset, -offset)}};
+    for(auto& p : points)
+    {
+        p = detail::align_to_pixel(transform.transform_coord(p));
+    }
+
+
     add_rect(points, col, filled, thickness);
 }
 
@@ -1101,25 +1111,22 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
 }
 
-
-void normalize2f_over_zero(float& VX, float& VY)
+void normalize2f_over_zero(float& vx, float& vy)
 {
-    float d2 = VX*VX + VY*VY;
+    float d2 = vx*vx + vy*vy;
     if (d2 > 0.0f)
     {
         float inv_len = 1.0f / math::sqrt(d2);
-        VX *= inv_len;
-        VY *= inv_len;
+        vx *= inv_len;
+        vy *= inv_len;
     }
 }
-void fixnormal2f(float& VX, float& VY)
+void fixnormal2f(float& vx, float& vy)
 {
-    float d2 = VX*VX + VY*VY;
-    /*if (d2 < 0.5f)
-     * d2 = 0.5f;*/
+    float d2 = vx*vx + vy*vy;
     float inv_lensq = 1.0f / d2;
-    VX *= inv_lensq;
-    VY *= inv_lensq;
+    vx *= inv_lensq;
+    vy *= inv_lensq;
 }
 
 
@@ -1155,7 +1162,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
     if (antialias_size > 0.0f)
     {
         // Anti-aliased stroke
-        const float AA_SIZE = antialias_size;
+        const float aa_size = antialias_size;
         color coltop_trans = coltop;
         coltop_trans.a = 0;
         color colbot_trans = colbot;
@@ -1192,10 +1199,10 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
         {
             if (!closed)
             {
-                temp_points[0] = points[0] + temp_normals[0] * AA_SIZE;
-                temp_points[1] = points[0] - temp_normals[0] * AA_SIZE;
-                temp_points[(points_count-1)*2+0] = points[points_count-1] + temp_normals[points_count-1] * AA_SIZE;
-                temp_points[(points_count-1)*2+1] = points[points_count-1] - temp_normals[points_count-1] * AA_SIZE;
+                temp_points[0] = points[0] + temp_normals[0] * aa_size;
+                temp_points[1] = points[0] - temp_normals[0] * aa_size;
+                temp_points[(points_count-1)*2+0] = points[points_count-1] + temp_normals[points_count-1] * aa_size;
+                temp_points[(points_count-1)*2+1] = points[points_count-1] - temp_normals[points_count-1] * aa_size;
             }
 
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
@@ -1209,8 +1216,8 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
                 float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
                 fixnormal2f(dm_x, dm_y);
-                dm_x *= AA_SIZE;
-                dm_y *= AA_SIZE;
+                dm_x *= aa_size;
+                dm_y *= aa_size;
 
                 // Add temporary vertexes
                 auto* out_vtx = &temp_points[i2*2];
@@ -1240,17 +1247,17 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
         }
         else
         {
-            const float half_inner_thickness = (thickness - AA_SIZE) * 0.5f;
+            const float half_inner_thickness = (thickness - aa_size) * 0.5f;
             if (!closed)
             {
-                temp_points[0] = points[0] + temp_normals[0] * (half_inner_thickness + AA_SIZE);
+                temp_points[0] = points[0] + temp_normals[0] * (half_inner_thickness + aa_size);
                 temp_points[1] = points[0] + temp_normals[0] * (half_inner_thickness);
                 temp_points[2] = points[0] - temp_normals[0] * (half_inner_thickness);
-                temp_points[3] = points[0] - temp_normals[0] * (half_inner_thickness + AA_SIZE);
-                temp_points[(points_count-1)*4+0] = points[points_count-1] + temp_normals[points_count-1] * (half_inner_thickness + AA_SIZE);
+                temp_points[3] = points[0] - temp_normals[0] * (half_inner_thickness + aa_size);
+                temp_points[(points_count-1)*4+0] = points[points_count-1] + temp_normals[points_count-1] * (half_inner_thickness + aa_size);
                 temp_points[(points_count-1)*4+1] = points[points_count-1] + temp_normals[points_count-1] * (half_inner_thickness);
                 temp_points[(points_count-1)*4+2] = points[points_count-1] - temp_normals[points_count-1] * (half_inner_thickness);
-                temp_points[(points_count-1)*4+3] = points[points_count-1] - temp_normals[points_count-1] * (half_inner_thickness + AA_SIZE);
+                temp_points[(points_count-1)*4+3] = points[points_count-1] - temp_normals[points_count-1] * (half_inner_thickness + aa_size);
             }
 
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
@@ -1264,8 +1271,8 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
                 float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
                 fixnormal2f(dm_x, dm_y);
-                float dm_out_x = dm_x * (half_inner_thickness + AA_SIZE);
-                float dm_out_y = dm_y * (half_inner_thickness + AA_SIZE);
+                float dm_out_x = dm_x * (half_inner_thickness + aa_size);
+                float dm_out_y = dm_y * (half_inner_thickness + aa_size);
                 float dm_in_x = dm_x * half_inner_thickness;
                 float dm_in_y = dm_y * half_inner_thickness;
 
@@ -1364,7 +1371,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
     if (antialias_size > 0.0f)
     {
         // Anti-aliased Fill
-        const float AA_SIZE = antialias_size;
+        const float aa_size = antialias_size;
         color col_trans = col;
         col_trans.a = 0;
 
@@ -1409,8 +1416,8 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
             float dm_x = (n0.x + n1.x) * 0.5f;
             float dm_y = (n0.y + n1.y) * 0.5f;
             fixnormal2f(dm_x, dm_y);
-            dm_x *= AA_SIZE * 0.5f;
-            dm_y *= AA_SIZE * 0.5f;
+            dm_x *= aa_size * 0.5f;
+            dm_y *= aa_size * 0.5f;
 
             // Add vertices
             vtx_write_ptr[0].pos.x = (points[i1].x - dm_x); vtx_write_ptr[0].pos.y = (points[i1].y - dm_y); vtx_write_ptr[0].col = col;        // Inner
@@ -1456,22 +1463,22 @@ void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, c
 
 void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments, float thickness)
 {
-    if (col1.a == 0 || num_segments <= 2)
+    if ((col1.a == 0 && col2.a == 0) || num_segments <= 2)
         return;
 
-    // Because we are filling a closed shape we remove 1 from the count of segments/points
-    const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
     polyline line;
-    line.arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+    line.ellipse(center, radii, num_segments);
     add_polyline_gradient(line, col1, col2, true, thickness);
 
 }
 
 void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments)
 {
-    const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
+    if (col.a == 0|| num_segments <= 2)
+        return;
+
     polyline line;
-    line.arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+    line.ellipse(center, radii, num_segments);
     add_polyline_filled_convex(line, col, true);
 }
 
