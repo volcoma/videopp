@@ -174,6 +174,7 @@ renderer::renderer(os::window& win, bool vsync)
         embedded_fonts_.emplace_back(default_font());
     }
     clear(color::black());
+    //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 }
 
 renderer::~renderer()

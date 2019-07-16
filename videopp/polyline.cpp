@@ -282,6 +282,7 @@ void polyline::ellipse(const math::vec2& center, const math::vec2& radii, size_t
     arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
 }
 
+
 void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
 {
     size_t count = points.size();
@@ -304,7 +305,9 @@ void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
         math::vec2 next = points[i + 1];
         arc_between(prev, edge, next, corner_radius);
     }
+
     line_to(points.back());
+
 }
 
 }

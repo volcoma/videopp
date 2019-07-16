@@ -1349,7 +1349,13 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
     }
 }
 
+
 void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, float antialias_size)
+{
+    add_polyline_filled_convex_gradient(poly, col, col, antialias_size);
+}
+
+void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
 
     program_setup setup{};
@@ -1366,14 +1372,36 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
     auto points_count = points.size();
 
     if (points_count < 3)
-            return;
+        return;
+
+    float miny = 999999999999999999;
+    float maxy = -miny;
+
+    float minx = 999999999999999999;
+    float maxx = -minx;
+
+    for (size_t i = 0; i < points_count; i++)
+    {
+        const float w = points[i].x;
+        const float h = points[i].y;
+        if (h < miny) miny = h;
+        else if (h > maxy) maxy = h;
+
+        if (w < minx) minx = w;
+        else if (w > maxx) maxx = w;
+    }
+
+    float height = maxy-miny;
+    //float width = maxx-minx;
 
     if (antialias_size > 0.0f)
     {
         // Anti-aliased Fill
         const float aa_size = antialias_size;
-        color col_trans = col;
-        col_trans.a = 0;
+        color coltop_trans = coltop;
+        coltop_trans.a = 0;
+        color colbot_trans = colbot;
+        colbot_trans.a = 0;
 
         const size_t idx_count = (points_count-2)*3 + points_count*6;
         const size_t vtx_count = (points_count*2);
@@ -1420,8 +1448,14 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
             dm_y *= aa_size * 0.5f;
 
             // Add vertices
-            vtx_write_ptr[0].pos.x = (points[i1].x - dm_x); vtx_write_ptr[0].pos.y = (points[i1].y - dm_y); vtx_write_ptr[0].col = col;        // Inner
-            vtx_write_ptr[1].pos.x = (points[i1].x + dm_x); vtx_write_ptr[1].pos.y = (points[i1].y + dm_y); vtx_write_ptr[1].col = col_trans;  // Outer
+            vtx_write_ptr[0].pos.x = (points[i1].x - dm_x);
+            vtx_write_ptr[0].pos.y = (points[i1].y - dm_y);
+
+            vtx_write_ptr[1].pos.x = (points[i1].x + dm_x);
+            vtx_write_ptr[1].pos.y = (points[i1].y + dm_y);
+
+            vtx_write_ptr[0].col = get_vertical_gradient(coltop, colbot, points[i1].y-miny, height);              // Inner
+            vtx_write_ptr[1].col = get_vertical_gradient(coltop_trans, colbot_trans, points[i1].y-miny, height);  // Outer
             vtx_write_ptr += 2;
 
             // Add indexes for fringes
@@ -1443,7 +1477,9 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
         auto vtx_write_ptr = &vertices[vtx_current_idx];
         for (size_t i = 0; i < vtx_count; i++)
         {
-            vtx_write_ptr[0].pos = points[i]; vtx_write_ptr[0].col = col;
+            vtx_write_ptr[0].pos = points[i];
+            vtx_write_ptr[0].col = get_vertical_gradient(coltop, colbot, vtx_write_ptr[0].pos.y-miny,height);
+
             vtx_write_ptr++;
         }
         for (size_t i = 2; i < points_count; i++)
@@ -1452,7 +1488,6 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
             idx_write_ptr += 3;
         }
     }
-
 }
 
 void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
@@ -1491,6 +1526,25 @@ void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, 
     line.line_to(pos0);
     line.bezier_curve_to(cp0, cp1, pos1, num_segments);
     add_polyline(line, col, false, thickness);
+}
+
+void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, const color& col1, const color& col2, float thickness, float antialias_size)
+{
+    if((col1.a == 0 && col2.a == 0) || points.size() < 2)
+        return;
+
+    float radius = 0.5f * thickness;
+    polyline front_cap;
+    front_cap.ellipse(points.front(), {radius, radius});
+    add_polyline_filled_convex_gradient(front_cap, col1, col2, antialias_size);
+
+    polyline back_cap;
+    back_cap.ellipse(points.back(), {radius, radius});
+    add_polyline_filled_convex_gradient(back_cap, col1, col2, antialias_size);
+
+    polyline line;
+    line.path(points, thickness * 0.5f);
+    add_polyline_gradient(line, col1, col2, false, thickness, antialias_size);
 }
 
 void draw_list::push_clip(const rect& clip)

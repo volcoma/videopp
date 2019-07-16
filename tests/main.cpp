@@ -192,31 +192,27 @@ int main()
 
 			rend.clear(video_ctrl::color::white());
 
-			page.draw(0, 0, rend.get_rect().w);
+//			page.draw(0, 0, rend.get_rect().w);
 
-//            std::vector<math::vec2> points
-//            {
-//                {12, 212},
-//                {132, 212},
-//                {360, 10},
-//                {615, 450},
-//                {870, 10},
-//                {1100, 212},
-//                {1220, 212},
-//            };
+            std::vector<math::vec2> points
+            {
+                {32, 212},
+                {132, 212},
+                {360, 10},
+                {615, 450},
+                {870, 10},
+                {1100, 212},
+                {1220, 212},
+            };
 
 
-//            video_ctrl::draw_list list;
-//            auto c1 = video_ctrl::color::white();
-//            c1 *= 0.7f;
-//            c1.a = 255;
-//            auto c2 = c1;
-//            c2 *= 0.35f;
-//            c2.a = 255;
-//            video_ctrl::polyline line;
-//            line.path(points, thickness * 0.5f);
-//            list.add_polyline_gradient(line, c1, c2, false, thickness, aa);
-//            rend.draw_cmd_list(list);
+            video_ctrl::draw_list list;
+            auto c1 = video_ctrl::color::white();
+            auto c2 = video_ctrl::color::black();
+
+            list.add_curved_path_gradient(points, c1, c2, thickness, aa);
+
+            rend.draw_cmd_list(list);
 			rend.present();
 
 			auto end = std::chrono::high_resolution_clock::now();
