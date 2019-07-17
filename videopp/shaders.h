@@ -19,7 +19,13 @@ static constexpr const char* vs_simple = R"(
                         vColor = aColor;
                     })";
 
-static constexpr const char* fs_simple = R"(
+static constexpr const char* fs_simple =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     precision mediump float;
                     varying vec4 vColor;
 
@@ -27,7 +33,13 @@ static constexpr const char* fs_simple = R"(
                         gl_FragColor = vColor;
                     })";
 
-static constexpr const char* fs_multi_channel = R"(
+static constexpr const char* fs_multi_channel =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
@@ -38,7 +50,13 @@ static constexpr const char* fs_multi_channel = R"(
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
                     })";
 
-static constexpr const char* fs_single_channel = R"(
+static constexpr const char* fs_single_channel =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
@@ -50,7 +68,13 @@ static constexpr const char* fs_single_channel = R"(
                         gl_FragColor = vec4(vColor.rgb, alpha * vColor.a);
                     })";
 
-static constexpr const char* fs_distance_field = R"(
+static constexpr const char* fs_distance_field =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     #ifdef GL_OES_standard_derivatives
                         #extension GL_OES_standard_derivatives : enable
                     #endif
@@ -152,7 +176,13 @@ static constexpr const char* fs_distance_field = R"(
                     }
                     )";
 
-static constexpr const char* fs_blur = R"(
+static constexpr const char* fs_blur =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
@@ -200,7 +230,13 @@ static constexpr const char* fs_blur = R"(
                         gl_FragColor = blur5(uTexture, vTexCoord, uTextureSize, uDirection) * vColor;
                     })";
 
-static constexpr const char* fs_fxaa = R"(
+static constexpr const char* fs_fxaa =
+                #ifdef GLX_CONTEXT
+                    "#version 130"
+                #elif EGL_CONTEXT
+                    "#version 100"
+                #endif
+                R"(
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;

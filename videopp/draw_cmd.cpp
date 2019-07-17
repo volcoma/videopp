@@ -3,32 +3,27 @@
 namespace video_ctrl
 {
 
-texture_view::texture_view(const texture_ptr& texture)
+texture_view::texture_view(const texture_ptr& texture) noexcept
 {
     *this = create(texture);
 }
 
-texture_view::texture_view(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height)
+texture_view::texture_view(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height) noexcept
 {
     *this = create(tex_id, tex_width, tex_height);
 }
 
-bool texture_view::is_valid() const
-{
-    return id != 0 && width != 0 && height != 0;
-}
-
-bool texture_view::operator==(const texture_view& rhs) const
+bool texture_view::operator==(const texture_view& rhs) const noexcept
 {
     return id == rhs.id && width == rhs.width && height == rhs.height;
 }
 
-void* texture_view::get() const
+void* texture_view::get() const noexcept
 {
     return reinterpret_cast<void*>(intptr_t(id));
 }
 
-texture_view texture_view::create(const texture_ptr& texture)
+texture_view texture_view::create(const texture_ptr& texture) noexcept
 {
     texture_view view{};
     if(texture)
@@ -41,18 +36,13 @@ texture_view texture_view::create(const texture_ptr& texture)
     return view;
 }
 
-texture_view texture_view::create(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height)
+texture_view texture_view::create(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height) noexcept
 {
     texture_view view;
     view.id = tex_id;
     view.width = tex_width;
     view.height = tex_height;
     return view;
-}
-
-video_ctrl::texture_view::operator bool() const
-{
-    return is_valid();
 }
 
 gpu_program& simple_program()

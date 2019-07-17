@@ -21,6 +21,8 @@ enum class dimension_fit
     uniform
 };
 
+const program_setup& empty_setup() noexcept;
+
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
 {
@@ -40,32 +42,32 @@ struct draw_list
 
     void add_image(const texture_view& texture, const rect& src, const rect& dst,
                    const math::transformf& transform, const color& col = color::white(),
-                   const program_setup& setup = {});
+                   const program_setup& setup = empty_setup());
 
     void add_image(const texture_view& texture, const rect& src, const rect& dst,
-                   const color& col = color::white(), const program_setup& setup = {});
+                   const color& col = color::white(), const program_setup& setup = empty_setup());
 
     void add_image(const texture_view& texture, const rect& dst, const color& col = color::white(),
                    const math::vec2& min_uv = {0.0f, 0.0f}, const math::vec2& max_uv = {1.0f, 1.0f},
-                   const program_setup& setup = {});
+                   const program_setup& setup = empty_setup());
 
     void add_image(const texture_view& texture, const rect& dst, const math::transformf& transform,
                    const color& col = color::white(), const math::vec2& min_uv = {0.0f, 0.0f},
-                   const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
+                   const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = empty_setup());
 
     void add_image(const texture_view& texture, const point& pos, const color& col = color::white(),
                    const math::vec2& min_uv = {0.0f, 0.0f}, const math::vec2& max_uv = {1.0f, 1.0f},
-                   const program_setup& setup = {});
+                   const program_setup& setup = empty_setup());
 
     void add_image(const texture_view& texture, const std::array<math::vec2, 4>& points,
                    const color& col = color::white(), const math::vec2& min_uv = {0.0f, 0.0f},
-                   const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = {});
+                   const math::vec2& max_uv = {1.0f, 1.0f}, const program_setup& setup = empty_setup());
 
     void add_text(const text& t, const math::transformf& transform, const rect& dst_rect,
                   size_fit sz_fit = size_fit::shrink_to_fit, dimension_fit dim_fit = dimension_fit::uniform,
-                  const program_setup& setup = {});
+                  const program_setup& setup = empty_setup());
 
-    void add_text(const text& t, const math::transformf& transform, const program_setup& setup = {});
+    void add_text(const text& t, const math::transformf& transform, const program_setup& setup = empty_setup());
 
 
     void add_text_superscript(const text& whole_text,
@@ -73,7 +75,7 @@ struct draw_list
                               const math::transformf& transform,
                               text::alignment align = text::alignment::top_left,
                               float partial_scale = 0.7f,
-                              const program_setup& setup = {});
+                              const program_setup& setup = empty_setup());
 
     void add_text_superscript(const text& whole_text,
                               const text& partial_text,
@@ -83,14 +85,14 @@ struct draw_list
                               float partial_scale = 0.7f,
                               size_fit sz_fit = size_fit::shrink_to_fit,
                               dimension_fit dim_fit = dimension_fit::uniform,
-                              const program_setup& setup = {});
+                              const program_setup& setup = empty_setup());
 
     void add_text_subscript(const text& whole_text,
                               const text& partial_text,
                               const math::transformf& transform,
                               text::alignment align = text::alignment::top_left,
                               float partial_scale = 0.7f,
-                              const program_setup& setup = {});
+                              const program_setup& setup = empty_setup());
 
     void add_text_subscript(const text& whole_text,
                             const text& partial_text,
@@ -100,12 +102,12 @@ struct draw_list
                             float partial_scale = 0.7f,
                             size_fit sz_fit = size_fit::shrink_to_fit,
                             dimension_fit dim_fit = dimension_fit::uniform,
-                            const program_setup& setup = {});
+                            const program_setup& setup = empty_setup());
 
-    void add_vertices(const std::vector<vertex_2d>& verts, primitive_type type, float line_width = 1.0f,
-                      const texture_view& texture = {}, const program_setup& setup = {});
-    void add_vertices(const vertex_2d* verts, size_t count, primitive_type type, float line_width = 1.0f,
-                      const texture_view& texture = {}, const program_setup& setup = {});
+    void add_vertices(const std::vector<vertex_2d>& verts, primitive_type type,
+                      const texture_view& texture = {}, const program_setup& setup = empty_setup());
+    void add_vertices(const vertex_2d* verts, size_t count, primitive_type type,
+                      const texture_view& texture = {}, const program_setup& setup = empty_setup());
 
 
     void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
@@ -154,15 +156,4 @@ struct draw_list
 };
 
 
-inline static color get_vertical_gradient(const color& ct,const color& cb,float DH,float H)
-{
-    const float fa = DH/H;
-    const float fc = (1.f-fa);
-    return color(
-        ct.r * fc + cb.r * fa,
-        ct.g * fc + cb.g * fa,
-        ct.b * fc + cb.b * fa,
-        ct.a * fc + cb.a * fa
-    );
-}
 }

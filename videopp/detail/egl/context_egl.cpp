@@ -34,14 +34,8 @@ context_egl::context_egl(void* native_handle, void* native_display)
         EGLint num_config {};
         EGLint attribList[] =
             {
-                EGL_RED_SIZE,       5,
-                EGL_GREEN_SIZE,     6,
-                EGL_BLUE_SIZE,      5,
-                EGL_ALPHA_SIZE,     8,
-                EGL_DEPTH_SIZE,     8,
-                EGL_STENCIL_SIZE,   8,
-                EGL_SAMPLE_BUFFERS, 1,
-                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_RENDERABLE_TYPE,
+                EGL_OPENGL_ES2_BIT,
                 EGL_NONE
             };
 

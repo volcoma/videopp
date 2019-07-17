@@ -42,10 +42,10 @@ renderer::renderer(os::window& win, bool vsync)
     : win_(win)
 #ifdef WGL_CONTEXT
     , context_(std::make_unique<context_wgl>(win.get_native_handle()))
-#elif EGL_CONTEXT
-    , context_(std::make_unique<context_egl>(win.get_native_handle(), win.get_native_display()))
 #elif GLX_CONTEXT
     , context_(std::make_unique<context_glx>(win.get_native_handle(), win.get_native_display()))
+#elif EGL_CONTEXT
+    , context_(std::make_unique<context_egl>(win.get_native_handle(), win.get_native_display()))
 #endif
 {
     context_->set_vsync(vsync);
@@ -89,12 +89,15 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = simple_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_simple, vs_simple);;
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_simple, vs_simple);
+            program.shader = shader.get();
+            embedded_shaders_.emplace_back(shader);
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
 
@@ -102,13 +105,16 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = multi_channel_texture_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_multi_channel, vs_simple);
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_multi_channel, vs_simple);
+            program.shader = shader.get();
+            embedded_shaders_.emplace_back(shader);
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
 
@@ -116,13 +122,16 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = single_channel_texture_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_single_channel, vs_simple);
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_single_channel, vs_simple);
+            program.shader = shader.get();
+            embedded_shaders_.emplace_back(shader);
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
 
@@ -130,13 +139,16 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = distance_field_font_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_distance_field, vs_simple);
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_distance_field, vs_simple);
+            program.shader = shader.get();
+            embedded_shaders_.emplace_back(shader);
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
 
@@ -145,13 +157,16 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = blur_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_blur, vs_simple);
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_blur, vs_simple);
+            embedded_shaders_.emplace_back(shader);
+            program.shader = shader.get();
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
 
@@ -159,13 +174,16 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = fxaa_program();
         if(!program.shader)
         {
-            program.shader = create_shader(fs_fxaa, vs_simple);
-            program.layout.set_program_id(program.shader->get_program_id());
-            program.layout.set_stride(sizeof(vertex_2d));
-            program.layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            program.layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            program.layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
-            embedded_shaders_.emplace_back(program.shader);
+            auto shader = create_shader(fs_fxaa, vs_simple);
+            embedded_shaders_.emplace_back(shader);
+            program.shader = shader.get();
+            static vertex_buffer_layout layout;
+            program.layout = &layout;
+            program.layout->set_program_id(program.shader->get_program_id());
+            program.layout->set_stride(sizeof(vertex_2d));
+            program.layout->add<float>(2, offsetof(vertex_2d, pos), "aPosition");
+            program.layout->add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
+            program.layout->add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
         }
     }
     if(!default_font())
@@ -190,12 +208,6 @@ renderer::~renderer()
         }
     };
 
-    clear_embedded(simple_program().shader);
-    clear_embedded(multi_channel_texture_program().shader);
-    clear_embedded(single_channel_texture_program().shader);
-    clear_embedded(distance_field_font_program().shader);
-    clear_embedded(blur_program().shader);
-    clear_embedded(fxaa_program().shader);
     clear_embedded(default_font());
 }
 
@@ -904,6 +916,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         master_ibo_.reserve(list.indices.data(), indices_mem_size, true);
     }
 
+
     // Bind the vertex buffer
     master_vbo_.bind();
 
@@ -923,7 +936,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
         if(cmd.setup.program.layout)
         {
-            cmd.setup.program.layout.bind();
+            cmd.setup.program.layout->bind();
         }
 
         if(cmd.setup.begin)
@@ -931,7 +944,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
             cmd.setup.begin(gpu_context{*this, cmd.setup.program});
         }
 
-        if(cmd.setup.program.shader->has_uniform("uProjection"))
+        if(cmd.setup.program.shader && cmd.setup.program.shader->has_uniform("uProjection"))
         {
             const auto& projection = current_ortho_ * transforms_.top();
             cmd.setup.program.shader->set_uniform("uProjection", projection);
@@ -957,7 +970,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
         if(cmd.setup.program.layout)
         {
-            cmd.setup.program.layout.unbind();
+            cmd.setup.program.layout->unbind();
         }
 
         if(cmd.setup.program.shader)

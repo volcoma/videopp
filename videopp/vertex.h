@@ -26,17 +26,17 @@ struct vertex_buffer_element
 class vertex_buffer_layout
 {
 public:
-    void set_program_id(uint32_t id);
-    void set_stride(uint32_t stride);
+    void set_program_id(uint32_t id) noexcept;
+    void set_stride(uint32_t stride) noexcept;
 
     template <typename T>
     void add(uint8_t count, uint8_t offset, const std::string& attr, bool normalized = false);
     void bind() const;
     void unbind() const;
 
-    operator bool() const
+    inline operator bool() const noexcept
     {
-        return id_ != 0 && elements_.empty() == false;
+        return id_ != 0 && !elements_.empty();
     }
 
 private:
@@ -56,6 +56,10 @@ void vertex_buffer_layout::add<uint8_t>(uint8_t count, uint8_t offset, const std
 /// A common vertex definition
 struct vertex_2d
 {
+    vertex_2d() = default;
+    vertex_2d(math::vec2 p, math::vec2 tex_coords, color c) noexcept
+        : pos(p), uv(tex_coords), col(c)
+    {}
     math::vec2 pos; // 2d position
     math::vec2 uv;  // 2d texture coordinates
     color col;      // 32bit RGBA color

@@ -100,8 +100,6 @@ void polyline::arc_between(const math::vec2& p1, const math::vec2& p, const math
     float start_angle = positive_angle (math::atan2<float, math::highp> ((c1.y - o.y), (c1.x - o.x)));
     float end_angle = positive_angle (math::atan2<float, math::highp> ((c2.y - o.y), (c2.x - o.x)));
 
-
-
     if(angle <= math::pi<float>())
     {
         arc_to(o, radius, start_angle, end_angle);

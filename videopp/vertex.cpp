@@ -1,11 +1,11 @@
 #include "vertex.h"
 #include "logger.h"
-
 #include "detail/utils.h"
 
 namespace video_ctrl
 {
 #define BUFFER_OFFSET(i) (reinterpret_cast<const GLvoid*>(uintptr_t(i)))
+
 ////
 /// Vertex buffer implementation
 ////
@@ -227,12 +227,12 @@ void vertex_buffer_layout::bind() const
     }
 }
 
-void vertex_buffer_layout::set_program_id(uint32_t id)
+void vertex_buffer_layout::set_program_id(uint32_t id) noexcept
 {
     id_ = id;
 }
 
-void vertex_buffer_layout::set_stride(uint32_t stride)
+void vertex_buffer_layout::set_stride(uint32_t stride) noexcept
 {
     stride_ = stride;
 }

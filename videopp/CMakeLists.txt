@@ -32,21 +32,20 @@ target_link_libraries(${target_name} PUBLIC ospp fontpp glm litehtml)
 target_link_libraries(${target_name} PUBLIC ${OPENGL_LIBRARIES})
 target_include_directories(${target_name} PUBLIC ${OPENGL_INCLUDE_DIR})
 
-if(OpenGL_EGL_FOUND)
-    target_link_libraries(${target_name} PUBLIC ${OPENGL_egl_LIBRARY})
-    target_include_directories(${target_name} PUBLIC ${OPENGL_EGL_INCLUDE_DIRS})
-    target_compile_definitions(${target_name} PRIVATE EGL_CONTEXT)
-endif()
-
-if(OpenGL_GLX_FOUND)
-    target_link_libraries(${target_name} PUBLIC ${OPENGL_glx_LIBRARY})
-    target_include_directories(${target_name} PUBLIC ${OPENGL_GLX_INCLUDE_DIRS})
-    target_compile_definitions(${target_name} PRIVATE GLX_CONTEXT)
-endif()
-
 if(WIN32)
     target_compile_definitions(${target_name} PRIVATE WGL_CONTEXT)
 else()
+
+    if(OpenGL_EGL_FOUND)
+        target_link_libraries(${target_name} PUBLIC ${OPENGL_egl_LIBRARY})
+        target_include_directories(${target_name} PUBLIC ${OPENGL_EGL_INCLUDE_DIRS})
+        target_compile_definitions(${target_name} PRIVATE EGL_CONTEXT)
+
+    else()# if(OpenGL_GLX_FOUND)
+    #    target_link_libraries(${target_name} PUBLIC ${OPENGL_glx_LIBRARY})
+    #    target_include_directories(${target_name} PUBLIC ${OPENGL_GLX_INCLUDE_DIRS})
+        target_compile_definitions(${target_name} PRIVATE GLX_CONTEXT)
+    endif()
     target_link_libraries(${target_name} PRIVATE X11)
 endif()
 

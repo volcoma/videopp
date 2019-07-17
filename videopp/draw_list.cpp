@@ -14,16 +14,6 @@ namespace video_ctrl
 namespace detail
 {
 
-float align_to_pixel(float val)
-{
-    return val;//static_cast<float>(static_cast<int>(val));
-}
-
-math::vec2 align_to_pixel(math::vec2 val)
-{
-    return val;//{align_to_pixel(val.x), align_to_pixel(val.y)};
-}
-
 std::array<math::vec2, 4> transform_rect(const rect& r, const math::transformf& transform)
 {
     math::vec2 lt = {r.x, r.y};
@@ -31,25 +21,45 @@ std::array<math::vec2, 4> transform_rect(const rect& r, const math::transformf& 
     math::vec2 rb = {r.x + r.w, r.y + r.h};
     math::vec2 lb = {r.x, r.y + r.h};
 
-    auto p0 = align_to_pixel(transform.transform_coord(lt));
-    auto p1 = align_to_pixel(transform.transform_coord(rt));
-    auto p2 = align_to_pixel(transform.transform_coord(rb));
-    auto p3 = align_to_pixel(transform.transform_coord(lb));
+    auto p0 = transform.transform_coord(lt);
+    auto p1 = transform.transform_coord(rt);
+    auto p2 = transform.transform_coord(rb);
+    auto p3 = transform.transform_coord(lb);
 
     std::array<math::vec2, 4> points = {{p0, p1, p2, p3}};
     return points;
 }
 
+uint64_t simple_hash() noexcept
+{
+    uint64_t seed{0};
+    utils::hash(seed, 0.0f);
+    return seed;
+}
 
-bool can_be_batched(const draw_cmd& cmd, uint64_t hash)
+uint64_t calc_final_hash(uint64_t hash, primitive_type type, const program_setup& setup)
+{
+    utils::hash(hash, type, setup.program.shader);
+    return hash;
+}
+
+inline bool can_be_batched(const draw_cmd& cmd, uint64_t hash) noexcept
 {
     return cmd.hash == hash;
 }
 
+inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
+{
+    return !list.commands.empty() && detail::can_be_batched(list.commands.back(), hash);
+}
+
+
+template<typename Setup>
 void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t index_offset,
-                 primitive_type type, const program_setup& setup = {})
+                 primitive_type type, Setup&& setup)
 {
     const auto indices_before = std::uint32_t(list.indices.size());
+    std::uint32_t indices_added = 0;
     switch(type)
     {
         case primitive_type::triangles:
@@ -64,6 +74,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
                     list.indices.emplace_back(index_offset + 0);
                     list.indices.emplace_back(index_offset + i - 1);
                     list.indices.emplace_back(index_offset + i);
+                    indices_added += 3;
                 }
                 index_offset += rect_vertices;
             }
@@ -78,12 +89,13 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
                 {
                     list.indices.emplace_back(index_offset + i);
                     list.indices.emplace_back(index_offset + i + 1);
+                    indices_added += 2;
                 }
             }
         }
         break;
         default:
-        break;
+            break;
     }
 
     rect clip{};
@@ -91,40 +103,35 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     {
         clip = list.clip_rects.back();
     }
-    auto add_new_command = [&](uint64_t hash)
-    {
+    const auto add_new_command = [&](uint64_t hash) {
         list.commands.emplace_back();
         auto& command = list.commands.back();
         command.type = type;
         command.indices_offset = indices_before;
-        command.setup = setup;
+        command.setup = std::forward<Setup>(setup);
         command.hash = hash;
         command.clip_rect = clip;
     };
 
     list.commands_requested++;
-    if(!setup.calc_uniforms_hash)
+    if(setup.uniforms_hash == 0)
     {
         add_new_command(0);
     }
     else
     {
-
-        auto hash = setup.calc_uniforms_hash();
-        utils::hash(hash, clip, type, setup.program.shader.get());
-
-        if(list.commands.empty() || !can_be_batched(list.commands.back(), hash))
+        auto hash = detail::calc_final_hash(setup.uniforms_hash, type, setup);
+        if(!can_be_batched(list, hash))
         {
             add_new_command(hash);
         }
     }
 
-
-    const std::uint32_t indices_added = std::uint32_t(list.indices.size()) - indices_before;
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
 }
+
 
 void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
@@ -138,45 +145,31 @@ void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& i
 }
 }
 
-const program_setup& get_default_color_setup()
+const program_setup& get_simple_setup() noexcept
 {
-    static auto program = []()
-    {
-        program_setup program;
-        program.program = simple_program();
-
-        return program;
+    static auto setup = []() {
+        program_setup setup;
+        setup.program = simple_program();
+        setup.uniforms_hash = detail::simple_hash();
+        return setup;
     }();
 
-    return program;
+    return setup;
+}
+
+const program_setup& empty_setup() noexcept
+{
+    static program_setup setup;
+    return setup;
 }
 
 uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<math::vec2, 4>& points,
                             const color& col, const math::vec2& min_uv, const math::vec2& max_uv)
 {
-    vertices.emplace_back();
-    auto& v1 = vertices.back();
-    v1.pos = points[0];
-    v1.uv = min_uv;
-    v1.col = col;
-
-    vertices.emplace_back();
-    auto& v2 = vertices.back();
-    v2.pos = points[1];
-    v2.uv = {max_uv.x, min_uv.y};
-    v2.col = col;
-
-    vertices.emplace_back();
-    auto& v3 = vertices.back();
-    v3.pos = points[2];
-    v3.uv = max_uv;
-    v3.col = col;
-
-    vertices.emplace_back();
-    auto& v4 = vertices.back();
-    v4.pos = points[3];
-    v4.uv = {min_uv.x, max_uv.y};
-    v4.col = col;
+    vertices.emplace_back(points[0], min_uv, col);
+    vertices.emplace_back(points[1], math::vec2{max_uv.x, min_uv.y}, col);
+    vertices.emplace_back(points[2], max_uv, col);
+    vertices.emplace_back(points[3], math::vec2{min_uv.x, max_uv.y}, col);
 
     return 4;
 }
@@ -226,7 +219,7 @@ void draw_list::add_rect(const rect& dst, const math::transformf& transform, con
                                          math::vec2(dst.x, dst.y + dst.h) + math::vec2(offset, -offset)}};
     for(auto& p : points)
     {
-        p = detail::align_to_pixel(transform.transform_coord(p));
+        p = transform.transform_coord(p);
     }
 
 
@@ -299,36 +292,39 @@ void draw_list::add_image(const texture_view& texture, const point& pos, const c
 void draw_list::add_image(const texture_view& texture, const std::array<math::vec2, 4>& points,
                           const color& col, const math::vec2& min_uv, const math::vec2& max_uv, const program_setup& setup)
 {
+    constexpr auto type = primitive_type::triangles;
     const auto index_offset = std::uint32_t(vertices.size());
-
     const auto vertices_added = add_rect_primitive(vertices, points, col, min_uv, max_uv);
-
-    auto program = setup;
-
-    if(program.program.shader == nullptr)
+    if(setup.program.shader)
+    {
+        detail::add_indices(*this, vertices_added, index_offset, type, setup);
+    }
+    else
     {
         if(texture)
         {
+            program_setup program{};
             program.program = multi_channel_texture_program();
-            program.calc_uniforms_hash = [=]()
+
+            uint64_t hash{0};
+            utils::hash(hash, texture);
+            program.uniforms_hash = hash;
+
+            hash = detail::calc_final_hash(program.uniforms_hash, type, program);
+            if(!detail::can_be_batched(*this, hash))
             {
-                uint64_t seed{0};
-                utils::hash(seed, texture);
-                return seed;
-            };
-            program.begin = [texture](const gpu_context& ctx)
-            {
-                ctx.program.shader->set_uniform("uTexture", texture);
-            };
+                program.begin = [texture](const gpu_context& ctx) {
+                    ctx.program.shader->set_uniform("uTexture", texture);
+                };
+            }
+
+            detail::add_indices(*this, vertices_added, index_offset, type, std::move(program));
         }
         else
         {
-            program.program = simple_program();
+            detail::add_indices(*this, vertices_added, index_offset, type, get_simple_setup());
         }
-
     }
-
-    detail::add_indices(*this, vertices_added, index_offset, primitive_type::triangles, program);
 }
 
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst, size_fit sz_fit,
@@ -458,16 +454,14 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
             if(cpu_batch)
             {
-                program.calc_uniforms_hash = [=]()
-                {
-                    uint64_t seed{0};
-                    utils::hash(seed,
-                                distance_field_multiplier,
-                                outline_width,
-                                outline_color,
-                                texture);
-                    return seed;
-                };
+                uint64_t hash{0};
+                utils::hash(hash,
+                            distance_field_multiplier,
+                            outline_width,
+                            outline_color,
+                            texture);
+
+                program.uniforms_hash = hash;
             }
             program.begin = [=](const gpu_context& ctx)
             {
@@ -496,12 +490,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
             if(cpu_batch)
             {
-                program.calc_uniforms_hash = [=]()
-                {
-                    uint64_t seed{0};
-                    utils::hash(seed, texture);
-                    return seed;
-                };
+                uint64_t hash{0};
+                utils::hash(hash, texture);
+                program.uniforms_hash = hash;
             }
             program.begin = [=](const gpu_context& ctx)
             {
@@ -522,10 +513,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         for(auto& v : transformed_geometry)
         {
             v.pos = transform.transform_coord(v.pos);
-            v.pos.x = detail::align_to_pixel(v.pos.x);
-            v.pos.y = detail::align_to_pixel(v.pos.y);
         }
-        add_vertices(transformed_geometry, primitive_type::triangles, 0.0f, texture, program);
+        add_vertices(transformed_geometry, primitive_type::triangles, texture, program);
     }
     else
     {
@@ -534,7 +523,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
             ctx.rend.pop_transform();
         };
 
-        add_vertices(geometry, primitive_type::triangles, 0.0f, texture, program);
+        add_vertices(geometry, primitive_type::triangles, texture, program);
     }
 }
 
@@ -649,35 +638,35 @@ void draw_list::add_text_superscript_impl(const text& text_whole, const text& te
     {
         log("Superscript text should not be multiline. This api will not behave properly.");
     }
-    const auto text_whole_width = detail::align_to_pixel(text_whole.get_width());
+    const auto text_whole_width = text_whole.get_width();
 
     const auto text_whole_min_baseline_height = text_whole.get_utf8_text().empty() ?
-                                                detail::align_to_pixel(text_partial.get_min_baseline_height()) :
-                                                detail::align_to_pixel(text_whole.get_min_baseline_height());
+                                                text_partial.get_min_baseline_height() :
+                                                text_whole.get_min_baseline_height();
     const auto text_whole_max_baseline_height = text_whole.get_utf8_text().empty() ?
-                                                detail::align_to_pixel(text_partial.get_max_baseline_height()) :
-                                                detail::align_to_pixel(text_whole.get_max_baseline_height());
+                                                text_partial.get_max_baseline_height() :
+                                                text_whole.get_max_baseline_height();
 
-    const auto text_partial_width = detail::align_to_pixel(text_partial.get_width() * partial_scale);
+    const auto text_partial_width = text_partial.get_width() * partial_scale;
     const auto text_parital_height = text_whole.get_utf8_text().empty() ?
-                                     detail::align_to_pixel(text_partial.get_height() * (1.0f - partial_scale)) :
-                                     detail::align_to_pixel(text_whole.get_height() - (text_partial.get_height() * partial_scale));
+                                     text_partial.get_height() * (1.0f - partial_scale) :
+                                     text_whole.get_height() - (text_partial.get_height() * partial_scale);
 
     const auto text_partial_min_baseline_height =
-        detail::align_to_pixel(text_partial.get_min_baseline_height() * partial_scale);
+        text_partial.get_min_baseline_height() * partial_scale;
     const auto text_partial_max_baseline_height =
-        detail::align_to_pixel(text_partial.get_max_baseline_height() * partial_scale);
+        text_partial.get_max_baseline_height() * partial_scale;
 
-    const auto half_text_whole_width = detail::align_to_pixel(text_whole_width * 0.5f);
-    const auto half_text_partial_width = detail::align_to_pixel(text_partial_width * 0.5f);
-    const auto half_text_parital_height = detail::align_to_pixel(text_parital_height * 0.5f);
+    const auto half_text_whole_width = text_whole_width * 0.5f;
+    const auto half_text_partial_width = text_partial_width * 0.5f;
+    const auto half_text_parital_height = text_parital_height * 0.5f;
 
     const auto text_whole_shadow_height = text_whole.get_utf8_text().empty() ?
-                                          detail::align_to_pixel(text_partial.get_shadow_offsets().y) :
-                                          detail::align_to_pixel(text_whole.get_shadow_offsets().y);
-    const auto text_partial_shadow_height = detail::align_to_pixel(text_partial.get_shadow_offsets().y * partial_scale);
+                                          text_partial.get_shadow_offsets().y :
+                                          text_whole.get_shadow_offsets().y;
+    const auto text_partial_shadow_height = text_partial.get_shadow_offsets().y * partial_scale;
     const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
-    const auto half_shadows_height_dif = detail::align_to_pixel(shadows_height_dif * 0.5f);
+    const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
 
     switch(align)
     {
@@ -919,34 +908,34 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
         log("Subscript text should not be multiline. This api will not behave properly.");
     }
 
-    const auto text_whole_width = detail::align_to_pixel(whole_text.get_width());
+    const auto text_whole_width = whole_text.get_width();
 
     const auto text_whole_height = whole_text.get_utf8_text().empty() ?
-                                   detail::align_to_pixel(partial_text.get_height()) :
-                                   detail::align_to_pixel(whole_text.get_height());
+                                   partial_text.get_height() :
+                                   whole_text.get_height();
 
     const auto text_whole_shadow_height = whole_text.get_utf8_text().empty() ?
-                                          detail::align_to_pixel(partial_text.get_shadow_offsets().y) :
-                                          detail::align_to_pixel(whole_text.get_shadow_offsets().y);
+                                          partial_text.get_shadow_offsets().y :
+                                          whole_text.get_shadow_offsets().y;
 
     const auto text_whole_max_baseline_height = whole_text.get_utf8_text().empty() ?
-                                                detail::align_to_pixel(partial_text.get_max_baseline_height()) :
-                                                detail::align_to_pixel(whole_text.get_max_baseline_height());
+                                                partial_text.get_max_baseline_height() :
+                                                whole_text.get_max_baseline_height();
 
-    const auto text_partial_width = detail::align_to_pixel(partial_text.get_width() * partial_scale);
-    const auto text_parital_height = detail::align_to_pixel(partial_scale * partial_text.get_height());
-    const auto text_parital_height_dif = detail::align_to_pixel(text_whole_height - text_parital_height);
+    const auto text_partial_width = partial_text.get_width() * partial_scale;
+    const auto text_parital_height = partial_scale * partial_text.get_height();
+    const auto text_parital_height_dif = text_whole_height - text_parital_height;
 
-    const auto text_partial_shadow_height = detail::align_to_pixel(partial_text.get_shadow_offsets().y * partial_scale);
+    const auto text_partial_shadow_height = partial_text.get_shadow_offsets().y * partial_scale;
     const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
-    const auto half_shadows_height_dif = detail::align_to_pixel(shadows_height_dif * 0.5f);
+    const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
 
     const auto text_partial_max_baseline_height =
-        detail::align_to_pixel(partial_text.get_max_baseline_height() * partial_scale);
+        partial_text.get_max_baseline_height() * partial_scale;
 
-    const auto half_text_whole_width = detail::align_to_pixel(text_whole_width * 0.5f);
-    const auto half_text_partial_width = detail::align_to_pixel(text_partial_width * 0.5f);
-    const auto half_text_parital_height_dif = detail::align_to_pixel(text_parital_height_dif * 0.5f);
+    const auto half_text_whole_width = text_whole_width * 0.5f;
+    const auto half_text_partial_width = text_partial_width * 0.5f;
+    const auto half_text_parital_height_dif = text_parital_height_dif * 0.5f;
 
     const auto top_y_aligns_parial_offset = text_whole_max_baseline_height - text_partial_max_baseline_height - shadows_height_dif;
     const auto center_y_aligns_parial_offset = text_whole_max_baseline_height - (half_text_parital_height_dif + text_partial_max_baseline_height) - half_shadows_height_dif;
@@ -1059,13 +1048,14 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
 };
 
 
-void draw_list::add_vertices(const std::vector<vertex_2d>& verts, const primitive_type type, float line_width,
+void draw_list::add_vertices(const std::vector<vertex_2d>& verts, const primitive_type type,
                              const texture_view& texture, const program_setup& setup)
 {
-    add_vertices(verts.data(), verts.size(), type, line_width, texture, setup);
+    add_vertices(verts.data(), verts.size(), type, texture, setup);
 }
 
-void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_type type, float line_width, const texture_view &texture, const program_setup &setup)
+void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_type type,
+                             const texture_view& texture, const program_setup& setup)
 {
     if(count == 0)
     {
@@ -1075,40 +1065,36 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
     vertices.resize(index_offset + count);
     std::memcpy(&vertices[index_offset], verts, sizeof(vertex_2d) * count);
 
-    auto program = setup;
-    if(program.program.shader == nullptr)
+    if(setup.program.shader)
+    {
+        detail::add_indices(*this, std::uint32_t(count), index_offset, type, setup);
+    }
+    else
     {
         if(texture)
         {
+            program_setup program{};
             program.program = multi_channel_texture_program();
-            program.calc_uniforms_hash = [=]()
+
+            uint64_t hash{0};
+            utils::hash(hash, texture);
+            program.uniforms_hash = hash;
+
+            hash = detail::calc_final_hash(program.uniforms_hash, type, program);
+            if(!detail::can_be_batched(*this, hash))
             {
-                uint64_t seed{0};
-                utils::hash(seed, texture);
-                return seed;
-            };
-            program.begin = [texture](const gpu_context& ctx)
-            {
-                ctx.program.shader->set_uniform("uTexture", texture);
-            };
+                program.begin = [texture](const gpu_context& ctx)
+                {
+                    ctx.program.shader->set_uniform("uTexture", texture);
+                };
+            }
+            detail::add_indices(*this, std::uint32_t(count), index_offset, type, std::move(program));
         }
         else
         {
-            program.program = simple_program();
-            program.calc_uniforms_hash = [=]()
-            {
-                uint64_t seed{0};
-                utils::hash(seed, line_width);
-                return seed;
-            };
-            program.begin = [=](const gpu_context& ctx)
-            {
-                ctx.rend.set_line_width(line_width);
-            };
+            detail::add_indices(*this, std::uint32_t(count), index_offset, type, get_simple_setup());
         }
     }
-
-    detail::add_indices(*this, std::uint32_t(count), index_offset, type, program);
 }
 
 void normalize2f_over_zero(float& vx, float& vy)
@@ -1129,6 +1115,17 @@ void fixnormal2f(float& vx, float& vy)
     vy *= inv_lensq;
 }
 
+color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
+{
+    const float fa = DH/H;
+    const float fc = (1.f-fa);
+    return color(
+        ct.r * fc + cb.r * fa,
+        ct.g * fc + cb.g * fa,
+        ct.b * fc + cb.b * fa,
+        ct.a * fc + cb.a * fa
+    );
+}
 
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
@@ -1138,15 +1135,7 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
 
 void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
-    program_setup setup{};
-    setup.program = simple_program();
-    setup.calc_uniforms_hash = [=]()
-    {
-        uint64_t seed{0};
-        utils::hash(seed, 0.0f);
-        return seed;
-    };
-    detail::add_indices(*this, 0, 0, primitive_type::triangles, setup);
+    detail::add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1357,16 +1346,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
 
 void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
-
-    program_setup setup{};
-    setup.program = simple_program();
-    setup.calc_uniforms_hash = [=]()
-    {
-        uint64_t seed{0};
-        utils::hash(seed, 0.0f);
-        return seed;
-    };
-    detail::add_indices(*this, 0, 0, primitive_type::triangles, setup);
+    detail::add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1535,15 +1515,15 @@ void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, 
 
     float radius = 0.5f * thickness;
     polyline front_cap;
-    front_cap.ellipse(points.front(), {radius, radius});
+    front_cap.ellipse(points.front(), {radius + 0.5f, radius + 0.5f});
     add_polyline_filled_convex_gradient(front_cap, col1, col2, antialias_size);
 
     polyline back_cap;
-    back_cap.ellipse(points.back(), {radius, radius});
+    back_cap.ellipse(points.back(), {radius + 0.5f, radius + 0.5f});
     add_polyline_filled_convex_gradient(back_cap, col1, col2, antialias_size);
 
     polyline line;
-    line.path(points, thickness * 0.5f);
+    line.path(points, radius);
     add_polyline_gradient(line, col1, col2, false, thickness, antialias_size);
 }
 
@@ -1585,8 +1565,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         for(auto& v : geometry)
         {
             v.pos = transform.transform_coord(v.pos);
-            v.pos.x = detail::align_to_pixel(v.pos.x);
-            v.pos.y = detail::align_to_pixel(v.pos.y);
         }
 
         for(size_t i = 0; i < geometry.size(); i+=4)

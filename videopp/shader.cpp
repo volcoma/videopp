@@ -19,21 +19,6 @@ namespace video_ctrl
             std::vector<const GLchar*> vtx_sources;
             std::vector<const GLchar*> frag_sources;
 
-#ifndef EGL_CONTEXT
-            vtx_sources.emplace_back(
-            R"(
-            #ifndef GL_OES_standard_derivatives
-                #define GL_OES_standard_derivatives 1
-            #endif
-            )");
-
-            frag_sources.emplace_back(
-            R"(
-            #ifndef GL_OES_standard_derivatives
-                #define GL_OES_standard_derivatives 1
-            #endif
-            )");
-#endif
             frag_sources.emplace_back(fragment_code);
             vtx_sources.emplace_back(vertex_code);
             gl_call(glShaderSource(vertex_shader_id_, int(vtx_sources.size()), vtx_sources.data(), nullptr));
