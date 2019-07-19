@@ -1119,12 +1119,12 @@ color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
 {
     const float fa = DH/H;
     const float fc = (1.f-fa);
-    return color(
-        ct.r * fc + cb.r * fa,
-        ct.g * fc + cb.g * fa,
-        ct.b * fc + cb.b * fa,
-        ct.a * fc + cb.a * fa
-    );
+    return {
+        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
+        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
+        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
+        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
+    };
 }
 
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
