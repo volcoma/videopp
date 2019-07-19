@@ -71,7 +71,7 @@ int main()
 	video_ctrl::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
 
 	os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-	video_ctrl::renderer master_rend(master_win, true);
+	video_ctrl::renderer master_rend(master_win, false);
 
 	{
 		auto centerd = os::window::centered;
@@ -136,8 +136,34 @@ int main()
 		page.load_from_utf8(html, DATA);
 		bool running = true;
 
+
+        std::vector<math::vec2> orig_points
+        {
+            {12, 212},
+            {132, 212},
+            {360, 10},
+            {615, 450},
+            {870, 10},
+            {1100, 212},
+            {1220, 212},
+        };
         float aa = 1.0f;
-        float thickness = 12.0f;
+
+        float thickness = 10.0f;
+        std::vector<std::vector<math::vec2>> points;
+        for(int i = -50; i < 50; ++i)
+        {
+            points.emplace_back();
+            for(const auto& p : orig_points)
+            {
+                auto& cont = points.back();
+                cont.emplace_back(p + math::vec2(0, i * (thickness + 2)));
+            }
+        }
+
+
+
+
 		while(running)
 		{
 			os::event e{};
@@ -190,28 +216,20 @@ int main()
 			using namespace std::chrono_literals;
 			auto start = std::chrono::high_resolution_clock::now();
 
-			rend.clear(video_ctrl::color::white());
+			rend.clear(video_ctrl::color::black());
 
 //			page.draw(0, 0, rend.get_rect().w);
 
-            std::vector<math::vec2> points
-            {
-                {32, 212},
-                {132, 212},
-                {360, 10},
-                {615, 450},
-                {870, 10},
-                {1100, 212},
-                {1220, 212},
-            };
-
-
             video_ctrl::draw_list list;
-            auto c1 = video_ctrl::color::white();
-            auto c2 = video_ctrl::color::black();
 
-            list.add_curved_path_gradient(points, c1, c2, thickness, aa);
-
+            for(const auto& cont : points)
+            {
+                //auto c1 = video_ctrl::color{uint8_t(rand() % 255), uint8_t(rand() % 255), uint8_t(rand() % 255), 255};
+                video_ctrl::color c1{210, 210, 210, 255};
+                auto c2 = c1 * 0.5f;
+                c2.a = 255;
+                list.add_curved_path_gradient(cont, c1, c2, thickness, aa);
+            }
             rend.draw_cmd_list(list);
 			rend.present();
 
@@ -228,7 +246,7 @@ int main()
 			}
 			count++;
 			avg_dur += dur;
-			// std::cout << (avg_dur.count() * 1000) / count << std::endl;
+			std::cout << (avg_dur.count() * 1000) / count << std::endl;
 		}
 	}
 	os::shutdown();

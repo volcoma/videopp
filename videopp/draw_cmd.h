@@ -56,7 +56,6 @@ struct texture_view
 struct gpu_program
 {
     shader* shader{};
-    vertex_buffer_layout* layout{};
 };
 
 struct gpu_context

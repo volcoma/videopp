@@ -51,6 +51,8 @@ namespace video_ctrl
             unload();
             throw std::runtime_error("Cannot compile shader program.");
         }
+
+        layout_.set_program_id(program_id_);
     }
 
     shader::~shader() noexcept
@@ -113,10 +115,14 @@ namespace video_ctrl
     void shader::enable() const
     {
         gl_call(glUseProgram(program_id_));
+
+        layout_.bind();
     }
 
     void shader::disable() const
     {
+        layout_.unbind();
+
         gl_call(glUseProgram(0));
         clear_textures();
     }

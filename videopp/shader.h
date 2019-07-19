@@ -48,6 +48,8 @@ namespace video_ctrl
         void clear_textures() const;
         uint32_t get_program_id() const { return program_id_; }
 
+        vertex_buffer_layout& get_layout() { return layout_; }
+        const vertex_buffer_layout& get_layout() const { return layout_; }
 
     private:
         int get_uniform_location(const std::string& uniform_name) const;
@@ -61,6 +63,7 @@ namespace video_ctrl
         void get_log(uint32_t id);
         void compile_shader(uint32_t shader_id);
 
+        vertex_buffer_layout layout_;
         mutable std::unordered_map<std::string, int> locations_;
 
         uint32_t program_id_ = 0;
