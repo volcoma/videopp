@@ -166,6 +166,7 @@ namespace video_ctrl
 
                 break;
             }
+
             gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, surface.get_width(), surface.get_height(), 0, format,
                          GL_UNSIGNED_BYTE, surface.get_pixels()));
 

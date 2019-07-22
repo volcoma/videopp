@@ -499,7 +499,7 @@ bool renderer::set_texture(const uint32_t texture, uint32_t id, texture::wrap_ty
     }
     gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, imode));
     gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, imode));
-    
+
     // Check errors and return
     return true;
 }

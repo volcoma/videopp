@@ -9,9 +9,11 @@ litehtml::tstring urljoin(const litehtml::tstring& base_url, const litehtml::tst
 {
 	try
 	{
-		Web::URI uri_base(base_url);
-		Web::URI uri_res(uri_base, relative);
-		return uri_res.toString();
+		web::URI uri_base(base_url);
+		web::URI uri_res(uri_base, relative);
+
+        auto uri = uri_base;
+		return uri_res.to_string();
 	}
 	catch(...)
 	{

@@ -34,37 +34,6 @@ line breaks
 )";
 
 
-video_ctrl::polyline path_with_rounded_corners (const std::vector<math::vec2>& points, float corner_radius)
-{
-    video_ctrl::polyline path;
-    size_t count = points.size();
-
-    if(count < 3)
-    {
-        for (const auto& p : points)
-        {
-            path.line_to(p);
-        }
-        return path;
-    }
-
-    path.line_to(points.front());
-
-    for (size_t i = 1; i < count - 1; ++i)
-    {
-        math::vec2 prev = points[i - 1];
-        math::vec2 edge = points[i + 0];
-        math::vec2 next = points[i + 1];
-        path.arc_between(prev, edge, next, corner_radius);
-    }
-    path.line_to(points.back());
-
-    return path;
-}
-
-
-
-
 int main()
 {
 	os::init();
@@ -216,21 +185,21 @@ int main()
 			using namespace std::chrono_literals;
 			auto start = std::chrono::high_resolution_clock::now();
 
-			rend.clear(video_ctrl::color::black());
+			rend.clear(video_ctrl::color::white());
 
-//			page.draw(0, 0, rend.get_rect().w);
+			page.draw(0, 0, rend.get_rect().w);
 
-            video_ctrl::draw_list list;
+//            video_ctrl::draw_list list;
 
-            for(const auto& cont : points)
-            {
-                //auto c1 = video_ctrl::color{uint8_t(rand() % 255), uint8_t(rand() % 255), uint8_t(rand() % 255), 255};
-                video_ctrl::color c1{210, 210, 210, 255};
-                auto c2 = c1 * 0.5f;
-                c2.a = 255;
-                list.add_curved_path_gradient(cont, c1, c2, thickness, aa);
-            }
-            rend.draw_cmd_list(list);
+//            for(const auto& cont : points)
+//            {
+//                //auto c1 = video_ctrl::color{uint8_t(rand() % 255), uint8_t(rand() % 255), uint8_t(rand() % 255), 255};
+//                video_ctrl::color c1{210, 210, 210, 255};
+//                auto c2 = c1 * 0.5f;
+//                c2.a = 255;
+//                list.add_curved_path_gradient(cont, c1, c2, thickness, aa);
+//            }
+//            rend.draw_cmd_list(list);
 			rend.present();
 
 			auto end = std::chrono::high_resolution_clock::now();

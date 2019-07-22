@@ -1,5 +1,7 @@
 #include "html_context.h"
 #include "../logger.h"
+#include "../ttf_font.h"
+
 #include <fstream>
 #include <master.css>
 namespace video_ctrl
@@ -178,7 +180,8 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 		{
 			return get_font(page_uid, family.bold, size, weight, italic, decoration, is_fallback);
 		}
-		else if(italic && !simulate_italic)
+
+		if(italic && !simulate_italic)
 		{
 			return get_font(page_uid, family.italic, size, weight, italic, decoration, is_fallback);
 		}
