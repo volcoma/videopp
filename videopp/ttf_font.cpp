@@ -52,6 +52,10 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     {
         throw std::runtime_error("[" + path + "] - " + err);
     }
+//    if(!atlas.build(fnt::font_rasterizer::stb, err))
+//    {
+//        throw std::runtime_error("[" + path + "] - " + err);
+//    }
 
     f.glyphs.reserve(font->glyphs.size());
     for(const auto& font_glyph : font->glyphs)
@@ -119,6 +123,11 @@ font_info create_default_font(float font_size, int sdf_spread)
     {
         throw std::runtime_error("[default] - " + err);
     }
+
+//    if(!atlas.build(fnt::font_rasterizer::stb, err))
+//    {
+//        throw std::runtime_error("[default] - " + err);
+//    }
 
     f.glyphs.reserve(font->glyphs.size());
     for(const auto& font_glyph : font->glyphs)

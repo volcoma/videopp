@@ -215,7 +215,7 @@ int main()
 			}
 			count++;
 			avg_dur += dur;
-			std::cout << (avg_dur.count() * 1000) / count << std::endl;
+			//std::cout << (avg_dur.count() * 1000) / count << std::endl;
 		}
 	}
 	os::shutdown();
