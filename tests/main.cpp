@@ -56,28 +56,28 @@ int main()
 			{
 				"monospace",
 				{
-					DATA"fonts/Free/FreeMono.ttf",
-					DATA"fonts/Free/FreeMonoOblique.ttf",
-					DATA"fonts/Free/FreeMonoBold.ttf",
-					DATA"fonts/Free/FreeMonoBoldOblique.ttf",
+					DATA"fonts/dejavu/DejaVuSansMono.ttf",
+					DATA"fonts/dejavu/DejaVuSansMono-Oblique.ttf",
+					DATA"fonts/dejavu/DejaVuSansMono-Bold.ttf",
+					DATA"fonts/dejavu/DejaVuSansMono-BoldOblique.ttf",
 				},
 			},
 			{
 				"serif",
                 {
-					DATA"fonts/Free/FreeSerif.ttf",
-					DATA"fonts/Free/FreeSerifItalic.ttf",
-					DATA"fonts/Free/FreeSerifBold.ttf",
-					DATA"fonts/Free/FreeSerifBoldItalic.ttf",
+					DATA"fonts/dejavu/DejaVuSerif.ttf",
+					DATA"fonts/dejavu/DejaVuSerif-Italic.ttf",
+					DATA"fonts/dejavu/DejaVuSerif-Bold.ttf",
+					DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf",
 				},
 			},
 			{
 				"sans-serif",
 				{
-					DATA"fonts/Free/FreeSans.ttf",
-					DATA"fonts/Free/FreeSansOblique.ttf",
-					DATA"fonts/Free/FreeSansBold.ttf",
-					DATA"fonts/Free/FreeSansBoldOblique.ttf",
+					DATA"fonts/dejavu/DejaVuSans.ttf",
+					DATA"fonts/dejavu/DejaVuSans-Oblique.ttf",
+					DATA"fonts/dejavu/DejaVuSans-Bold.ttf",
+					DATA"fonts/dejavu/DejaVuSans-BoldOblique.ttf",
 				},
 			},
 			{

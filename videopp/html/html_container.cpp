@@ -272,7 +272,9 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 
 int html_container::pt_to_px(int pt)
 {
-	return static_cast<int>(round(pt * 125.0 / 72.0));
+    float dpi = 96.0f;
+    float px = pt * dpi / 72.0f;
+	return static_cast<int>(std::round(px));
 }
 
 int html_container::get_default_font_size() const
