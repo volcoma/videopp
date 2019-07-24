@@ -123,7 +123,7 @@ static constexpr const char* fs_distance_field =
                     }
                     #endif
 
-                    void main(void)
+                    void main()
                     {
                         vec4 master_color = vColor;
                         float master_alpha = master_color.a;

@@ -19,7 +19,7 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     f.face_name = path;
     f.size = font_size;
     f.sdf_spread = sdf_spread;
-    f.pixel_density = 1; // stbtt renders 1:1
+    f.pixel_density = 1;
 
     fnt::font_atlas atlas{};
     atlas.max_texture_size = 1024 * 8;
@@ -41,6 +41,8 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     fnt::font_config cfg{};
     cfg.kerning_glyphs_limit = kerning ? 512 : 0;
     cfg.pixel_snap_h = true;
+    cfg.oversample_h = 2;
+    cfg.oversample_v = 2;
     auto font = atlas.add_font_from_file_ttf(path.c_str(), font_size, &cfg, ranges.data());
     if(!font)
     {
@@ -48,11 +50,8 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     }
 
     std::string err{};
-//    if(!atlas.build(fnt::font_rasterizer::stb, err))
-//    {
-//        throw std::runtime_error("[" + path + "] - " + err);
-//    }
-    if(!atlas.build(fnt::font_rasterizer::freetype, err))
+
+    if(!atlas.build(fnt::font_rasterizer::stb, err))
     {
         throw std::runtime_error("[" + path + "] - " + err);
     }
@@ -104,7 +103,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     f.face_name = "default";
     f.size = font_size;
     f.sdf_spread = sdf_spread;
-    f.pixel_density = 1; // stbtt renders 1:1
+    f.pixel_density = 1;
 
     fnt::font_atlas atlas{};
     atlas.max_texture_size = 1024 * 8;
@@ -112,6 +111,9 @@ font_info create_default_font(float font_size, int sdf_spread)
 
     fnt::font_config cfg{};
     cfg.size_pixels = font_size;
+    cfg.pixel_snap_h = true;
+    cfg.oversample_h = 2;
+    cfg.oversample_v = 2;
     auto font = atlas.add_font_default(&cfg);
     if(!font)
     {
@@ -119,11 +121,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     }
 
     std::string err{};
-//    if(!atlas.build(fnt::font_rasterizer::stb, err))
-//    {
-//        throw std::runtime_error("[default] - " + err);
-//    }
-    if(!atlas.build(fnt::font_rasterizer::freetype, err))
+    if(!atlas.build(fnt::font_rasterizer::stb, err))
     {
         throw std::runtime_error("[default] - " + err);
     }
