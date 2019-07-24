@@ -1,5 +1,5 @@
 #include "polyline.h"
-
+#include <array>
 namespace video_ctrl
 {
 

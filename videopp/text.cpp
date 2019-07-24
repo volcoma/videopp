@@ -519,7 +519,6 @@ void text::update_geometry() const
             *vptr++ = {{x0 - leaning_, y1}, {g.u0, g.v1}, color_};
 
             line_offset += 4;
-
             xadvance += g.advance_x + advance_offset_x;
             line_minx = std::min(x0, line_minx);
             line_maxx = std::max(x1, line_maxx);

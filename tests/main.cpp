@@ -51,7 +51,7 @@ int main()
 		video_ctrl::html_defaults options;
 		options.default_font = "serif";
 		options.default_font_size = 16;
-		options.default_font_options = video_ctrl::font_flags::use_kerning /*| video_ctrl::font_flags::simulate_all*/;
+		options.default_font_options = video_ctrl::font_flags::use_kerning | video_ctrl::font_flags::simulate_vectorization/*| video_ctrl::font_flags::simulate_all*/;
 		options.default_font_families = {
 			{
 				"monospace",
