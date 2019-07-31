@@ -274,6 +274,11 @@ void polyline::rectangle(const rect& r, float rounding, uint32_t rounding_corner
     rectangle(math::vec2{r.x, r.y}, math::vec2{r.x + r.w, r.y + r.h}, rounding, rounding_corners_flags);
 }
 
+void polyline::rectangle(const frect& r, float rounding, uint32_t rounding_corners_flags)
+{
+    rectangle(math::vec2{r.x, r.y}, math::vec2{r.x + r.w, r.y + r.h}, rounding, rounding_corners_flags);
+}
+
 void polyline::ellipse(const math::vec2& center, const math::vec2& radii, size_t num_segments)
 {
     const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);

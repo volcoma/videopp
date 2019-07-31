@@ -33,7 +33,8 @@ struct draw_list
 
     void add_rect(const rect& r, const math::transformf& transform, const color& col = color::white(),
                   bool filled = true, float thickness = 1.0f);
-
+    void add_rect(const frect& r, const math::transformf& transform, const color& col = color::white(),
+                  bool filled = true, float thickness = 1.0f);
     void add_rect(const std::array<math::vec2, 4>& points, const color& col = color::white(),
                   bool filled = true, float thickness = 1.0f);
 

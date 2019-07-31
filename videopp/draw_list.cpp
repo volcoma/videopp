@@ -200,10 +200,10 @@ void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& c
 
 void draw_list::add_rect(const rect& dst, const color& col, bool filled, float thickness)
 {
-    float offset = (int(thickness) % 2 == 0) ? 0.0f : 0.5f;
-    const std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y) + offset, math::vec2(dst.x + dst.w, dst.y) + math::vec2(-offset, offset),
-                                               math::vec2(dst.x + dst.w, dst.y + dst.h) - offset,
-                                               math::vec2(dst.x, dst.y + dst.h) + math::vec2(offset, -offset)}};
+    const std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y),
+                                               math::vec2(dst.x + dst.w, dst.y),
+                                               math::vec2(dst.x + dst.w, dst.y + dst.h),
+                                               math::vec2(dst.x, dst.y + dst.h)}};
 
     add_rect(points, col, filled, thickness);
 }
@@ -211,12 +211,18 @@ void draw_list::add_rect(const rect& dst, const color& col, bool filled, float t
 void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
-    float offset = (int(thickness) % 2 == 0) ? 0.0f : 0.5f;
+    add_rect(frect(dst.x, dst.y, dst.w, dst.h), transform, col, filled, thickness);
+}
+
+void draw_list::add_rect(const frect& dst, const math::transformf& transform, const color& col, bool filled,
+                         float thickness)
+{
     // If we want this to be batched with other calls we need to
     // do the transformations on the cpu side
-    std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y) + offset, math::vec2(dst.x + dst.w, dst.y) + math::vec2(-offset, offset),
-                                         math::vec2(dst.x + dst.w, dst.y + dst.h) - offset,
-                                         math::vec2(dst.x, dst.y + dst.h) + math::vec2(offset, -offset)}};
+    std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y),
+                                         math::vec2(dst.x + dst.w, dst.y),
+                                         math::vec2(dst.x + dst.w, dst.y + dst.h),
+                                         math::vec2(dst.x, dst.y + dst.h)}};
     for(auto& p : points)
     {
         p = transform.transform_coord(p);
@@ -229,8 +235,8 @@ void draw_list::add_rect(const rect& dst, const math::transformf& transform, con
 void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
 {
     polyline line;
-    line.line_to(start + math::vec2(0.5f,0.5f));
-    line.line_to(end + math::vec2(0.5f,0.5f));
+    line.line_to(start);
+    line.line_to(end);
     add_polyline(line, col, false, thickness);
 }
 
@@ -1581,7 +1587,8 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
     }
 
-    const auto& rect = t.get_rect();
+    auto rect = t.get_frect();
+    add_rect(rect, transform, color::red(), false, 1.0f);
     {
         auto col = color::cyan();
         std::string desc = "ascent ";
@@ -1602,11 +1609,11 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             tr.set_position(v1.x, v1.y, 0.0f);
             add_text(txt, tr);
 
-//            txt.set_alignment(text::alignment::left);
-//            txt.set_utf8_text(" width = " + std::to_string(t.get_width()));
+            txt.set_alignment(text::alignment::left);
+            txt.set_utf8_text(" width = " + std::to_string(t.get_width()));
 
-//            tr.set_position(v2.x, v1.y, 0.0f);
-//            add_text(txt, tr);
+            tr.set_position(v2.x, v1.y, 0.0f);
+            add_text(txt, tr);
         }
     }
     {
@@ -1618,7 +1625,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             auto v1 = transform.transform_coord({rect.x, line});
             auto v2 = transform.transform_coord({rect.x + rect.w, line});
 
-            add_line(v1, v2, col, 2.0f);
+            add_line(v1, v2, col, 1.0f);
 
             text txt;
             txt.set_color(col);
@@ -1639,7 +1646,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             auto v1 = transform.transform_coord({rect.x, line});
             auto v2 = transform.transform_coord({rect.x + rect.w, line});
 
-            add_line(v1, v2, col, 2.0f);
+            add_line(v1, v2, col, 1.0f);
 
             text txt;
             txt.set_color(col);
@@ -1663,7 +1670,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             auto v1 = transform.transform_coord({coord, line});
             auto v2 = transform.transform_coord({coord, line + line_height});
 
-            add_line(v1, v2, col, 2.0f);
+            add_line(v1, v2, col, 1.0f);
 
 //            text txt;
 //            txt.set_color(col);

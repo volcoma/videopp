@@ -39,7 +39,7 @@ namespace video_ctrl
         enum class interpolation_type
         {   
             interpolate_none,   // A point filter, no interpolation whatsoever  
-            interpolate_linear  // Linear interpolation                         
+            interpolate_linear  // Linear interpolation
         };
 
         ~texture();

@@ -115,7 +115,7 @@ std::pair<float, float> get_alignment_offsets(text::alignment alignment,
             xoffs = -maxx;
             break;
         case align::center:
-            xoffs = (-minx - maxx) / 2;
+            xoffs = (-minx-maxx) / 2.0f;
             break;
     }
 
@@ -128,12 +128,20 @@ std::pair<float, float> get_alignment_offsets(text::alignment alignment,
             yoffs = -maxy;
             break;
         case align::center:
-            yoffs = (-miny - maxy) / 2;
+            yoffs = (-miny -maxy) / 2.0f;
             break;
     }
     return {xoffs, yoffs};
 }
+void align_rect(frect& r, text::alignment align, float minx, float miny, float maxx, float maxy)
+{
+    auto offsets = get_alignment_offsets(align, minx, miny, maxx, maxy);
+    float xoffs = offsets.first;
+    float yoffs = offsets.second;
 
+    r.x += xoffs;
+    r.y += yoffs;
+}
 }
 
 text::text() = default;
@@ -337,23 +345,6 @@ const std::string& text::get_utf8_text() const
     return utf8_text_;
 }
 
-rect align_rect(const rect& r, text::alignment align)
-{
-    auto minx = static_cast<float>(r.x);
-    auto maxx = static_cast<float>(r.x + r.w);
-    auto miny = static_cast<float>(r.y);
-    auto maxy = static_cast<float>(r.y + r.h);
-
-    auto offsets = get_alignment_offsets(align, minx, miny, maxx, maxy);
-    float xoffs = offsets.first;
-    float yoffs = offsets.second;
-
-    auto result = r;
-    result.x += static_cast<int>(xoffs);
-    result.y += static_cast<int>(yoffs);
-    return result;
-}
-
 rect cast_rect(const frect& r)
 {
     rect result;
@@ -491,6 +482,8 @@ void text::update_geometry() const
     auto baseline = ascent;
     float xadvance = 0;
     float yadvance = baseline;
+
+    float x_height = font_->x_height;
     for(const auto& line : lines)
     {
         size_t line_offset = 0;
@@ -513,10 +506,14 @@ void text::update_geometry() const
             auto x1 = g.x1 + xadvance;
             auto y0 = g.y0 + yadvance;
             auto y1 = g.y1 + yadvance;
-            *vptr++ = {{x0 + leaning_, y0}, {g.u0, g.v0}, color_};
-            *vptr++ = {{x1 + leaning_, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1 - leaning_, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0 - leaning_, y1}, {g.u0, g.v1}, color_};
+            auto h = y1 - y0;
+            float h_factor = h / x_height;
+            float leaning = leaning_ * h_factor;
+
+            *vptr++ = {{x0 + leaning, y0}, {g.u0, g.v0}, color_};
+            *vptr++ = {{x1 + leaning, y0}, {g.u1, g.v0}, color_};
+            *vptr++ = {{x1 - leaning, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0 - leaning, y1}, {g.u0, g.v1}, color_};
 
             line_offset += 4;
             xadvance += g.advance_x + advance_offset_x;
@@ -533,7 +530,7 @@ void text::update_geometry() const
         auto line_baseline_maxy = line_ascent_miny + ascent;
         auto line_maxy = get_alignment_maxy(alignment_, line_descent_maxy, line_baseline_maxy);
 
-        auto offsets = get_alignment_offsets(alignment_, line_minx, line_miny, line_maxx, line_maxy);
+        auto offsets = get_alignment_offsets(alignment_, 0, line_miny, line_maxx, line_maxy);
         float xoffs = offsets.first;
 
         auto v = geometry_.data() + offset;
@@ -564,15 +561,13 @@ void text::update_geometry() const
     auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
     auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
 
-    auto offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
+    auto offsets = get_alignment_offsets(alignment_, 0, miny, maxx, maxy);
     float yoffs = offsets.second;
 
     for(auto& v : geometry_)
     {
         auto& pos = v.pos;
         pos.y += yoffs;
-
-        rect_.insert({pos.x, pos.y});
     }
 
     for(auto& line : ascent_lines_)
@@ -589,8 +584,13 @@ void text::update_geometry() const
     }
     min_baseline_height_ = miny_baseline - miny_ascent + shadow_offsets_.y;
     max_baseline_height_ = maxy_baseline - miny_ascent + shadow_offsets_.y;
+
+
+    // minx is the left_side bearing
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
-    rect_.w = maxx - minx + shadow_offsets_.x;
+    rect_.w = maxx - std::min(minx, 0.0f) + shadow_offsets_.x;
+    align_rect(rect_, alignment_, 0.0f, miny, maxx, maxy);
+    rect_.x += std::min(minx, 0.0f);
 }
 
 float text::get_width() const
@@ -659,17 +659,19 @@ float text::get_max_baseline_height() const
 
 rect text::get_rect() const
 {
-    if(!font_)
-    {
-        return {};
-    }
+    return cast_rect(get_frect());
+}
+
+const frect& text::get_frect() const
+{
     if(rect_)
     {
-        return cast_rect(rect_);
+        return rect_;
     }
+
     update_geometry();
 
-    return cast_rect(rect_);
+    return rect_;
 }
 
 const color& text::get_color() const

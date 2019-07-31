@@ -63,6 +63,7 @@ public:
     float get_max_baseline_height() const;
 
     video_ctrl::rect get_rect() const;
+    const video_ctrl::frect& get_frect() const;
 
     const color& get_color() const;
 
@@ -131,8 +132,5 @@ private:
     bool kerning_enabled_ = false;
 };
 
-
-rect align_rect(const rect& r, text::alignment align);
-rect align_rect(const frect& r, text::alignment align);
 
 }

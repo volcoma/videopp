@@ -95,10 +95,6 @@ static constexpr const char* fs_distance_field =
                     {
                         return smoothstep(0.5 - w, 0.5 + w, d);
                     }
-                    float sample( in sampler2D tex, in vec2 uv, in float w )
-                    {
-                        return contour( texture2D(tex,uv).r, w );
-                    }
 
                     float supersample( in float alpha, in vec4 box_samples, in float width)
                     {
