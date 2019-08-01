@@ -52,7 +52,6 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
     font_info f;
     f.face_name = name;
     f.sdf_spread = 0;
-    f.pixel_density = 1;
 
     f.surface = std::move(surface);
 
@@ -108,7 +107,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
                 }
             }
 
-            f.glyph_index[c] = int(f.glyphs.size());
+            f.glyph_index[c] = char_t(f.glyphs.size());
             f.glyphs.emplace_back();
             auto& g = f.glyphs.back();
 

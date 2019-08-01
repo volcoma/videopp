@@ -19,7 +19,6 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     f.face_name = path;
     f.size = font_size;
     f.sdf_spread = sdf_spread;
-    f.pixel_density = 1;
 
     fnt::font_atlas atlas{};
     atlas.max_texture_size = 1024 * 8;
@@ -79,17 +78,8 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     }
     f.ascent = font->ascent;
     f.descent = font->descent;
+    f.x_height = font->x_height;
     f.line_height = font->line_height;
-
-    if(!f.glyphs.empty())
-    {
-        const auto& x_glyph = f.get_glyph('x');
-        f.x_height = x_glyph.y1 - x_glyph.y0;
-    }
-    else
-    {
-        f.x_height = f.ascent - f.descent;
-    }
 
     f.kernings = std::move(font->kernings);
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
@@ -103,7 +93,6 @@ font_info create_default_font(float font_size, int sdf_spread)
     f.face_name = "default";
     f.size = font_size;
     f.sdf_spread = sdf_spread;
-    f.pixel_density = 1;
 
     fnt::font_atlas atlas{};
     atlas.max_texture_size = 1024 * 8;
@@ -121,7 +110,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     }
 
     std::string err{};
-    if(!atlas.build(fnt::font_rasterizer::freetype, err))
+    if(!atlas.build(fnt::font_rasterizer::stb, err))
     {
         throw std::runtime_error("[default] - " + err);
     }
@@ -151,6 +140,7 @@ font_info create_default_font(float font_size, int sdf_spread)
 
     f.ascent = font->ascent;
     f.descent = font->descent;
+    f.x_height = font->x_height;
     f.line_height = font->line_height;
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
 

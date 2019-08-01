@@ -50,15 +50,6 @@ struct font_info
     /// spread of signed distance field (0 if no distance field is applied)
     int sdf_spread = 0;
 
-    /// number of texture pixels per unit of geometry
-    /// both horizontal and vertical
-    /// this, of course, relies on several assumptions
-    /// (which hold true for the current loaders)
-    /// but may not necessarily do so for others
-    /// 1. horizontal and vertical density ARE the same
-    /// 2. all characters have the same pixel density
-    float pixel_density = 0;
-
     /// height of a single line
     float line_height = 0;
     /// ascent of letters

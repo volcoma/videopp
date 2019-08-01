@@ -13,6 +13,24 @@ namespace video_ctrl
 class text
 {
 public:
+
+    struct line_metrics
+    {
+        size_t vtx_count{};
+
+        float ascent{};
+        float baseline{};
+        float descent{};
+
+        float minx{};
+        float maxx{};
+
+        float miny{};
+        float maxy{};
+
+    };
+
+
     enum class alignment : uint32_t
     {
         top,
@@ -53,10 +71,6 @@ public:
     // point alignment based on position
     void set_alignment(alignment a);
 
-    // maximum width of text in units
-    // 0 = no maximum
-    void set_max_width(float w);
-
     float get_width() const;
     float get_height() const;
     float get_min_baseline_height() const;
@@ -79,9 +93,7 @@ public:
     // buffer of quads - each 4 vertices form a quad
     const std::vector<vertex_2d>& get_geometry() const;
     const std::vector<std::vector<uint32_t>>& get_lines() const;
-    const std::vector<float>& get_ascent_lines() const;
-    const std::vector<float>& get_descent_lines() const;
-    const std::vector<float>& get_baseline_lines() const;
+    const std::vector<line_metrics>& get_lines_metrics() const;
 
     const std::string& get_utf8_text() const;
 
@@ -104,9 +116,7 @@ private:
     mutable uint32_t chars_ = 0;
     mutable std::vector<std::vector<uint32_t>> lines_;
 
-    mutable std::vector<float> ascent_lines_;
-    mutable std::vector<float> descent_lines_;
-    mutable std::vector<float> baseline_lines_;
+    mutable std::vector<line_metrics> lines_metrics_;
 
     mutable frect rect_{};
     mutable float min_baseline_height_{};
@@ -127,7 +137,6 @@ private:
     math::vec2 shadow_offsets_{0.0f, 0.0f};
 
     alignment alignment_ = alignment::top_left;
-    float max_width_ = 0;
     math::vec2 advance_ = {0, 0};
     bool kerning_enabled_ = false;
 };

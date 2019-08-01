@@ -228,15 +228,15 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
     list_.pop_clip();
 
     auto line_width = scale * font->size / float(get_default_font_size());
+    const auto& lines = t.get_lines_metrics();
 	if(underline)
 	{
         float quarter_x_height = font->x_height * 0.25f;
         const auto& rect = t.get_rect();
-        const auto& lines = t.get_baseline_lines();
         for(const auto& line : lines)
         {
-            auto v1 = transform.transform_coord({rect.x, line + quarter_x_height});
-            auto v2 = transform.transform_coord({rect.x + rect.w, line + quarter_x_height});
+            auto v1 = transform.transform_coord({rect.x, line.baseline + quarter_x_height});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line.baseline + quarter_x_height});
 
             list_.add_line(v1, v2, col, line_width);
         }
@@ -245,11 +245,10 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 	if(overline)
 	{
         const auto& rect = t.get_rect();
-        const auto& lines = t.get_ascent_lines();
         for(const auto& line : lines)
         {
-            auto v1 = transform.transform_coord({rect.x, line});
-            auto v2 = transform.transform_coord({rect.x + rect.w, line});
+            auto v1 = transform.transform_coord({rect.x, line.ascent});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line.ascent});
 
             list_.add_line(v1, v2, col, line_width);
         }
@@ -259,11 +258,10 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 	{
         float half_x_height = font->x_height * 0.5f;
         const auto& rect = t.get_rect();
-        const auto& lines = t.get_baseline_lines();
         for(const auto& line : lines)
         {
-            auto v1 = transform.transform_coord({rect.x, line - half_x_height});
-            auto v2 = transform.transform_coord({rect.x + rect.w, line - half_x_height});
+            auto v1 = transform.transform_coord({rect.x, line.baseline - half_x_height});
+            auto v2 = transform.transform_coord({rect.x + rect.w, line.baseline - half_x_height});
 
             list_.add_line(v1, v2, col, line_width);
         }

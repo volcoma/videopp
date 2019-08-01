@@ -250,18 +250,6 @@ void text::set_alignment(text::alignment a)
     clear_geometry();
 }
 
-void text::set_max_width(float w)
-{
-    if(math::epsilonEqual(max_width_, w, math::epsilon<float>()))
-    {
-        return;
-    }
-
-    max_width_ = w;
-    clear_lines();
-    clear_geometry();
-}
-
 const std::vector<vertex_2d>& text::get_geometry() const
 {
     if(geometry_.empty())
@@ -277,22 +265,10 @@ const std::vector<std::vector<uint32_t>>& text::get_lines() const
     return lines_;
 }
 
-const std::vector<float>& text::get_ascent_lines() const
+const std::vector<text::line_metrics>& text::get_lines_metrics() const
 {
     get_geometry();
-    return ascent_lines_;
-}
-
-const std::vector<float>& text::get_descent_lines() const
-{
-    get_geometry();
-    return descent_lines_;
-}
-
-const std::vector<float>& text::get_baseline_lines() const
-{
-    get_geometry();
-    return baseline_lines_;
+    return lines_metrics_;
 }
 
 bool text::is_valid() const
@@ -358,9 +334,7 @@ rect cast_rect(const frect& r)
 void text::clear_geometry()
 {
     geometry_.clear();
-    ascent_lines_.clear();
-    descent_lines_.clear();
-    baseline_lines_.clear();
+    lines_metrics_.clear();
     rect_ = {};
     min_baseline_height_ = {};
     max_baseline_height_ = {};
@@ -476,19 +450,22 @@ void text::update_geometry() const
     size_t offset = 0;
 
     auto line_height = font_->line_height + advance_offset_y;
+    auto x_height = font_->x_height;
     auto ascent = font_->ascent;
     auto descent = font_->descent;
     auto height = ascent - descent;
     auto baseline = ascent;
-    float xadvance = 0;
-    float yadvance = baseline;
 
-    float x_height = font_->x_height;
+    // Set glyph positions on a (0,0) baseline.
+    // (x0,y0) for a glyph is the bottom-lefts
+    auto pen_x = 0.0f;
+    auto pen_y = baseline;
+
     for(const auto& line : lines)
     {
-        size_t line_offset = 0;
-        float line_minx = 100000.0f;
-        float line_maxx = -100000.0f;
+        line_metrics line_info{};
+        line_info.minx = 100000.0f;
+        line_info.maxx = -100000.0f;
 
         auto last_codepoint = char_t(-1);
         for(auto c : line)
@@ -498,99 +475,101 @@ void text::update_geometry() const
             if(kerning_enabled_)
             {
                 // modify the xadvance with the kerning from the previous character
-                xadvance += font_->get_kerning(last_codepoint, g.codepoint);
+                pen_x += font_->get_kerning(last_codepoint, g.codepoint);
                 last_codepoint = g.codepoint;
             }
 
-            auto x0 = g.x0 + xadvance;
-            auto x1 = g.x1 + xadvance;
-            auto y0 = g.y0 + yadvance;
-            auto y1 = g.y1 + yadvance;
-            auto h = y1 - y0;
-            float h_factor = h / x_height;
-            float leaning = leaning_ * h_factor;
+            auto h = g.y1 - g.y0;
+            auto h_factor = h / std::max(x_height, 1.0f);
+            auto leaning = leaning_ * h_factor;
+
+            auto x0 = pen_x + g.x0;
+            auto x1 = pen_x + g.x1;
+            auto y0 = pen_y + g.y0;
+            auto y1 = pen_y + g.y1;
 
             *vptr++ = {{x0 + leaning, y0}, {g.u0, g.v0}, color_};
             *vptr++ = {{x1 + leaning, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1 - leaning, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0 - leaning, y1}, {g.u0, g.v1}, color_};
+            *vptr++ = {{x1, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0, y1}, {g.u0, g.v1}, color_};
 
-            line_offset += 4;
-            xadvance += g.advance_x + advance_offset_x;
-            line_minx = std::min(x0, line_minx);
-            line_maxx = std::max(x1, line_maxx);
-            line_maxx = std::max(line_maxx, xadvance);
+            line_info.vtx_count += 4;
+
+            line_info.minx = std::min(std::min(pen_x, x0 + leaning), line_info.minx);
+            line_info.maxx = std::max(std::max(pen_x, x1 + leaning), line_info.maxx);
+            pen_x += g.advance_x + advance_offset_x;
+            line_info.maxx = std::max(pen_x, line_info.maxx);
+
         }
 
-        auto line_ascent_miny = -ascent + yadvance;
-        auto line_baseline_miny = yadvance;
-        auto line_miny = get_alignment_miny(alignment_, line_ascent_miny, line_baseline_miny);
+        line_info.ascent = pen_y - ascent;
+        line_info.baseline = pen_y;
+        line_info.descent = line_info.ascent + height;
 
-        auto line_descent_maxy = line_ascent_miny + height;
-        auto line_baseline_maxy = line_ascent_miny + ascent;
-        auto line_maxy = get_alignment_maxy(alignment_, line_descent_maxy, line_baseline_maxy);
+        line_info.miny = get_alignment_miny(alignment_, line_info.ascent, line_info.baseline);
+        line_info.maxy = get_alignment_maxy(alignment_, line_info.descent, line_info.baseline);
 
-        auto offsets = get_alignment_offsets(alignment_, 0, line_miny, line_maxx, line_maxy);
-        float xoffs = offsets.first;
+        minx = std::min(line_info.minx, minx);
+        maxx = std::max(line_info.maxx, maxx);
+
+        maxy_descent = std::max(line_info.descent, maxy_descent);
+        maxy_baseline = std::max(line_info.baseline, maxy_baseline);
+
+        miny_ascent = std::min(line_info.ascent, miny_ascent);
+        miny_baseline = std::min(line_info.baseline, miny_baseline);
+
+        auto align_offsets = get_alignment_offsets(alignment_, std::max(0.0f, line_info.minx), line_info.miny, line_info.maxx, line_info.maxy);
+        auto align_x = align_offsets.first;
 
         auto v = geometry_.data() + offset;
-        for(size_t i = 0; i < line_offset; ++i)
+        for(size_t i = 0; i < line_info.vtx_count; ++i)
         {
             auto& vv = *(v+i);
-            vv.pos.x += xoffs;
+            vv.pos.x += align_x;
         }
 
-        minx = std::min(line_minx, minx);
-        maxx = std::max(line_maxx, maxx);
+        offset += line_info.vtx_count;
 
-        maxy_descent = std::max(line_descent_maxy, maxy_descent);
-        maxy_baseline = std::max(line_baseline_maxy, maxy_baseline);
+        line_info.minx += align_x;
+        line_info.maxx += align_x;
 
-        miny_ascent = std::min(line_ascent_miny, miny_ascent);
-        miny_baseline = std::min(line_baseline_miny, miny_baseline);
+        lines_metrics_.emplace_back(line_info);
 
-        ascent_lines_.emplace_back(line_ascent_miny);
-        descent_lines_.emplace_back(line_descent_maxy);
-        baseline_lines_.emplace_back(line_baseline_maxy);
-
-        offset += line_offset;
-        yadvance += line_height;
-        xadvance = advance_offset_x;
+        // reset line x advance and go to next line
+        pen_x = 0;
+        pen_y += line_height;
     }
 
     auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
     auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
 
-    auto offsets = get_alignment_offsets(alignment_, 0, miny, maxx, maxy);
-    float yoffs = offsets.second;
+    auto align_offsets = get_alignment_offsets(alignment_, std::min(0.0f, minx), miny, maxx, maxy);
+    auto align_y = align_offsets.second;
 
     for(auto& v : geometry_)
     {
         auto& pos = v.pos;
-        pos.y += yoffs;
+        pos.y += align_y;
     }
 
-    for(auto& line : ascent_lines_)
+    for(auto& line : lines_metrics_)
     {
-        line += yoffs;
+        line.ascent += align_y;
+        line.baseline += align_y;
+        line.descent += align_y;
+        line.miny += align_y;
+        line.maxy += align_y;
     }
-    for(auto& line : descent_lines_)
-    {
-        line += yoffs;
-    }
-    for(auto& line : baseline_lines_)
-    {
-        line += yoffs;
-    }
+
     min_baseline_height_ = miny_baseline - miny_ascent + shadow_offsets_.y;
     max_baseline_height_ = maxy_baseline - miny_ascent + shadow_offsets_.y;
 
 
     // minx is the left_side bearing
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
-    rect_.w = maxx - std::min(minx, 0.0f) + shadow_offsets_.x;
-    align_rect(rect_, alignment_, 0.0f, miny, maxx, maxy);
-    rect_.x += std::min(minx, 0.0f);
+    rect_.w = maxx - std::min(0.0f, minx) + shadow_offsets_.x;
+    rect_.x += std::min(0.0f, minx);
+    align_rect(rect_, alignment_, std::max(0.0f, minx), miny, maxx, maxy);
 }
 
 float text::get_width() const
