@@ -1586,7 +1586,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
     }
 
-    auto rect = t.get_frect();
+    const auto& rect = t.get_frect();
     add_rect(rect, transform, color::red(), false, 1.0f);
     const auto& lines = t.get_lines_metrics();
     {
@@ -1608,11 +1608,11 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             tr.set_position(v1.x, v1.y, 0.0f);
             add_text(txt, tr);
 
-//            txt.set_alignment(text::alignment::left);
-//            txt.set_utf8_text(" width = " + std::to_string(t.get_width()));
+            txt.set_alignment(text::alignment::left);
+            txt.set_utf8_text(" width = " + std::to_string(line.maxx - line.minx));
 
-//            tr.set_position(v2.x, v1.y, 0.0f);
-//            add_text(txt, tr);
+            tr.set_position(v2.x, v1.y, 0.0f);
+            add_text(txt, tr);
         }
     }
     {

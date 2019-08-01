@@ -27,7 +27,6 @@ public:
 
         float miny{};
         float maxy{};
-
     };
 
 
@@ -76,8 +75,8 @@ public:
     float get_min_baseline_height() const;
     float get_max_baseline_height() const;
 
-    video_ctrl::rect get_rect() const;
-    const video_ctrl::frect& get_frect() const;
+    rect get_rect() const;
+    const frect& get_frect() const;
 
     const color& get_color() const;
 

@@ -463,9 +463,9 @@ void text::update_geometry() const
 
     for(const auto& line : lines)
     {
+
         line_metrics line_info{};
-        line_info.minx = 100000.0f;
-        line_info.maxx = -100000.0f;
+        line_info.minx = pen_x;
 
         auto last_codepoint = char_t(-1);
         for(auto c : line)
@@ -479,28 +479,31 @@ void text::update_geometry() const
                 last_codepoint = g.codepoint;
             }
 
-            auto h = g.y1 - g.y0;
-            auto h_factor = h / std::max(x_height, 1.0f);
-            auto leaning = leaning_ * h_factor;
+            auto h0 = std::abs(g.y0);
+            auto h0_factor = h0 / std::max(x_height, 1.0f);
+            auto leaning0 = leaning_ * h0_factor;
+
+            auto h1 = std::abs(g.y1);
+            auto h1_factor = h1 / std::max(x_height, 1.0f);
+            auto leaning1 = leaning_ * h1_factor;
 
             auto x0 = pen_x + g.x0;
             auto x1 = pen_x + g.x1;
             auto y0 = pen_y + g.y0;
             auto y1 = pen_y + g.y1;
 
-            *vptr++ = {{x0 + leaning, y0}, {g.u0, g.v0}, color_};
-            *vptr++ = {{x1 + leaning, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0, y1}, {g.u0, g.v1}, color_};
+            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, color_};
+            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, color_};
+            *vptr++ = {{x1 - leaning1, y1}, {g.u1, g.v1}, color_};
+            *vptr++ = {{x0 - leaning1, y1}, {g.u0, g.v1}, color_};
 
             line_info.vtx_count += 4;
 
-            line_info.minx = std::min(std::min(pen_x, x0 + leaning), line_info.minx);
-            line_info.maxx = std::max(std::max(pen_x, x1 + leaning), line_info.maxx);
             pen_x += g.advance_x + advance_offset_x;
-            line_info.maxx = std::max(pen_x, line_info.maxx);
 
         }
+
+        line_info.maxx = pen_x;
 
         line_info.ascent = pen_y - ascent;
         line_info.baseline = pen_y;
@@ -518,7 +521,7 @@ void text::update_geometry() const
         miny_ascent = std::min(line_info.ascent, miny_ascent);
         miny_baseline = std::min(line_info.baseline, miny_baseline);
 
-        auto align_offsets = get_alignment_offsets(alignment_, std::max(0.0f, line_info.minx), line_info.miny, line_info.maxx, line_info.maxy);
+        auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy);
         auto align_x = align_offsets.first;
 
         auto v = geometry_.data() + offset;
@@ -543,7 +546,7 @@ void text::update_geometry() const
     auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
     auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
 
-    auto align_offsets = get_alignment_offsets(alignment_, std::min(0.0f, minx), miny, maxx, maxy);
+    auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
     auto align_y = align_offsets.second;
 
     for(auto& v : geometry_)
@@ -567,9 +570,8 @@ void text::update_geometry() const
 
     // minx is the left_side bearing
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
-    rect_.w = maxx - std::min(0.0f, minx) + shadow_offsets_.x;
-    rect_.x += std::min(0.0f, minx);
-    align_rect(rect_, alignment_, std::max(0.0f, minx), miny, maxx, maxy);
+    rect_.w = maxx - minx + shadow_offsets_.x;
+    align_rect(rect_, alignment_, minx, miny, maxx, maxy);
 }
 
 float text::get_width() const

@@ -40,8 +40,6 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     fnt::font_config cfg{};
     cfg.kerning_glyphs_limit = kerning ? 512 : 0;
     cfg.pixel_snap_h = true;
-    cfg.oversample_h = 2;
-    cfg.oversample_v = 2;
     auto font = atlas.add_font_from_file_ttf(path.c_str(), font_size, &cfg, ranges.data());
     if(!font)
     {
@@ -101,8 +99,6 @@ font_info create_default_font(float font_size, int sdf_spread)
     fnt::font_config cfg{};
     cfg.size_pixels = font_size;
     cfg.pixel_snap_h = true;
-    cfg.oversample_h = 2;
-    cfg.oversample_v = 2;
     auto font = atlas.add_font_default(&cfg);
     if(!font)
     {
@@ -110,7 +106,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     }
 
     std::string err{};
-    if(!atlas.build(fnt::font_rasterizer::stb, err))
+    if(!atlas.build(fnt::font_rasterizer::freetype, err))
     {
         throw std::runtime_error("[default] - " + err);
     }

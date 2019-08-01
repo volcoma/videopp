@@ -56,7 +56,6 @@ struct font_info
     float ascent = 0;
     /// descent of letters
     float descent = 0;
-
     /// height of x glyph.
     float x_height = 0;
 
