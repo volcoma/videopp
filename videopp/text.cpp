@@ -133,19 +133,47 @@ std::pair<float, float> get_alignment_offsets(text::alignment alignment,
     }
     return {xoffs, yoffs};
 }
-void align_rect(frect& r, text::alignment align, float minx, float miny, float maxx, float maxy)
+color get_gradient(const color& ct, const color& cb, float t, float dt)
 {
-    auto offsets = get_alignment_offsets(align, minx, miny, maxx, maxy);
-    float xoffs = offsets.first;
-    float yoffs = offsets.second;
-
-    r.x += xoffs;
-    r.y += yoffs;
+    t = std::max(t, 0.0f);
+    t = std::min(t, dt);
+    const float fa = t/dt;
+    const float fc = (1.f-fa);
+    return {
+        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
+        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
+        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
+        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
+    };
 }
+
+color shade_verts_linear_color_gradient(math::vec2 pos,
+                                        math::vec2 gradient_p0,
+                                        math::vec2 gradient_p1,
+                                        color col0,
+                                        color col1)
+{
+    auto gradient_extent = gradient_p1 - gradient_p0;
+    float gradient_inv_length2 = 1.0f / math::length2(gradient_extent);
+
+    float d = math::dot(pos - gradient_p0, gradient_extent);
+    float t = math::clamp(d * gradient_inv_length2, 0.0f, 1.0f);
+
+    auto r = math::lerp(float(col0.r), float(col1.r), t);
+    auto g = math::lerp(float(col0.g), float(col1.g), t);
+    auto b = math::lerp(float(col0.b), float(col1.b), t);
+    auto a = math::lerp(float(col0.a), float(col1.a), t);
+
+    color col{};
+    col.r = uint8_t(r);
+    col.g = uint8_t(g);
+    col.b = uint8_t(b);
+    col.a = uint8_t(a);
+    return col;
+
 }
 
-text::text() = default;
-text::~text() = default;
+}
 
 void text::set_utf8_text(const std::string& t)
 {
@@ -177,11 +205,18 @@ const font_ptr& text::get_font() const
 
 void text::set_color(color c)
 {
-    if(color_ == c)
+    set_vgradient_color(c, c);
+}
+
+void text::set_vgradient_color(color begin, color end)
+{
+    if(color_begin_ == begin && color_end_ == end)
     {
         return;
     }
-    color_ = c;
+    color_begin_ = begin;
+    color_end_ = end;
+
     clear_geometry();
 }
 
@@ -336,8 +371,6 @@ void text::clear_geometry()
     geometry_.clear();
     lines_metrics_.clear();
     rect_ = {};
-    min_baseline_height_ = {};
-    max_baseline_height_ = {};
 }
 
 void text::clear_lines()
@@ -415,7 +448,6 @@ void text::regen_unicode_text()
     }
 }
 
-
 void text::update_geometry() const
 {
     if(!font_)
@@ -463,6 +495,7 @@ void text::update_geometry() const
 
     for(const auto& line : lines)
     {
+        size_t vtx_count{};
 
         line_metrics line_info{};
         line_info.minx = pen_x;
@@ -474,7 +507,7 @@ void text::update_geometry() const
 
             if(kerning_enabled_)
             {
-                // modify the xadvance with the kerning from the previous character
+                // modify the pen advance with the kerning from the previous character
                 pen_x += font_->get_kerning(last_codepoint, g.codepoint);
                 last_codepoint = g.codepoint;
             }
@@ -492,12 +525,12 @@ void text::update_geometry() const
             auto y0 = pen_y + g.y0;
             auto y1 = pen_y + g.y1;
 
-            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, color_};
-            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, color_};
-            *vptr++ = {{x1 - leaning1, y1}, {g.u1, g.v1}, color_};
-            *vptr++ = {{x0 - leaning1, y1}, {g.u0, g.v1}, color_};
+            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, color_begin_};
+            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, color_begin_};
+            *vptr++ = {{x1 - leaning1, y1}, {g.u1, g.v1}, color_end_};
+            *vptr++ = {{x0 - leaning1, y1}, {g.u0, g.v1}, color_end_};
 
-            line_info.vtx_count += 4;
+            vtx_count += 4;
 
             pen_x += g.advance_x + advance_offset_x;
 
@@ -525,20 +558,32 @@ void text::update_geometry() const
         auto align_x = align_offsets.first;
 
         auto v = geometry_.data() + offset;
-        for(size_t i = 0; i < line_info.vtx_count; ++i)
+        for(size_t i = 0; i < vtx_count; ++i)
         {
             auto& vv = *(v+i);
             vv.pos.x += align_x;
+
+            math::vec2 p0{minx, line_info.ascent};
+            math::vec2 p1{minx, line_info.descent - line_info.ascent};
+//            math::vec2 p2{maxx, line_info.descent - line_info.ascent};
+//            math::vec2 dir = p2 - p0;//{1.0f, 1.0f};
+//            auto a = p0 + math::normalize(dir);
+//            auto b = p1 + math::vec2(1.0f, 0.0f);
+
+//            auto c = b - a;
+//            auto t = math::dot(c, b) / math::dot(a, b);
+//            auto intersection = a * t;
+            vv.col = shade_verts_linear_color_gradient(vv.pos, p0, p1, color_begin_, color_end_);
         }
 
-        offset += line_info.vtx_count;
+        offset += vtx_count;
 
         line_info.minx += align_x;
         line_info.maxx += align_x;
 
         lines_metrics_.emplace_back(line_info);
 
-        // reset line x advance and go to next line
+        // go to next line
         pen_x = 0;
         pen_y += line_height;
     }
@@ -547,6 +592,7 @@ void text::update_geometry() const
     auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
 
     auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
+    auto align_x = align_offsets.first;
     auto align_y = align_offsets.second;
 
     for(auto& v : geometry_)
@@ -564,22 +610,14 @@ void text::update_geometry() const
         line.maxy += align_y;
     }
 
-    min_baseline_height_ = miny_baseline - miny_ascent + shadow_offsets_.y;
-    max_baseline_height_ = maxy_baseline - miny_ascent + shadow_offsets_.y;
-
-
-    // minx is the left_side bearing
+    rect_.x = align_x;
+    rect_.y = align_y;
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
     rect_.w = maxx - minx + shadow_offsets_.x;
-    align_rect(rect_, alignment_, minx, miny, maxx, maxy);
 }
 
 float text::get_width() const
 {
-    if(!font_)
-    {
-        return 0.0f;
-    }
     if(rect_)
     {
         return rect_.w;
@@ -592,10 +630,6 @@ float text::get_width() const
 
 float text::get_height() const
 {
-    if(!font_)
-    {
-        return 0.0f;
-    }
     if(rect_)
     {
         return rect_.h;
@@ -608,34 +642,29 @@ float text::get_height() const
 
 float text::get_min_baseline_height() const
 {
-    if(!font_)
+    const auto& metrics = get_lines_metrics();
+
+    if(metrics.empty())
     {
         return 0.0f;
     }
-    if(min_baseline_height_ != 0.0f)
-    {
-        return min_baseline_height_;
-    }
 
-    update_geometry();
-
-    return min_baseline_height_;
+    const auto& first_line = metrics.front();
+    return first_line.baseline - first_line.ascent + shadow_offsets_.y;
 }
 
 float text::get_max_baseline_height() const
 {
-    if(!font_)
+    const auto& metrics = get_lines_metrics();
+
+    if(metrics.empty())
     {
         return 0.0f;
     }
-    if(max_baseline_height_ != 0.0f)
-    {
-        return max_baseline_height_;
-    }
 
-    update_geometry();
-
-    return max_baseline_height_;
+    const auto& first_line = metrics.front();
+    const auto& last_line = metrics.back();
+    return last_line.baseline - first_line.ascent + shadow_offsets_.y;
 }
 
 rect text::get_rect() const
@@ -653,11 +682,6 @@ const frect& text::get_frect() const
     update_geometry();
 
     return rect_;
-}
-
-const color& text::get_color() const
-{
-    return color_;
 }
 
 const color& text::get_outline_color() const

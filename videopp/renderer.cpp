@@ -176,7 +176,7 @@ renderer::renderer(os::window& win, bool vsync)
     }
     if(!default_font())
     {
-        default_font() = create_font(create_default_font());
+        default_font() = create_font(create_default_font(13, 2));
         embedded_fonts_.emplace_back(default_font());
     }
     clear(color::black());

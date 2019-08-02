@@ -3,6 +3,8 @@
 #include <cmath>
 #include <codecvt>
 #include <locale>
+#include <sstream>
+#include <iomanip>
 
 #include "logger.h"
 #include "font.h"
@@ -1608,8 +1610,12 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             tr.set_position(v1.x, v1.y, 0.0f);
             add_text(txt, tr);
 
+            auto width = line.maxx - line.minx;
+            std::stringstream ss;
+            ss << " width = " << std::fixed << std::setprecision(2) << width;
+
             txt.set_alignment(text::alignment::left);
-            txt.set_utf8_text(" width = " + std::to_string(line.maxx - line.minx));
+            txt.set_utf8_text(ss.str());
 
             tr.set_position(v2.x, v1.y, 0.0f);
             add_text(txt, tr);
