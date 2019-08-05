@@ -107,9 +107,11 @@ public:
     void set_kerning(bool enabled);
 
     //-----------------------------------------------------------------------------
-    /// Sets glyph leaning to simulate Oblique style.
+    /// Sets glyph leaning to simulate Oblique style. It is in degrees
+    /// increasing in clockwise direction. So a 12 degree leaning would mean
+    /// to slant right.
     //-----------------------------------------------------------------------------
-    void set_leaning(float leaning);
+    void set_leaning(float leaning = 12.0f);
 
     //-----------------------------------------------------------------------------
     /// Gets the width of the text. This takes into consideration any applied

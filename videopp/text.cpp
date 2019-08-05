@@ -307,6 +307,7 @@ void text::set_kerning(bool enabled)
 
 void text::set_leaning(float leaning)
 {
+    leaning = math::clamp(leaning, -45.0f, 45.0f);
     if(math::epsilonEqual(leaning_, leaning, math::epsilon<float>()))
     {
         return;
@@ -461,6 +462,8 @@ void text::update_geometry() const
     auto height = ascent - descent;
     auto baseline = ascent;
 
+
+    auto leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
     // Set glyph positions on a (0,0) baseline.
     // (x0,y0) for a glyph is the bottom-lefts
     auto pen_x = 0.0f;
@@ -491,11 +494,11 @@ void text::update_geometry() const
 
             auto y0_offs = g.y0 + baseline;
             auto y0_factor = 1.0f - y0_offs / baseline;
-            auto leaning0 = leaning_ * y0_factor;
+            auto leaning0 = leaning * y0_factor;
 
             auto y1_offs = g.y1 + baseline;
             auto y1_factor = 1.0f - y1_offs / baseline;
-            auto leaning1 = leaning_ * y1_factor;
+            auto leaning1 = leaning * y1_factor;
 
             auto x0 = pen_x + g.x0;
             auto x1 = pen_x + g.x1;
