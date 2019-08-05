@@ -83,7 +83,7 @@ display_text = "1000";
         builder.add(video_ctrl::get_latin_glyph_range());
         builder.add(video_ctrl::get_cyrillic_glyph_range());
 
-        auto font_path = DATA "/fonts/dejavu/DejaVuSans.ttf";
+        auto font_path = DATA "/fonts/wds052801.ttf";
         auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
         auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
@@ -178,7 +178,7 @@ display_text = "1000";
                         if(e.key.shift)
                         {
                             display_text += "\n";
-                            //use_kerning = !use_kerning;
+
                         }
                         else if(e.key.ctrl)
                         {
@@ -187,6 +187,7 @@ display_text = "1000";
                         else if(e.key.alt)
                         {
                             use_sdf = !use_sdf;
+                            //use_kerning = !use_kerning;
                         }
                         else
                         {
@@ -216,8 +217,8 @@ display_text = "1000";
                 video_ctrl::draw_list list;
                 video_ctrl::text text;
                 text.set_font(use_sdf ? font : font_bitmap);
-                text.set_vgradient_color(video_ctrl::color::magenta(), video_ctrl::color::black());
-                text.set_outline_color(video_ctrl::color::magenta());
+                text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+                text.set_outline_color(video_ctrl::color::black());
                 text.set_utf8_text(display_text);
                 text.set_alignment(align);
                 text.set_outline_width(outline_width);

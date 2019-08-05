@@ -24,11 +24,8 @@ namespace video_ctrl
 
     struct glyphs_builder
     {
-        glyphs_builder() = default;
-        ~glyphs_builder() = default;
-
-        bool add(const glyphs& range);
-        const glyphs &get() const;
+        void add(const glyphs& range);
+        const glyphs& get() const;
 
     private:
         glyphs range_;

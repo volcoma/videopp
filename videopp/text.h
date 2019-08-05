@@ -9,35 +9,27 @@
 
 namespace video_ctrl
 {
+struct line_metrics
+{
+    /// Ascent of the line. Relative to the aligned origin.
+    float ascent{};
+    /// Baseline of the line. Relative to the aligned origin.
+    float baseline{};
+    /// Descent of the line. Relative to the aligned origin.
+    float descent{};
+    /// Min x of the line.. Relative to the aligned origin.
+    float minx{};
+    /// Max x of the line. Relative to the aligned origin.
+    float maxx{};
+    /// Min y of the line. Relative to the aligned origin.
+    float miny{};
+    /// Max y of the line. Relative to the aligned origin.
+    float maxy{};
+};
 
 class text
 {
 public:
-
-    struct line_metrics
-    {
-        /// Ascent of the line. Relative to the aligned origin.
-        float ascent{};
-
-        /// Baseline of the line. Relative to the aligned origin.
-        float baseline{};
-
-        /// Descent of the line. Relative to the aligned origin.
-        float descent{};
-
-        /// Min x of the line.. Relative to the aligned origin.
-        float minx{};
-
-        /// Max x of the line. Relative to the aligned origin.
-        float maxx{};
-
-        /// Min y of the line. Relative to the aligned origin.
-        float miny{};
-
-        /// Max y of the line. Relative to the aligned origin.
-        float maxy{};
-    };
-
 
     enum class alignment : uint32_t
     {
@@ -74,7 +66,7 @@ public:
     /// Sets the color of the text
     //-----------------------------------------------------------------------------
     void set_color(color c);
-    void set_vgradient_color(color begin, color end);
+    void set_vgradient_colors(color top, color bot);
 
     //-----------------------------------------------------------------------------
     /// Set outline color of the text. Note this will only have any effect
@@ -243,8 +235,8 @@ private:
     font_ptr font_;
 
     /// Color of the text
-    color color_begin_ = color::white();
-    color color_end_ = color::white();
+    color color_top_ = color::white();
+    color color_bot_ = color::white();
 
     /// Outline color of the text
     color outline_color_ = color::black();

@@ -215,10 +215,9 @@ const glyphs& get_currency_glyph_range()
     return currency;
 }
 
-bool glyphs_builder::add(const glyphs& g)
+void glyphs_builder::add(const glyphs& g)
 {
     std::copy(std::begin(g), std::end(g), std::back_inserter(range_));
-    return false;
 }
 
 const glyphs& glyphs_builder::get() const

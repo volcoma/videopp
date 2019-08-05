@@ -65,7 +65,7 @@ static constexpr const char* fs_single_channel =
 
                     void main() {
                         float alpha = texture2D(uTexture, vTexCoord.xy).r;
-                        gl_FragColor = vec4(vColor.rgb, alpha * vColor.a);
+                        gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
                     })";
 
 static constexpr const char* fs_distance_field =

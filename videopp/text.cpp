@@ -147,32 +147,6 @@ color get_gradient(const color& ct, const color& cb, float t, float dt)
     };
 }
 
-color shade_verts_linear_color_gradient(math::vec2 pos,
-                                        math::vec2 gradient_p0,
-                                        math::vec2 gradient_p1,
-                                        color col0,
-                                        color col1)
-{
-    auto gradient_extent = gradient_p1 - gradient_p0;
-    float gradient_inv_length2 = 1.0f / math::length2(gradient_extent);
-
-    float d = math::dot(pos - gradient_p0, gradient_extent);
-    float t = math::clamp(d * gradient_inv_length2, 0.0f, 1.0f);
-
-    auto r = math::lerp(float(col0.r), float(col1.r), t);
-    auto g = math::lerp(float(col0.g), float(col1.g), t);
-    auto b = math::lerp(float(col0.b), float(col1.b), t);
-    auto a = math::lerp(float(col0.a), float(col1.a), t);
-
-    color col{};
-    col.r = uint8_t(r);
-    col.g = uint8_t(g);
-    col.b = uint8_t(b);
-    col.a = uint8_t(a);
-    return col;
-
-}
-
 }
 
 void text::set_utf8_text(const std::string& t)
@@ -205,17 +179,17 @@ const font_ptr& text::get_font() const
 
 void text::set_color(color c)
 {
-    set_vgradient_color(c, c);
+    set_vgradient_colors(c, c);
 }
 
-void text::set_vgradient_color(color begin, color end)
+void text::set_vgradient_colors(color top, color bot)
 {
-    if(color_begin_ == begin && color_end_ == end)
+    if(color_top_ == top && color_bot_ == bot)
     {
         return;
     }
-    color_begin_ = begin;
-    color_end_ = end;
+    color_top_ = top;
+    color_bot_ = bot;
 
     clear_geometry();
 }
@@ -300,7 +274,7 @@ const std::vector<std::vector<uint32_t>>& text::get_lines() const
     return lines_;
 }
 
-const std::vector<text::line_metrics>& text::get_lines_metrics() const
+const std::vector<line_metrics>& text::get_lines_metrics() const
 {
     get_geometry();
     return lines_metrics_;
@@ -482,7 +456,6 @@ void text::update_geometry() const
     size_t offset = 0;
 
     auto line_height = font_->line_height + advance_offset_y;
-    auto x_height = font_->x_height;
     auto ascent = font_->ascent;
     auto descent = font_->descent;
     auto height = ascent - descent;
@@ -499,6 +472,10 @@ void text::update_geometry() const
 
         line_metrics line_info{};
         line_info.minx = pen_x;
+        line_info.ascent = pen_y - ascent;
+        line_info.baseline = pen_y;
+        line_info.descent = line_info.ascent + height;
+        auto height = line_info.descent - line_info.ascent;
 
         auto last_codepoint = char_t(-1);
         for(auto c : line)
@@ -512,25 +489,30 @@ void text::update_geometry() const
                 last_codepoint = g.codepoint;
             }
 
-            auto h0 = std::abs(g.y0);
-            auto h0_factor = h0 / std::max(x_height, 1.0f);
-            auto leaning0 = leaning_ * h0_factor;
+            auto y0_offs = g.y0 + baseline;
+            auto y0_factor = 1.0f - y0_offs / baseline;
+            auto leaning0 = leaning_ * y0_factor;
 
-            auto h1 = std::abs(g.y1);
-            auto h1_factor = h1 / std::max(x_height, 1.0f);
-            auto leaning1 = leaning_ * h1_factor;
+            auto y1_offs = g.y1 + baseline;
+            auto y1_factor = 1.0f - y1_offs / baseline;
+            auto leaning1 = leaning_ * y1_factor;
 
             auto x0 = pen_x + g.x0;
             auto x1 = pen_x + g.x1;
             auto y0 = pen_y + g.y0;
             auto y1 = pen_y + g.y1;
 
-            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, color_begin_};
-            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, color_begin_};
-            *vptr++ = {{x1 - leaning1, y1}, {g.u1, g.v1}, color_end_};
-            *vptr++ = {{x0 - leaning1, y1}, {g.u0, g.v1}, color_end_};
+            auto y0_h = y0 - line_info.ascent;
+            auto y1_h = y1 - line_info.ascent;
+            auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
+            auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
 
-            vtx_count += 4;
+            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop};
+            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop};
+            *vptr++ = {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot};
+            *vptr++ = {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot};
+
+            vtx_count += VERTICES_PER_QUAD;
 
             pen_x += g.advance_x + advance_offset_x;
 
@@ -538,12 +520,26 @@ void text::update_geometry() const
 
         line_info.maxx = pen_x;
 
-        line_info.ascent = pen_y - ascent;
-        line_info.baseline = pen_y;
-        line_info.descent = line_info.ascent + height;
 
         line_info.miny = get_alignment_miny(alignment_, line_info.ascent, line_info.baseline);
         line_info.maxy = get_alignment_maxy(alignment_, line_info.descent, line_info.baseline);
+
+        auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy);
+        auto align_x = align_offsets.first;
+
+        auto v = geometry_.data() + offset;
+        for(size_t i = 0; i < vtx_count; ++i)
+        {
+            auto& vv = *(v+i);
+            vv.pos.x += align_x;
+        }
+
+        line_info.minx += align_x;
+        line_info.maxx += align_x;
+
+        lines_metrics_.emplace_back(line_info);
+
+        offset += vtx_count;
 
         minx = std::min(line_info.minx, minx);
         maxx = std::max(line_info.maxx, maxx);
@@ -554,35 +550,6 @@ void text::update_geometry() const
         miny_ascent = std::min(line_info.ascent, miny_ascent);
         miny_baseline = std::min(line_info.baseline, miny_baseline);
 
-        auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy);
-        auto align_x = align_offsets.first;
-
-        auto v = geometry_.data() + offset;
-        for(size_t i = 0; i < vtx_count; ++i)
-        {
-            auto& vv = *(v+i);
-            vv.pos.x += align_x;
-
-            math::vec2 p0{minx, line_info.ascent};
-            math::vec2 p1{minx, line_info.descent - line_info.ascent};
-//            math::vec2 p2{maxx, line_info.descent - line_info.ascent};
-//            math::vec2 dir = p2 - p0;//{1.0f, 1.0f};
-//            auto a = p0 + math::normalize(dir);
-//            auto b = p1 + math::vec2(1.0f, 0.0f);
-
-//            auto c = b - a;
-//            auto t = math::dot(c, b) / math::dot(a, b);
-//            auto intersection = a * t;
-            vv.col = shade_verts_linear_color_gradient(vv.pos, p0, p1, color_begin_, color_end_);
-        }
-
-        offset += vtx_count;
-
-        line_info.minx += align_x;
-        line_info.maxx += align_x;
-
-        lines_metrics_.emplace_back(line_info);
-
         // go to next line
         pen_x = 0;
         pen_y += line_height;
@@ -592,7 +559,6 @@ void text::update_geometry() const
     auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
 
     auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
-    auto align_x = align_offsets.first;
     auto align_y = align_offsets.second;
 
     for(auto& v : geometry_)
@@ -610,7 +576,7 @@ void text::update_geometry() const
         line.maxy += align_y;
     }
 
-    rect_.x = align_x;
+    rect_.x = minx;
     rect_.y = align_y;
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
     rect_.w = maxx - minx + shadow_offsets_.x;
