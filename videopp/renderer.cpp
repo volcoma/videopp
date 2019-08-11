@@ -75,12 +75,22 @@ renderer::renderer(os::window& win, bool vsync)
     gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
     // Default vertex buffer budget. This is not static, so no worries
-    master_vbo_.create();
-    master_vbo_.reserve(nullptr, sizeof(vertex_2d) * 1024, true);
+    for(auto& vbo : stream_vbos_)
+    {
+        vbo.create();
+        vbo.bind();
+        vbo.reserve(nullptr, sizeof(vertex_2d) * 1024, true);
+        vbo.unbind();
+    }
 
     // Default index buffer budget. This is not static, so no worries
-    master_ibo_.create();
-    master_ibo_.reserve(nullptr, sizeof(draw_list::index_t) * 1024, true);
+    for(auto& ibo : stream_ibos_)
+    {
+        ibo.create();
+        ibo.bind();
+        ibo.reserve(nullptr, sizeof(draw_list::index_t) * 1024, true);
+        ibo.unbind();
+    }
 
     reset_transform();
     set_model_view(0, rect_);
@@ -889,36 +899,47 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
     const auto idx_stride = sizeof(decltype(list.indices)::value_type);
     const auto indices_mem_size = list.indices.size() * idx_stride;
 
-    // Upload vertices to VRAM
-    if (!master_vbo_.update(list.vertices.data(), 0, vertices_mem_size))
-    {
-        // We're out of vertex budget. Allocate a new vertex buffer
-        master_vbo_.reserve(list.vertices.data(), vertices_mem_size, true);
-    }
+    // We are using several stream buffers to avoid syncs caused by
+    // uploading new data while the old one is still processing
+    auto& vbo = stream_vbos_[current_vbo_idx_];
+    auto& ibo = stream_ibos_[current_ibo_idx_];
 
-    // Upload indices to VRAM
-    if (!master_ibo_.update(list.indices.data(), 0, indices_mem_size))
-    {
-        // We're out of index budget. Allocate a new index buffer
-        master_ibo_.reserve(list.indices.data(), indices_mem_size, true);
-    }
-
+    current_vbo_idx_ = (current_vbo_idx_ + 1) % stream_vbos_.size();
+    current_ibo_idx_ = (current_ibo_idx_ + 1) % stream_ibos_.size();
 
     // Bind the vertex buffer
-    master_vbo_.bind();
+    vbo.bind();
+
+    // Upload vertices to VRAM
+    if (!vbo.update(list.vertices.data(), 0, vertices_mem_size))
+    {
+        // We're out of vertex budget. Allocate a new vertex buffer
+        vbo.reserve(list.vertices.data(), vertices_mem_size, true);
+    }
 
     // Bind the index buffer
-    master_ibo_.bind();
+    ibo.bind();
+
+    // Upload indices to VRAM
+    if (!ibo.update(list.indices.data(), 0, indices_mem_size))
+    {
+        // We're out of index budget. Allocate a new index buffer
+        ibo.reserve(list.indices.data(), indices_mem_size, true);
+    }
+
 
     set_blending_mode(blending_mode::blend_normal);
+
+    shader* last_shader{};
 
     // Draw commands
     for (const auto& cmd : list.commands)
     {
-
-        if(cmd.setup.program.shader)
+        if(cmd.setup.program.shader && cmd.setup.program.shader != last_shader)
         {
             cmd.setup.program.shader->enable();
+
+            last_shader = cmd.setup.program.shader;
         }
 
         if(cmd.setup.begin)
@@ -949,18 +970,17 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         {
             cmd.setup.end(gpu_context{*this, cmd.setup.program});
         }
+    }
 
-        if(cmd.setup.program.shader)
-        {
-            cmd.setup.program.shader->disable();
-        }
-
+    if(last_shader)
+    {
+        last_shader->disable();
     }
 
     set_blending_mode(blending_mode::blend_none);
 
-    master_vbo_.unbind();
-    master_ibo_.unbind();
+    vbo.unbind();
+    ibo.unbind();
 
     return true;
 }

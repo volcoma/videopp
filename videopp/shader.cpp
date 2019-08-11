@@ -4,6 +4,26 @@
 
 namespace video_ctrl
 {
+    namespace
+    {
+        void get_log(uint32_t id)
+        {
+            GLint info_len = 0;
+            gl_call(glGetShaderiv(id, GL_INFO_LOG_LENGTH, &info_len));
+
+            if (info_len > 1)
+            {
+                std::vector<char> shader_log(size_t(info_len), 0);
+                gl_call(glGetShaderInfoLog(id, GLsizei(shader_log.size()), nullptr, shader_log.data()));
+
+                log(std::string("errors linking : ") + shader_log.data());
+            }
+            else
+            {
+                log("unknown errors linking");
+            }
+        }
+    }
 
     shader::shader(const renderer &rend, const char *fragment_code, const char *vertex_code)
         : rend_(rend)
@@ -15,42 +35,16 @@ namespace video_ctrl
 
         if(fragment_code != nullptr && fragment_code != nullptr)
         {
-
-            std::vector<const GLchar*> vtx_sources;
-            std::vector<const GLchar*> frag_sources;
-
-            frag_sources.emplace_back(fragment_code);
-            vtx_sources.emplace_back(vertex_code);
-            gl_call(glShaderSource(vertex_shader_id_, int(vtx_sources.size()), vtx_sources.data(), nullptr));
-            gl_call(glShaderSource(fragment_shader_id_, int(frag_sources.size()), frag_sources.data(), nullptr));
+            gl_call(glShaderSource(vertex_shader_id_, 1, &vertex_code, nullptr));
+            gl_call(glShaderSource(fragment_shader_id_, 1, &fragment_code, nullptr));
         }
 
         // Compile The Shaders
-        compile_shader(vertex_shader_id_);
-        compile_shader(fragment_shader_id_);
+        compile(vertex_shader_id_);
+        compile(fragment_shader_id_);
+        link();
 
-        // Attach The Shader Objects To The Program Object
-        gl_call(glAttachShader(program_id_, vertex_shader_id_));
-        gl_call(glAttachShader(program_id_, fragment_shader_id_));
-
-        // Link The Program Object
-        GLint linked {};
-
-        gl_call(glLinkProgram(program_id_));
-        gl_call(glGetProgramiv(program_id_, GL_LINK_STATUS, &linked));
-
-        if (linked == GL_FALSE)
-        {
-            get_log(program_id_);
-            auto err = glGetError();
-            if (err != GL_NO_ERROR)
-            {
-                log("ERROR IN SHADER! glGetError reported error " + std::to_string(err));
-            }
-
-            unload();
-            throw std::runtime_error("Cannot compile shader program.");
-        }
+        cache_uniform_locations();
 
         layout_.set_program_id(program_id_);
     }
@@ -62,8 +56,17 @@ namespace video_ctrl
 
     void shader::unload() noexcept
     {
-        delete_object(vertex_shader_id_);
-        delete_object(fragment_shader_id_);
+        if (vertex_shader_id_ > 0)
+        {
+            gl_call(glDeleteShader(vertex_shader_id_));
+            vertex_shader_id_ = 0;
+        }
+
+        if (fragment_shader_id_ > 0)
+        {
+            gl_call(glDeleteShader(fragment_shader_id_));
+            fragment_shader_id_ = 0;
+        }
 
         if (program_id_ > 0)
         {
@@ -72,43 +75,60 @@ namespace video_ctrl
         }
     }
 
-    void shader::delete_object(uint32_t &obj) noexcept
+    void shader::compile(uint32_t shader_id)
     {
-        if (obj > 0)
-        {
-            gl_call(glDeleteShader(obj));
-            obj = 0;
-        }
-    }
-
-    void shader::get_log(uint32_t id)
-    {
-        GLint info_len = 0;
-        gl_call(glGetShaderiv(id, GL_INFO_LOG_LENGTH, &info_len));
-
-        if (info_len > 1)
-        {
-            std::vector<char> shader_log(size_t(info_len), 0);
-            gl_call(glGetShaderInfoLog(id, GLsizei(shader_log.size()), nullptr, shader_log.data()));
-
-            log(std::string("errors linking : ") + shader_log.data());
-        }
-        else
-        {
-            log("unknown errors linking");
-        }
-    }
-
-    void shader::compile_shader(uint32_t shader_id)
-    {
-        GLint compiled;
         gl_call(glCompileShader(shader_id));
+
+        GLint compiled{};
         gl_call(glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compiled));
         if (!compiled)
         {
             get_log(shader_id);
             unload();
             throw std::runtime_error("Cannot compile shader!");
+        }
+    }
+
+    void shader::link()
+    {
+        // Attach The Shader Objects To The Program Object
+        gl_call(glAttachShader(program_id_, vertex_shader_id_));
+        gl_call(glAttachShader(program_id_, fragment_shader_id_));
+
+        // Link The Program Object
+        gl_call(glLinkProgram(program_id_));
+
+        GLint linked {};
+        gl_call(glGetProgramiv(program_id_, GL_LINK_STATUS, &linked));
+
+        if (linked == GL_FALSE)
+        {
+            get_log(program_id_);
+            unload();
+            throw std::runtime_error("Cannot compile shader program.");
+        }
+    }
+
+    void shader::cache_uniform_locations()
+    {
+        GLint uniforms{};
+        gl_call(glGetProgramiv(program_id_, GL_ACTIVE_UNIFORMS, &uniforms));
+        GLint max_len{};
+        gl_call(glGetProgramiv(program_id_, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_len));
+        std::vector<GLchar> name_data(static_cast<size_t>(max_len));
+        for(GLint idx = 0; idx < uniforms; ++idx)
+        {
+            GLint sz{};
+            GLenum type{};
+            GLsizei len{};
+            gl_call(glGetActiveUniform(program_id_, GLuint(idx), GLsizei(name_data.size()), &len, &sz, &type, name_data.data()));
+            std::string uniform_name(name_data.data(), static_cast<size_t>(len));
+
+            auto location = glGetUniformLocation(program_id_, uniform_name.c_str());
+            if(location >= 0)
+            {
+                locations_[uniform_name] = location;
+            }
         }
     }
 
@@ -236,17 +256,9 @@ namespace video_ctrl
             return it->second;
         }
 
-        auto location = glGetUniformLocation(program_id_, uniform_name.c_str());
-        if(location >= 0)
-        {
-            locations_[uniform_name] = location;
-        }
-        else
-        {
-            log("ERROR, could not find uniform: " + uniform_name);
-        }
+        log("ERROR, could not find uniform: " + uniform_name);
 
-        return location;
+        return -1;
     }
 
     void shader::set_uniform(const std::string& uniform_name, float data) const

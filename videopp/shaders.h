@@ -73,6 +73,12 @@ static constexpr const char* fs_distance_field =
                     "#version 130"
                 #elif EGL_CONTEXT
                     "#version 100"
+                #elif WGL_CONTEXT
+                R"(
+                    #ifndef GL_OES_standard_derivatives
+                        #define GL_OES_standard_derivatives
+                    #endif
+                )"
                 #endif
                 R"(
                     #ifdef GL_OES_standard_derivatives
@@ -90,33 +96,32 @@ static constexpr const char* fs_distance_field =
 
 
                     #ifdef GL_OES_standard_derivatives
+                        float contour( in float d, in float w )
+                        {
+                            return smoothstep(0.5 - w, 0.5 + w, d);
+                        }
 
-                    float contour( in float d, in float w )
-                    {
-                        return smoothstep(0.5 - w, 0.5 + w, d);
-                    }
+                        float supersample( in float alpha, in vec4 box_samples, in float width)
+                        {
+                             float asum = contour( box_samples.x, width )
+                                        + contour( box_samples.y, width )
+                                        + contour( box_samples.z, width )
+                                        + contour( box_samples.w, width );
 
-                    float supersample( in float alpha, in vec4 box_samples, in float width)
-                    {
-                         float asum = contour( box_samples.x, width )
-                                    + contour( box_samples.y, width )
-                                    + contour( box_samples.z, width )
-                                    + contour( box_samples.w, width );
+                             float weight = 0.5;  // scale value to apply to neighbours
+                             // weighted average, with 4 extra points
+                             return (alpha + weight * asum) / (1.0 + 4.0 * weight);
+                        }
 
-                         float weight = 0.5;  // scale value to apply to neighbours
-                         // weighted average, with 4 extra points
-                         return (alpha + weight * asum) / (1.0 + 4.0 * weight);
-                    }
-
-                    float aastep(in float dist, in vec4 box_samples)
-                    {
-                        // fwidth helps keep outlines a constant width irrespective of scaling
-                        // Stefan Gustavson's fwidth
-                        float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
-                        float alpha = contour( dist, width );
-                        alpha = supersample(alpha, box_samples, width);
-                        return alpha;
-                    }
+                        float aastep(in float dist, in vec4 box_samples)
+                        {
+                            // fwidth helps keep outlines a constant width irrespective of scaling
+                            // Stefan Gustavson's fwidth
+                            float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
+                            float alpha = contour( dist, width );
+                            alpha = supersample(alpha, box_samples, width);
+                            return alpha;
+                        }
                     #endif
 
                     void main()

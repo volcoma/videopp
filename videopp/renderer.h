@@ -107,8 +107,10 @@ private:
     std::unique_ptr<context> context_;
     rect rect_;
 
-    vertex_buffer master_vbo_;
-    index_buffer master_ibo_;
+    mutable size_t current_vbo_idx_{};
+    std::array<vertex_buffer, 3> stream_vbos_;
+    mutable size_t current_ibo_idx_{};
+    std::array<index_buffer, 3> stream_ibos_;
 
     mutable math::mat4x4 current_ortho_;
     mutable std::stack<math::mat4x4> transforms_;

@@ -16,9 +16,8 @@ struct vertex_buffer_element
     std::uint32_t offset = 0;
     std::uint32_t size = 0;
     std::uint32_t attr_type = 0;
+    std::int32_t location = -1;
     bool normalized = false;
-
-    int location = -1;
 };
 
 /// Vertex buffer layout helper structure
@@ -31,8 +30,8 @@ public:
 
     template <typename T>
     void add(uint8_t count, uint8_t offset, const std::string& attr, bool normalized = false);
-    void bind() const;
-    void unbind() const;
+    void bind() const noexcept;
+    void unbind() const noexcept;
 
     inline operator bool() const noexcept
     {
@@ -73,19 +72,19 @@ public:
     ~vertex_buffer();
 
     /// Create a vertex buffer
-    void create();
+    void create() noexcept;
 
     /// Destroy a vertex buffer
-    void destroy();
+    void destroy() noexcept;
 
     /// Reallocate the vertex buffer
-    void reserve(const void* data, std::size_t size, bool dynamic = false) const;
+    void reserve(const void* data, std::size_t size, bool dynamic = false) const noexcept;
 
     /// Upload new vertices to the vertex buffer
-    bool update(const void* data, std::size_t offset, std::size_t size) const;
+    bool update(const void* data, std::size_t offset, std::size_t size) const noexcept;
 
-    void bind() const;
-    void unbind() const;
+    void bind() const noexcept;
+    void unbind() const noexcept;
 
 private:
     mutable std::size_t reserved_bytes_ = 0;
@@ -100,19 +99,19 @@ public:
     ~index_buffer();
 
     /// Create a index_buffer
-    void create();
+    void create() noexcept;
 
     /// Destroy a index_buffer
-    void destroy();
+    void destroy() noexcept;
 
     /// Reallocate the index_buffer
-    void reserve(const void* data, std::size_t size, bool dynamic = false) const;
+    void reserve(const void* data, std::size_t size, bool dynamic = false) const noexcept;
 
     /// Upload new vertices to the index_buffer
-    bool update(const void* data, std::size_t offset, std::size_t size) const;
+    bool update(const void* data, std::size_t offset, std::size_t size) const noexcept;
 
-    void bind() const;
-    void unbind() const;
+    void bind() const noexcept;
+    void unbind() const noexcept;
 
 private:
     mutable std::size_t reserved_bytes_ = 0;

@@ -85,6 +85,7 @@ public:
     /// if the shadow offsets are non zero
     //-----------------------------------------------------------------------------
     void set_shadow_color(color c);
+    void set_shadow_vgradient_colors(color top, color bot);
 
     //-----------------------------------------------------------------------------
     /// Set shadow offsets of the text in pixels.
@@ -150,11 +151,6 @@ public:
     const frect& get_frect() const;
 
     //-----------------------------------------------------------------------------
-    /// Gets the color of the text.
-    //-----------------------------------------------------------------------------
-    const color& get_color() const;
-
-    //-----------------------------------------------------------------------------
     /// Gets the outline color of the text.
     //-----------------------------------------------------------------------------
     const color& get_outline_color() const;
@@ -172,7 +168,8 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the shadow color of the text.
     //-----------------------------------------------------------------------------
-    const color& get_shadow_color() const;
+    const color& get_shadow_color_top() const;
+    const color& get_shadow_color_bot() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the font of the text.
@@ -247,7 +244,8 @@ private:
     float outline_width_ = 0.0f;
 
     /// Shadow color of the text
-    color shadow_color_ = color::black();
+    color shadow_color_top_ = color::black();
+    color shadow_color_bot_ = color::black();
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets_{0.0f, 0.0f};

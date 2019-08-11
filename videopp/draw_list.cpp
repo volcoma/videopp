@@ -39,9 +39,9 @@ uint64_t simple_hash() noexcept
     return seed;
 }
 
-uint64_t calc_final_hash(uint64_t hash, primitive_type type, const program_setup& setup)
+uint64_t calc_final_hash(uint64_t hash, primitive_type type, const rect& r, const program_setup& setup)
 {
-    utils::hash(hash, type, setup.program.shader);
+    utils::hash(hash, type, r, setup.program.shader);
     return hash;
 }
 
@@ -122,7 +122,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     }
     else
     {
-        auto hash = detail::calc_final_hash(setup.uniforms_hash, type, setup);
+        auto hash = detail::calc_final_hash(setup.uniforms_hash, type, clip, setup);
         if(!can_be_batched(list, hash))
         {
             add_new_command(hash);
@@ -132,6 +132,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
+
 }
 
 
@@ -318,15 +319,21 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
 
-            hash = detail::calc_final_hash(program.uniforms_hash, type, program);
-            if(!detail::can_be_batched(*this, hash))
+            detail::add_indices(*this, vertices_added, index_offset, type, std::move(program));
+
+            if(!commands.empty())
             {
-                program.begin = [texture](const gpu_context& ctx) {
-                    ctx.program.shader->set_uniform("uTexture", texture);
-                };
+                auto& cmd = commands.back();
+                // if it is a new cmd
+                if(!cmd.setup.begin)
+                {
+                    cmd.setup.begin = [texture](const gpu_context& ctx)
+                    {
+                        ctx.program.shader->set_uniform("uTexture", texture);
+                    };
+                }
             }
 
-            detail::add_indices(*this, vertices_added, index_offset, type, std::move(program));
         }
         else
         {
@@ -429,8 +436,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
     {
         auto shadow = t;
-        shadow.set_color(t.get_shadow_color());
-        shadow.set_outline_color(t.get_shadow_color());
+        shadow.set_vgradient_colors(t.get_shadow_color_top(), t.get_shadow_color_bot());
+        shadow.set_outline_color(t.get_shadow_color_top());
         shadow.set_shadow_offsets({0.0f, 0.0f});
         math::transformf shadow_transform;
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
@@ -1087,15 +1094,22 @@ void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_typ
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
 
-            hash = detail::calc_final_hash(program.uniforms_hash, type, program);
-            if(!detail::can_be_batched(*this, hash))
-            {
-                program.begin = [texture](const gpu_context& ctx)
-                {
-                    ctx.program.shader->set_uniform("uTexture", texture);
-                };
-            }
+
             detail::add_indices(*this, std::uint32_t(count), index_offset, type, std::move(program));
+
+            if(!commands.empty())
+            {
+                auto& cmd = commands.back();
+                // if it is a new cmd
+                if(!cmd.setup.begin)
+                {
+                    cmd.setup.begin = [texture](const gpu_context& ctx)
+                    {
+                        ctx.program.shader->set_uniform("uTexture", texture);
+                    };
+                }
+            }
+
         }
         else
         {

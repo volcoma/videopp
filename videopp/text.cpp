@@ -11,8 +11,6 @@ namespace video_ctrl
 namespace
 {
 
-const size_t VERTICES_PER_QUAD = 4;
-
 float get_alignment_miny(text::alignment alignment,
         float y, float y_baseline)
 {
@@ -217,11 +215,17 @@ void text::set_outline_width(float owidth)
 
 void text::set_shadow_color(color c)
 {
-    if(shadow_color_ == c)
+    set_shadow_vgradient_colors(c, c);
+}
+
+void text::set_shadow_vgradient_colors(color top, color bot)
+{
+    if(shadow_color_top_ == top && shadow_color_bot_ == bot)
     {
         return;
     }
-    shadow_color_ = c;
+    shadow_color_top_ = top;
+    shadow_color_bot_ = bot;
 }
 
 void text::set_shadow_offsets(const math::vec2& offsets)
@@ -397,7 +401,6 @@ void text::update_lines() const
         {
             lines_.back().push_back(c);
             ++chars_;
-
         }
     }
 }
@@ -449,10 +452,14 @@ void text::update_geometry() const
     float miny_ascent = 100000.0f;
     float miny_baseline = 100000.0f;
 
+
+    constexpr size_t vertices_per_quad = 4;
+
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();
     const auto& lines = get_lines();
-    geometry_.resize(chars_ * VERTICES_PER_QUAD);
+    lines_metrics_.reserve(lines.size());
+    geometry_.resize(chars_ * vertices_per_quad);
     auto vptr = geometry_.data();
     size_t offset = 0;
 
@@ -515,7 +522,7 @@ void text::update_geometry() const
             *vptr++ = {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot};
             *vptr++ = {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot};
 
-            vtx_count += VERTICES_PER_QUAD;
+            vtx_count += vertices_per_quad;
 
             pen_x += g.advance_x + advance_offset_x;
 
@@ -674,8 +681,13 @@ const math::vec2& text::get_shadow_offsets() const
     return shadow_offsets_;
 }
 
-const color& text::get_shadow_color() const
+const color& text::get_shadow_color_top() const
 {
-    return shadow_color_;
+    return shadow_color_top_;
+}
+
+const color& text::get_shadow_color_bot() const
+{
+    return shadow_color_bot_;
 }
 }

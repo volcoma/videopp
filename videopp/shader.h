@@ -58,13 +58,12 @@ namespace video_ctrl
         shader(const video_ctrl::renderer &rend, const char* fragment_code, const char* vertex_code);
 
         void unload() noexcept;
-        void delete_object(uint32_t &obj) noexcept;
-
-        void get_log(uint32_t id);
-        void compile_shader(uint32_t shader_id);
+        void compile(uint32_t shader_id);
+        void link();
+        void cache_uniform_locations();
 
         vertex_buffer_layout layout_;
-        mutable std::unordered_map<std::string, int> locations_;
+        std::unordered_map<std::string, int> locations_;
 
         uint32_t program_id_ = 0;
         uint32_t fragment_shader_id_ = 0;
