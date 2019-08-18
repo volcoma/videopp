@@ -69,7 +69,7 @@ struct font_info
     kerning_table_t kernings{};
 
     /// glyph to be used when requesting a non-existent one
-    glyph fallback_glyph;
+    glyph fallback_glyph{};
 
     /// rasterized font goes here
     surface_ptr surface;

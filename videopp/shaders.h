@@ -89,11 +89,13 @@ static constexpr const char* fs_distance_field =
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
-                    uniform float uDistanceFieldMultiplier;
                     uniform float uOutlineWidth;
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 
+                    #ifndef GL_OES_standard_derivatives
+                        uniform float uDistanceFieldMultiplier
+                    #endif
 
                     #ifdef GL_OES_standard_derivatives
                         float contour( in float d, in float w )
@@ -131,11 +133,9 @@ static constexpr const char* fs_distance_field =
                         vec4 outline_color = uOutlineColor;
                         float outline_width = uOutlineWidth;
                         vec2 uv = vTexCoord.xy;
-                        float multiplier = uDistanceFieldMultiplier;
                         float dist = texture2D(uTexture, uv).r;
 
                     #ifdef GL_OES_standard_derivatives
-                        dist *= multiplier/multiplier;
 
                         // Supersample, 4 extra points
                         float dscale = 0.354; // half of 1/sqrt2; you can play with this
@@ -155,6 +155,7 @@ static constexpr const char* fs_distance_field =
                         float oalpha = aastep(odist, obox_distances);
                         vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
                     #else
+                        float multiplier = uDistanceFieldMultiplier;
                         float alpha = (dist - 0.5) * multiplier + 0.5;
                         vec4 color = vec4(master_color.rgb, alpha);
                         float odist = dist + outline_width;

@@ -105,12 +105,6 @@ struct draw_list
                             dimension_fit dim_fit = dimension_fit::uniform,
                             const program_setup& setup = empty_setup());
 
-    void add_vertices(const std::vector<vertex_2d>& verts, primitive_type type,
-                      const texture_view& texture = {}, const program_setup& setup = empty_setup());
-    void add_vertices(const vertex_2d* verts, size_t count, primitive_type type,
-                      const texture_view& texture = {}, const program_setup& setup = empty_setup());
-
-
     void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_filled_convex(const polyline& poly, const color& colf, float antialias_size = 1.0f);

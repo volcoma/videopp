@@ -235,8 +235,7 @@ namespace video_ctrl
 
     bool shader::has_uniform(const std::string& uniform_name) const
     {
-        return get_uniform_location(uniform_name) >= 0;
-
+        return locations_.find(uniform_name) != std::end(locations_);
     }
 
     void shader::clear_textures() const

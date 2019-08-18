@@ -320,6 +320,17 @@ void text::set_leaning(float leaning)
     clear_geometry();
 }
 
+void text::set_max_width(float max_width)
+{
+    if(math::epsilonEqual(max_width_, max_width, math::epsilon<float>()))
+    {
+        return;
+    }
+    max_width_ = max_width;
+    clear_lines();
+    clear_geometry();
+}
+
 float text::get_advance_offset_x() const
 {
     if(font_ && font_->sdf_spread > 0)
@@ -371,12 +382,21 @@ void text::update_lines() const
         return;
     }
 
+    if(!font_)
+    {
+        return;
+    }
+
     // find newlines
+    float advance = 0.0f;
     auto last_space = size_t(-1);
 
     lines_.clear();
     lines_.resize(1);
     lines_.back().reserve(unicode_text_.size());
+
+    auto max_width = float(max_width_);
+    auto advance_offset_x = get_advance_offset_x();
 
     for(size_t i = 0; i < unicode_text_.size(); ++i)
     {
@@ -387,7 +407,11 @@ void text::update_lines() const
             last_space = i;
         }
 
-        if(c == '\n')
+        const auto& g = font_->get_glyph(c);
+
+        bool exceedsmax_width = max_width > 0 && (advance + g.advance_x + advance_offset_x) > max_width;
+
+        if(c == '\n' || (exceedsmax_width && (last_space != size_t(-1))))
         {
             lines_.back().resize(lines_.back().size() - (i - last_space));
             chars_ -= uint32_t(i - last_space);
@@ -395,12 +419,14 @@ void text::update_lines() const
             i = last_space;
             lines_.resize(lines_.size() + 1);
             lines_.back().reserve(unicode_text_.size() - chars_);
+            advance = 0;
             last_space = size_t(-1);
         }
         else
         {
             lines_.back().push_back(c);
             ++chars_;
+            advance += g.advance_x;
         }
     }
 }

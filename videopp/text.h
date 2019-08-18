@@ -115,6 +115,11 @@ public:
     void set_leaning(float leaning = 12.0f);
 
     //-----------------------------------------------------------------------------
+    /// Sets the max with for wrapping
+    //-----------------------------------------------------------------------------
+    void set_max_width(float max_width);
+
+    //-----------------------------------------------------------------------------
     /// Gets the width of the text. This takes into consideration any applied
     /// modifiers such as custom advance, outline width or shadow offsets
     //-----------------------------------------------------------------------------
@@ -255,6 +260,9 @@ private:
 
     /// Extra advance
     math::vec2 advance_ = {0, 0};
+
+    /// Max width
+    float max_width_{};
 
     /// Leaning
     float leaning_{};

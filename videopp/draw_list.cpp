@@ -13,7 +13,7 @@
 
 namespace video_ctrl
 {
-namespace detail
+namespace
 {
 
 std::array<math::vec2, 4> transform_rect(const rect& r, const math::transformf& transform)
@@ -39,20 +39,9 @@ uint64_t simple_hash() noexcept
     return seed;
 }
 
-uint64_t calc_final_hash(uint64_t hash, primitive_type type, const rect& r, const program_setup& setup)
-{
-    utils::hash(hash, type, r, setup.program.shader);
-    return hash;
-}
-
-inline bool can_be_batched(const draw_cmd& cmd, uint64_t hash) noexcept
-{
-    return cmd.hash == hash;
-}
-
 inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
 {
-    return !list.commands.empty() && detail::can_be_batched(list.commands.back(), hash);
+    return !list.commands.empty() && list.commands.back().hash == hash;
 }
 
 
@@ -122,7 +111,8 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     }
     else
     {
-        auto hash = detail::calc_final_hash(setup.uniforms_hash, type, clip, setup);
+        auto hash = setup.uniforms_hash;
+        utils::hash(hash, type, clip, setup.program.shader);
         if(!can_be_batched(list, hash))
         {
             add_new_command(hash);
@@ -136,6 +126,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
 }
 
 
+
 void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
     auto& cmd = list.commands.back();
@@ -146,6 +137,38 @@ void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& i
     list.indices.resize(list.indices.size() + idx_count);
     list.vertices.resize(list.vertices.size() + vtx_count);
 }
+
+
+void normalize2f_over_zero(float& vx, float& vy)
+{
+    float d2 = vx*vx + vy*vy;
+    if (d2 > 0.0f)
+    {
+        float inv_len = 1.0f / math::sqrt(d2);
+        vx *= inv_len;
+        vy *= inv_len;
+    }
+}
+void fixnormal2f(float& vx, float& vy)
+{
+    float d2 = vx*vx + vy*vy;
+    float inv_lensq = 1.0f / d2;
+    vx *= inv_lensq;
+    vy *= inv_lensq;
+}
+
+color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
+{
+    const float fa = DH/H;
+    const float fc = (1.f-fa);
+    return {
+        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
+        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
+        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
+        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
+    };
+}
+
 }
 
 const program_setup& get_simple_setup() noexcept
@@ -153,7 +176,7 @@ const program_setup& get_simple_setup() noexcept
     static auto setup = []() {
         program_setup setup;
         setup.program = simple_program();
-        setup.uniforms_hash = detail::simple_hash();
+        setup.uniforms_hash = simple_hash();
         return setup;
     }();
 
@@ -175,6 +198,137 @@ uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<m
     vertices.emplace_back(points[3], math::vec2{min_uv.x, max_uv.y}, col);
 
     return 4;
+}
+
+template<typename Setup>
+void add_vertices(draw_list& list, const std::vector<vertex_2d>& verts, primitive_type type,
+                             const texture_view& texture, Setup&& setup)
+{
+    auto count = verts.size();
+    if(count == 0)
+    {
+        return;
+    }
+    const auto index_offset = std::uint32_t(list.vertices.size());
+    list.vertices.resize(index_offset + count);
+    std::memcpy(list.vertices.data() + index_offset, verts.data(), sizeof(vertex_2d) * count);
+
+    if(setup.program.shader)
+    {
+        add_indices(list, std::uint32_t(count), index_offset, type, std::forward<Setup>(setup));
+    }
+    else
+    {
+        if(texture)
+        {
+            program_setup program{};
+            program.program = multi_channel_texture_program();
+
+            uint64_t hash{0};
+            utils::hash(hash, texture);
+            program.uniforms_hash = hash;
+
+
+            add_indices(list, std::uint32_t(count), index_offset, type, std::move(program));
+
+            // check if a new command was added
+            if(!list.commands.empty())
+            {
+                auto& cmd = list.commands.back();
+                if(!cmd.setup.begin)
+                {
+                    cmd.setup.begin = [texture](const gpu_context& ctx)
+                    {
+                        ctx.program.shader->set_uniform("uTexture", texture);
+                    };
+                }
+            }
+
+        }
+        else
+        {
+            add_indices(list, std::uint32_t(count), index_offset, type, get_simple_setup());
+        }
+    }
+}
+
+math::transformf fit_item(float item_w, float item_h,
+                          float area_w, float area_h,
+                          size_fit sz_fit,
+                          dimension_fit dim_fit)
+{
+
+    math::transformf fit_trans;
+    float xscale = 1.0f;
+    float yscale = 1.0f;
+
+    switch(sz_fit)
+    {
+        case size_fit::shrink_to_fit:
+        {
+            if(item_w > area_w)
+            {
+                xscale = std::min(xscale, float(area_w) / item_w);
+            }
+            if(item_h > area_h)
+            {
+                yscale = std::min(yscale, float(area_h) / item_h);
+            }
+        }
+        break;
+
+        case size_fit::stretch_to_fit:
+        {
+            if(item_w < area_w)
+            {
+                xscale = std::max(xscale, float(area_w) / item_w);
+            }
+            if(item_h < area_h)
+            {
+                yscale = std::max(yscale, float(area_h) / item_h);
+            }
+        }
+        break;
+
+        case size_fit::auto_fit:
+        {
+            if(item_w > area_w)
+            {
+                xscale = std::min(xscale, float(area_w) / item_w);
+            }
+            else
+            {
+                xscale = std::max(xscale, float(area_w) / item_w);
+            }
+
+            if(item_h > area_h)
+            {
+                yscale = std::min(yscale, float(area_h) / item_h);
+            }
+            else
+            {
+                yscale = std::max(yscale, float(area_h) / item_h);
+            }
+        }
+    }
+
+    switch(dim_fit)
+    {
+        case dimension_fit::x:
+            fit_trans.set_scale(xscale, 1.0f, 1.0f);
+            break;
+
+        case dimension_fit::y:
+            fit_trans.set_scale(1.0f, yscale, 1.0f);
+            break;
+
+        case dimension_fit::uniform:
+            float uniform_scale = std::min(xscale, yscale);
+            fit_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
+            break;
+    }
+
+    return fit_trans;
 }
 
 draw_list::draw_list()
@@ -254,7 +408,7 @@ void draw_list::add_image(const texture_view& texture, const rect& src, const re
     const math::vec2 min_uv = {left, top};
     const math::vec2 max_uv = {right, bottom};
 
-    const auto points = detail::transform_rect(dst, transform);
+    const auto points = transform_rect(dst, transform);
     add_image(texture, points, col, min_uv, max_uv, setup);
 }
 
@@ -286,7 +440,7 @@ void draw_list::add_image(const texture_view& texture, const rect& dst, const ma
                           const color& col, const math::vec2& min_uv, const math::vec2& max_uv,
                           const program_setup& setup)
 {
-    const auto points = detail::transform_rect(dst, transform);
+    const auto points = transform_rect(dst, transform);
     add_image(texture, points, col, min_uv, max_uv, setup);
 }
 
@@ -306,7 +460,7 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
     const auto vertices_added = add_rect_primitive(vertices, points, col, min_uv, max_uv);
     if(setup.program.shader)
     {
-        detail::add_indices(*this, vertices_added, index_offset, type, setup);
+        add_indices(*this, vertices_added, index_offset, type, setup);
     }
     else
     {
@@ -319,12 +473,12 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
 
-            detail::add_indices(*this, vertices_added, index_offset, type, std::move(program));
+            add_indices(*this, vertices_added, index_offset, type, std::move(program));
 
+            // check if a new command was added
             if(!commands.empty())
             {
                 auto& cmd = commands.back();
-                // if it is a new cmd
                 if(!cmd.setup.begin)
                 {
                     cmd.setup.begin = [texture](const gpu_context& ctx)
@@ -337,7 +491,7 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
         }
         else
         {
-            detail::add_indices(*this, vertices_added, index_offset, type, get_simple_setup());
+            add_indices(*this, vertices_added, index_offset, type, get_simple_setup());
         }
     }
 }
@@ -352,77 +506,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float text_width = t.get_width() * scale.x;
     float text_height = t.get_height() * scale.y;
 
-    math::transformf scale_trans;
-    float xscale = 1.0f;
-    float yscale = 1.0f;
+    auto fit_trans = fit_item(text_width, text_height, dst.w, dst.h, sz_fit, dim_fit);
 
-    switch(sz_fit)
-    {
-        case size_fit::shrink_to_fit:
-        {
-            if(text_width > dst.w)
-            {
-                xscale = std::min(xscale, float(dst.w) / text_width);
-            }
-            if(text_height > dst.h)
-            {
-                yscale = std::min(yscale, float(dst.h) / text_height);
-            }
-        }
-        break;
-
-        case size_fit::stretch_to_fit:
-        {
-            if(text_width < dst.w)
-            {
-                xscale = std::max(xscale, float(dst.w) / text_width);
-            }
-            if(text_height < dst.h)
-            {
-                yscale = std::max(yscale, float(dst.h) / text_height);
-            }
-        }
-        break;
-
-        case size_fit::auto_fit:
-        {
-            if(text_width > dst.w)
-            {
-                xscale = std::min(xscale, float(dst.w) / text_width);
-            }
-            else
-            {
-                xscale = std::max(xscale, float(dst.w) / text_width);
-            }
-
-            if(text_height > dst.h)
-            {
-                yscale = std::min(yscale, float(dst.h) / text_height);
-            }
-            else
-            {
-                yscale = std::max(yscale, float(dst.h) / text_height);
-            }
-        }
-    }
-
-    switch(dim_fit)
-    {
-        case dimension_fit::x:
-            scale_trans.set_scale(xscale, 1.0f, 1.0f);
-            break;
-
-        case dimension_fit::y:
-            scale_trans.set_scale(1.0f, yscale, 1.0f);
-            break;
-
-        case dimension_fit::uniform:
-            float uniform_scale = std::min(xscale, yscale);
-            scale_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
-            break;
-    }
-
-    add_text(t, transform * scale_trans, setup);
+    add_text(t, transform * fit_trans, setup);
 }
 
 void draw_list::add_text(const text& t, const math::transformf& transform, const program_setup& setup)
@@ -457,37 +543,41 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     // on the cpu dominates the batching benefits.
     const auto& geometry = t.get_geometry();
     bool cpu_batch = geometry.size() < (16 * 4);
+    bool has_shader = setup.program.shader != nullptr;
+    bool has_multiplier = false;
 
     auto program = setup;
     auto texture = font->texture;
-    if(setup.program.shader == nullptr)
+    if(!has_shader)
     {
         if(sdf_spread > 0)
         {
             program.program = distance_field_font_program();
 
+            has_multiplier = program.program.shader->has_uniform("uDistanceFieldMultiplier");
+
             if(cpu_batch)
             {
                 uint64_t hash{0};
                 utils::hash(hash,
-                            distance_field_multiplier,
                             outline_width,
                             outline_color,
                             texture);
 
+                // We have a special case here as this
+                // should only be the case if that shader
+                // doesn't support derivatives. Because this
+                // param is affected by scale it will obstruct
+                // batching, making scaled texts to not be able to
+                // batch.
+                if(has_multiplier)
+                {
+                    utils::hash(hash, distance_field_multiplier);
+                }
+
                 program.uniforms_hash = hash;
             }
-            program.begin = [=](const gpu_context& ctx)
-            {
-                if(!cpu_batch)
-                {
-                    ctx.rend.push_transform(transform);
-                }
-                ctx.program.shader->set_uniform("uDistanceFieldMultiplier", distance_field_multiplier);
-                ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
-                ctx.program.shader->set_uniform("uOutlineColor", outline_color);
-                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
-            };
+
         }
         else
         {
@@ -508,15 +598,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
                 utils::hash(hash, texture);
                 program.uniforms_hash = hash;
             }
-            program.begin = [=](const gpu_context& ctx)
-            {
-                if(!cpu_batch)
-                {
-                    ctx.rend.push_transform(transform);
-                }
-                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
-            };
-
         }
 
     }
@@ -528,16 +609,58 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         {
             v.pos = transform.transform_coord(v.pos);
         }
-        add_vertices(transformed_geometry, primitive_type::triangles, texture, program);
+        add_vertices(*this, transformed_geometry, primitive_type::triangles, texture, std::move(program));
     }
     else
     {
-        program.end = [](const gpu_context& ctx)
-        {
-            ctx.rend.pop_transform();
-        };
+        add_vertices(*this, geometry, primitive_type::triangles, texture, std::move(program));
+    }
 
-        add_vertices(geometry, primitive_type::triangles, texture, program);
+    // check if a new command was added
+    if(!commands.empty())
+    {
+        auto& cmd = commands.back();
+        if(!cmd.setup.begin)
+        {
+            if(sdf_spread > 0)
+            {
+                cmd.setup.begin = [=](const gpu_context& ctx)
+                {
+                    if(!cpu_batch)
+                    {
+                        ctx.rend.push_transform(transform);
+                    }
+                    if(has_multiplier)
+                    {
+                        ctx.program.shader->set_uniform("uDistanceFieldMultiplier", distance_field_multiplier);
+                    }
+                    ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
+                    ctx.program.shader->set_uniform("uOutlineColor", outline_color);
+                    ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
+                };
+            }
+            else
+            {
+                cmd.setup.begin = [=](const gpu_context& ctx)
+                {
+                    if(!cpu_batch)
+                    {
+                        ctx.rend.push_transform(transform);
+                    }
+                    ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
+                };
+            }
+
+        }
+
+        if(!cmd.setup.end && !cpu_batch)
+        {
+            cmd.setup.end = [](const gpu_context& ctx)
+            {
+                ctx.rend.pop_transform();
+            };
+        }
+
     }
 }
 
@@ -568,77 +691,10 @@ void draw_list::add_text_superscript(const text& whole_text, const text& partial
     float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    math::transformf scale_trans;
-    float xscale = 1.0f;
-    float yscale = 1.0f;
 
-    switch(sz_fit)
-    {
-        case size_fit::shrink_to_fit:
-        {
-            if(text_width > dst_rect.w)
-            {
-                xscale = std::min(xscale, float(dst_rect.w) / text_width);
-            }
-            if(text_height > dst_rect.h)
-            {
-                yscale = std::min(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-        break;
+    auto fit_trans = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
 
-        case size_fit::stretch_to_fit:
-        {
-            if(text_width < dst_rect.w)
-            {
-                xscale = std::max(xscale, float(dst_rect.w) / text_width);
-            }
-            if(text_height < dst_rect.h)
-            {
-                yscale = std::max(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-        break;
-
-        case size_fit::auto_fit:
-        {
-            if(text_width > dst_rect.w)
-            {
-                xscale = std::min(xscale, float(dst_rect.w) / text_width);
-            }
-            else
-            {
-                xscale = std::max(xscale, float(dst_rect.w) / text_width);
-            }
-
-            if(text_height > dst_rect.h)
-            {
-                yscale = std::min(yscale, float(dst_rect.h) / text_height);
-            }
-            else
-            {
-                yscale = std::max(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-    }
-
-    switch(dim_fit)
-    {
-        case dimension_fit::x:
-            scale_trans.set_scale(xscale, 1.0f, 1.0f);
-            break;
-
-        case dimension_fit::y:
-            scale_trans.set_scale(1.0f, yscale, 1.0f);
-            break;
-
-        case dimension_fit::uniform:
-            float uniform_scale = std::min(xscale, yscale);
-            scale_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
-            break;
-    }
-
-    add_text_superscript_impl(whole_text, partial_text, transform * scale_trans, transform_whole,
+    add_text_superscript_impl(whole_text, partial_text, transform * fit_trans, transform_whole,
                               transform_partial, align, partial_scale, setup);
 }
 
@@ -834,77 +890,10 @@ void draw_list::add_text_subscript(const text& whole_text,
     float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    math::transformf scale_trans;
-    float xscale = 1.0f;
-    float yscale = 1.0f;
 
-    switch(sz_fit)
-    {
-        case size_fit::shrink_to_fit:
-        {
-            if(text_width > dst_rect.w)
-            {
-                xscale = std::min(xscale, float(dst_rect.w) / text_width);
-            }
-            if(text_height > dst_rect.h)
-            {
-                yscale = std::min(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-        break;
+    auto fit_trans = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
 
-        case size_fit::stretch_to_fit:
-        {
-            if(text_width < dst_rect.w)
-            {
-                xscale = std::max(xscale, float(dst_rect.w) / text_width);
-            }
-            if(text_height < dst_rect.h)
-            {
-                yscale = std::max(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-        break;
-
-        case size_fit::auto_fit:
-        {
-            if(text_width > dst_rect.w)
-            {
-                xscale = std::min(xscale, float(dst_rect.w) / text_width);
-            }
-            else
-            {
-                xscale = std::max(xscale, float(dst_rect.w) / text_width);
-            }
-
-            if(text_height > dst_rect.h)
-            {
-                yscale = std::min(yscale, float(dst_rect.h) / text_height);
-            }
-            else
-            {
-                yscale = std::max(yscale, float(dst_rect.h) / text_height);
-            }
-        }
-    }
-
-    switch(dim_fit)
-    {
-        case dimension_fit::x:
-            scale_trans.set_scale(xscale, 1.0f, 1.0f);
-            break;
-
-        case dimension_fit::y:
-            scale_trans.set_scale(1.0f, yscale, 1.0f);
-            break;
-
-        case dimension_fit::uniform:
-            float uniform_scale = std::min(xscale, yscale);
-            scale_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
-            break;
-    }
-
-    add_text_subscript_impl(whole_text, partial_text, transform * scale_trans, transform_whole,
+    add_text_subscript_impl(whole_text, partial_text, transform * fit_trans, transform_whole,
                             transform_partial, align, partial_scale, setup);
 }
 
@@ -1061,93 +1050,6 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
     add_text(partial_text, transform * partial_transform, setup);
 };
 
-
-void draw_list::add_vertices(const std::vector<vertex_2d>& verts, const primitive_type type,
-                             const texture_view& texture, const program_setup& setup)
-{
-    add_vertices(verts.data(), verts.size(), type, texture, setup);
-}
-
-void draw_list::add_vertices(const vertex_2d* verts, size_t count, primitive_type type,
-                             const texture_view& texture, const program_setup& setup)
-{
-    if(count == 0)
-    {
-        return;
-    }
-    const auto index_offset = std::uint32_t(vertices.size());
-    vertices.resize(index_offset + count);
-    std::memcpy(&vertices[index_offset], verts, sizeof(vertex_2d) * count);
-
-    if(setup.program.shader)
-    {
-        detail::add_indices(*this, std::uint32_t(count), index_offset, type, setup);
-    }
-    else
-    {
-        if(texture)
-        {
-            program_setup program{};
-            program.program = multi_channel_texture_program();
-
-            uint64_t hash{0};
-            utils::hash(hash, texture);
-            program.uniforms_hash = hash;
-
-
-            detail::add_indices(*this, std::uint32_t(count), index_offset, type, std::move(program));
-
-            if(!commands.empty())
-            {
-                auto& cmd = commands.back();
-                // if it is a new cmd
-                if(!cmd.setup.begin)
-                {
-                    cmd.setup.begin = [texture](const gpu_context& ctx)
-                    {
-                        ctx.program.shader->set_uniform("uTexture", texture);
-                    };
-                }
-            }
-
-        }
-        else
-        {
-            detail::add_indices(*this, std::uint32_t(count), index_offset, type, get_simple_setup());
-        }
-    }
-}
-
-void normalize2f_over_zero(float& vx, float& vy)
-{
-    float d2 = vx*vx + vy*vy;
-    if (d2 > 0.0f)
-    {
-        float inv_len = 1.0f / math::sqrt(d2);
-        vx *= inv_len;
-        vy *= inv_len;
-    }
-}
-void fixnormal2f(float& vx, float& vy)
-{
-    float d2 = vx*vx + vy*vy;
-    float inv_lensq = 1.0f / d2;
-    vx *= inv_lensq;
-    vy *= inv_lensq;
-}
-
-color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
-{
-    const float fa = DH/H;
-    const float fc = (1.f-fa);
-    return {
-        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
-        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
-        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
-        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
-    };
-}
-
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
     add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
@@ -1156,7 +1058,7 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
 
 void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
-    detail::add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
+    add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1182,7 +1084,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
 
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1328,7 +1230,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
         const size_t vtx_count = count*4;      // FIXME-OPT: Not sharing edges
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1367,7 +1269,7 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
 
 void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
-    detail::add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
+    add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1409,7 +1311,7 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
 
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1472,7 +1374,7 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
         const size_t vtx_count = points_count;
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        detail::prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
