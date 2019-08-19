@@ -73,6 +73,8 @@ struct font_info
 
     /// rasterized font goes here
     surface_ptr surface;
+
+    bool pixel_snap{};
 };
 
 using font_info_ptr = std::shared_ptr<font_info>;

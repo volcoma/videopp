@@ -52,7 +52,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
     font_info f;
     f.face_name = name;
     f.sdf_spread = 0;
-
+    f.pixel_snap = true;
     f.surface = std::move(surface);
 
     auto s = f.surface.get();

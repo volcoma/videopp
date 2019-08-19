@@ -20,9 +20,9 @@ static constexpr const char* vs_simple = R"(
                     })";
 
 static constexpr const char* fs_simple =
-                #ifdef GLX_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                     "#version 130"
-                #elif EGL_CONTEXT
+                #elif defined(EGL_CONTEXT)
                     "#version 100"
                 #endif
                 R"(
@@ -34,9 +34,9 @@ static constexpr const char* fs_simple =
                     })";
 
 static constexpr const char* fs_multi_channel =
-                #ifdef GLX_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                     "#version 130"
-                #elif EGL_CONTEXT
+                #elif defined(EGL_CONTEXT)
                     "#version 100"
                 #endif
                 R"(
@@ -51,9 +51,9 @@ static constexpr const char* fs_multi_channel =
                     })";
 
 static constexpr const char* fs_single_channel =
-                #ifdef GLX_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                     "#version 130"
-                #elif EGL_CONTEXT
+                #elif defined(EGL_CONTEXT)
                     "#version 100"
                 #endif
                 R"(
@@ -69,19 +69,21 @@ static constexpr const char* fs_single_channel =
                     })";
 
 static constexpr const char* fs_distance_field =
-                #ifdef GLX_CONTEXT
-                    "#version 130"
-                #elif EGL_CONTEXT
-                    "#version 100"
-                #elif WGL_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                 R"(
+                    #version 130
+                    #define HAS_DERIVATIVES
+                )"
+                #elif defined(EGL_CONTEXT)
+                R"(
+                    #version 100
                     #ifndef GL_OES_standard_derivatives
-                        #define GL_OES_standard_derivatives
+                        #define HAS_DERIVATIVES
                     #endif
                 )"
                 #endif
                 R"(
-                    #ifdef GL_OES_standard_derivatives
+                    #ifdef HAS_DERIVATIVES
                         #extension GL_OES_standard_derivatives : enable
                     #endif
 
@@ -93,11 +95,9 @@ static constexpr const char* fs_distance_field =
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 
-                    #ifndef GL_OES_standard_derivatives
-                        uniform float uDistanceFieldMultiplier
-                    #endif
-
-                    #ifdef GL_OES_standard_derivatives
+                    #ifndef HAS_DERIVATIVES
+                        uniform float uDistanceFieldMultiplier;
+                    #else
                         float contour( in float d, in float w )
                         {
                             return smoothstep(0.5 - w, 0.5 + w, d);
@@ -135,7 +135,7 @@ static constexpr const char* fs_distance_field =
                         vec2 uv = vTexCoord.xy;
                         float dist = texture2D(uTexture, uv).r;
 
-                    #ifdef GL_OES_standard_derivatives
+                    #ifdef HAS_DERIVATIVES
 
                         // Supersample, 4 extra points
                         float dscale = 0.354; // half of 1/sqrt2; you can play with this
@@ -179,9 +179,9 @@ static constexpr const char* fs_distance_field =
                     )";
 
 static constexpr const char* fs_blur =
-                #ifdef GLX_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                     "#version 130"
-                #elif EGL_CONTEXT
+                #elif defined(EGL_CONTEXT)
                     "#version 100"
                 #endif
                 R"(
@@ -233,9 +233,9 @@ static constexpr const char* fs_blur =
                     })";
 
 static constexpr const char* fs_fxaa =
-                #ifdef GLX_CONTEXT
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                     "#version 130"
-                #elif EGL_CONTEXT
+                #elif defined(EGL_CONTEXT)
                     "#version 100"
                 #endif
                 R"(

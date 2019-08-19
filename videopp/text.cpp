@@ -478,7 +478,6 @@ void text::update_geometry() const
     float miny_ascent = 100000.0f;
     float miny_baseline = 100000.0f;
 
-
     constexpr size_t vertices_per_quad = 4;
 
     auto advance_offset_x = get_advance_offset_x();
@@ -487,14 +486,13 @@ void text::update_geometry() const
     lines_metrics_.reserve(lines.size());
     geometry_.resize(chars_ * vertices_per_quad);
     auto vptr = geometry_.data();
-    size_t offset = 0;
 
+    auto pixel_snap = font_->pixel_snap;
     auto line_height = font_->line_height + advance_offset_y;
     auto ascent = font_->ascent;
     auto descent = font_->descent;
     auto height = ascent - descent;
     auto baseline = ascent;
-
 
     auto leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
     // Set glyph positions on a (0,0) baseline.
@@ -502,17 +500,18 @@ void text::update_geometry() const
     auto pen_x = 0.0f;
     auto pen_y = baseline;
 
+    size_t offset = 0;
     for(const auto& line : lines)
     {
-        size_t vtx_count{};
-
-        line_metrics line_info{};
+        lines_metrics_.emplace_back();
+        auto& line_info = lines_metrics_.back();
         line_info.minx = pen_x;
         line_info.ascent = pen_y - ascent;
         line_info.baseline = pen_y;
         line_info.descent = line_info.ascent + height;
         auto height = line_info.descent - line_info.ascent;
 
+        size_t vtx_count{};
         auto last_codepoint = char_t(-1);
         for(auto c : line)
         {
@@ -551,11 +550,9 @@ void text::update_geometry() const
             vtx_count += vertices_per_quad;
 
             pen_x += g.advance_x + advance_offset_x;
-
         }
 
         line_info.maxx = pen_x;
-
 
         line_info.miny = get_alignment_miny(alignment_, line_info.ascent, line_info.baseline);
         line_info.maxy = get_alignment_maxy(alignment_, line_info.descent, line_info.baseline);
@@ -563,17 +560,18 @@ void text::update_geometry() const
         auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy);
         auto align_x = align_offsets.first;
 
-        auto v = geometry_.data() + offset;
-        for(size_t i = 0; i < vtx_count; ++i)
+        if(align_x != 0.0f || pixel_snap)
         {
-            auto& vv = *(v+i);
-            vv.pos.x += align_x;
+            auto v = geometry_.data() + offset;
+            for(size_t i = 0; i < vtx_count; ++i)
+            {
+                auto& vv = *(v+i);
+                vv.pos.x += align_x;
+            }
         }
 
         line_info.minx += align_x;
         line_info.maxx += align_x;
-
-        lines_metrics_.emplace_back(line_info);
 
         offset += vtx_count;
 
@@ -597,19 +595,22 @@ void text::update_geometry() const
     auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
     auto align_y = align_offsets.second;
 
-    for(auto& v : geometry_)
+    if(align_y != 0.0f)
     {
-        auto& pos = v.pos;
-        pos.y += align_y;
-    }
+        for(auto& v : geometry_)
+        {
+            auto& pos = v.pos;
+            pos.y += align_y;
+        }
 
-    for(auto& line : lines_metrics_)
-    {
-        line.ascent += align_y;
-        line.baseline += align_y;
-        line.descent += align_y;
-        line.miny += align_y;
-        line.maxy += align_y;
+        for(auto& line : lines_metrics_)
+        {
+            line.ascent += align_y;
+            line.baseline += align_y;
+            line.descent += align_y;
+            line.miny += align_y;
+            line.maxy += align_y;
+        }
     }
 
     rect_.x = minx;

@@ -517,6 +517,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     {
         return;
     }
+    const auto& font = t.get_font();
+    auto pixel_snap = font->pixel_snap;
 
     const auto& offsets = t.get_shadow_offsets();
     if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
@@ -530,7 +532,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         add_text(shadow, transform * shadow_transform, setup);
     }
 
-    const auto& font = t.get_font();
     float unit_length_in_pixels_at_font_position = 1.0f;
     int sdf_spread = font->sdf_spread;
     float scale = std::max(transform.get_scale().x, transform.get_scale().y);
@@ -608,6 +609,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         for(auto& v : transformed_geometry)
         {
             v.pos = transform.transform_coord(v.pos);
+
+            if(pixel_snap)
+            {
+                v.pos.x = int(v.pos.x);
+            }
         }
         add_vertices(*this, transformed_geometry, primitive_type::triangles, texture, std::move(program));
     }
@@ -624,10 +630,23 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         {
             if(sdf_spread > 0)
             {
-                cmd.setup.begin = [=](const gpu_context& ctx)
+                cmd.setup.begin = [transform=transform,
+                        distance_field_multiplier,
+                        outline_width,
+                        outline_color,
+                        texture,
+                        cpu_batch,
+                        has_multiplier,
+                        pixel_snap](const gpu_context& ctx) mutable
                 {
                     if(!cpu_batch)
                     {
+                        if(pixel_snap)
+                        {
+                            const auto& pos = transform.get_position();
+                            transform.set_position(int(pos.x), pos.y, pos.z);
+                        }
+
                         ctx.rend.push_transform(transform);
                     }
                     if(has_multiplier)
@@ -641,10 +660,18 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
             }
             else
             {
-                cmd.setup.begin = [=](const gpu_context& ctx)
+                cmd.setup.begin = [transform=transform,
+                        cpu_batch,
+                        pixel_snap,
+                        texture](const gpu_context& ctx) mutable
                 {
                     if(!cpu_batch)
                     {
+                        if(pixel_snap)
+                        {
+                            const auto& pos = transform.get_position();
+                            transform.set_position(int(pos.x), pos.y, pos.z);
+                        }
                         ctx.rend.push_transform(transform);
                     }
                     ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::wrap_clamp);
