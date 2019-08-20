@@ -77,16 +77,13 @@ static constexpr const char* fs_distance_field =
                 #elif defined(EGL_CONTEXT)
                 R"(
                     #version 100
-                    #ifndef GL_OES_standard_derivatives
+                    #ifdef GL_OES_standard_derivatives
                         #define HAS_DERIVATIVES
+                        #extension GL_OES_standard_derivatives : enable
                     #endif
                 )"
                 #endif
                 R"(
-                    #ifdef HAS_DERIVATIVES
-                        #extension GL_OES_standard_derivatives : enable
-                    #endif
-
                     precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;

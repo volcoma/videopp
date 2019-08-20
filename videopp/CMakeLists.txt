@@ -41,7 +41,7 @@ else()
         target_include_directories(${target_name} PUBLIC ${OPENGL_EGL_INCLUDE_DIRS})
         target_compile_definitions(${target_name} PRIVATE EGL_CONTEXT)
 
-    else()# if(OpenGL_GLX_FOUND)
+    #else()# if(OpenGL_GLX_FOUND)
     #    target_link_libraries(${target_name} PUBLIC ${OPENGL_glx_LIBRARY})
     #    target_include_directories(${target_name} PUBLIC ${OPENGL_GLX_INCLUDE_DIRS})
         target_compile_definitions(${target_name} PRIVATE GLX_CONTEXT)

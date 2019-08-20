@@ -63,201 +63,203 @@ int main()
     {
         std::cout << msg << std::endl;
     });
-display_text = "1000";
-    os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-    video_ctrl::renderer master_rend(master_win, true);
+    display_text = "1000";
     {
-        std::vector<video_window> windows{};
-
-
-        for(int i = 0; i < 1; ++i)
+        os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
+        video_ctrl::renderer master_rend(master_win, true);
         {
-            windows.emplace_back();
-            auto& win = windows.back();
-            auto centerd = os::window::centered;
-            auto flags = os::window::resizable;
-            win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
-            win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
-        }
-        video_ctrl::glyphs_builder builder;
-        builder.add(video_ctrl::get_latin_glyph_range());
-        builder.add(video_ctrl::get_cyrillic_glyph_range());
-
-        auto font_path = DATA "/fonts/wds052801.ttf";
-        auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
-        auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
+            std::vector<video_window> windows{};
 
 
-        video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
-        math::transformf transform;
-        int num = 100;
-
-        bool running = true;
-        bool use_kerning = false;
-        float outline_width = 0.0f;
-        float leaning = 0.0f;
-        float target_scale = 1.0f;
-        bool use_sdf = true;
-        bool debug = false;
-        while(running)
-        {
-            os::event e{};
-            while(os::poll_event(e))
+            for(int i = 0; i < 1; ++i)
             {
-                if(e.type == os::events::quit)
-                {
-                    std::cout << "quit (all windows were closed)" << std::endl;
-                    running = false;
-                    break;
-                }
-                if(e.type == os::events::window)
-                {
-                    if(e.window.type == os::window_event_id::close)
-                    {
+                windows.emplace_back();
+                auto& win = windows.back();
+                auto centerd = os::window::centered;
+                auto flags = os::window::resizable;
+                win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
+                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
+            }
+            video_ctrl::glyphs_builder builder;
+            builder.add(video_ctrl::get_latin_glyph_range());
+            builder.add(video_ctrl::get_cyrillic_glyph_range());
 
-                        windows.erase(std::remove_if(std::begin(windows), std::end(windows),
-                                                     [=](const auto& w)
-                        {
-                            return e.window.window_id == w.window->get_id();
-                        }), std::end(windows));
+            auto font_path = DATA "/fonts/wds052801.ttf";
+            auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
+            auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
-                        if(windows.empty())
-                        {
-                            std::cout << "quit (all windows were closed)" << std::endl;
-                            running = false;
-                        }
-                    }
-                }
 
-                if(e.type == os::events::mouse_wheel)
+            video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
+            math::transformf transform;
+            int num = 100;
+
+            bool running = true;
+            bool use_kerning = false;
+            float outline_width = 0.0f;
+            float leaning = 0.0f;
+            float target_scale = 1.0f;
+            bool use_sdf = true;
+            bool debug = false;
+            while(running)
+            {
+                os::event e{};
+                while(os::poll_event(e))
                 {
-                    if(os::key::is_pressed(os::key::lctrl))
+                    if(e.type == os::events::quit)
                     {
-                        float scale = float(e.wheel.y) * 0.01f;
-                        outline_width += scale;
-                    }
-                    else if(os::key::is_pressed(os::key::lshift))
-                    {
-                        float scale = float(e.wheel.y) * 0.5f;
-                        leaning += scale;
-                    }
-                    else
-                    {
-                        float scale = float(e.wheel.y) * 0.1f;
-                        target_scale += scale;
-                    }
-                }
-                if(e.type == os::events::text_input)
-                {
-                    display_text += e.text.text;
-                }
-                if(e.type == os::events::key_down)
-                {
-                    if(e.key.code == os::key::backspace)
-                    {
-                        if(!display_text.empty())
-                        {
-                            display_text.pop_back();
-                        }
+                        std::cout << "quit (all windows were closed)" << std::endl;
+                        running = false;
                         break;
                     }
-
-                    if(e.key.code == os::key::tab)
+                    if(e.type == os::events::window)
                     {
-                        display_text += "\t";
-                        break;
-                    }
-                    if(e.key.code == os::key::lctrl)
-                    {
-                        num += 11;
-                        break;
-                    }
-
-                    if(e.key.code == os::key::enter)
-                    {
-                        if(e.key.shift)
+                        if(e.window.type == os::window_event_id::close)
                         {
-                            display_text += "\n";
 
+                            windows.erase(std::remove_if(std::begin(windows), std::end(windows),
+                                                         [=](const auto& w)
+                            {
+                                return e.window.window_id == w.window->get_id();
+                            }), std::end(windows));
+
+                            if(windows.empty())
+                            {
+                                std::cout << "quit (all windows were closed)" << std::endl;
+                                running = false;
+                            }
                         }
-                        else if(e.key.ctrl)
+                    }
+
+                    if(e.type == os::events::mouse_wheel)
+                    {
+                        if(os::key::is_pressed(os::key::lctrl))
                         {
-                            debug = !debug;
+                            float scale = float(e.wheel.y) * 0.01f;
+                            outline_width += scale;
                         }
-                        else if(e.key.alt)
+                        else if(os::key::is_pressed(os::key::lshift))
                         {
-                            use_sdf = !use_sdf;
-                            //use_kerning = !use_kerning;
+                            float scale = float(e.wheel.y) * 0.5f;
+                            leaning += scale;
                         }
                         else
                         {
-                            auto i = uint32_t(align);
-                            auto cnt = uint32_t(video_ctrl::text::alignment::count);
-                            ++i;
-                            i %= cnt;
-                            align = video_ctrl::text::alignment(i);
+                            float scale = float(e.wheel.y) * 0.1f;
+                            target_scale += scale;
                         }
                     }
+                    if(e.type == os::events::text_input)
+                    {
+                        display_text += e.text.text;
+                    }
+                    if(e.type == os::events::key_down)
+                    {
+                        if(e.key.code == os::key::backspace)
+                        {
+                            if(!display_text.empty())
+                            {
+                                display_text.pop_back();
+                            }
+                            break;
+                        }
+
+                        if(e.key.code == os::key::tab)
+                        {
+                            display_text += "\t";
+                            break;
+                        }
+                        if(e.key.code == os::key::lctrl)
+                        {
+                            num += 11;
+                            break;
+                        }
+
+                        if(e.key.code == os::key::enter)
+                        {
+                            if(e.key.shift)
+                            {
+                                display_text += "\n";
+
+                            }
+                            else if(e.key.ctrl)
+                            {
+                                debug = !debug;
+                            }
+                            else if(e.key.alt)
+                            {
+                                use_sdf = !use_sdf;
+                                //use_kerning = !use_kerning;
+                            }
+                            else
+                            {
+                                auto i = uint32_t(align);
+                                auto cnt = uint32_t(video_ctrl::text::alignment::count);
+                                ++i;
+                                i %= cnt;
+                                align = video_ctrl::text::alignment(i);
+                            }
+                        }
+                    }
+
                 }
 
-            }
+                using namespace std::chrono_literals;
+                auto start = std::chrono::high_resolution_clock::now();
 
-            using namespace std::chrono_literals;
-            auto start = std::chrono::high_resolution_clock::now();
-
-            for(const auto& window : windows)
-            {
-                const auto& win = *window.window;
-                auto& rend = *window.renderer;
-                rend.clear(video_ctrl::color::white());
-
-                auto pos = os::mouse::get_position(win);
-                transform.set_position(pos.x, pos.y, 0.0f);
-
-                video_ctrl::draw_list list;
-                video_ctrl::text text;
-                text.set_font(use_sdf ? font : font_bitmap);
-                text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
-                text.set_outline_color(video_ctrl::color::black());
-                text.set_utf8_text(display_text);
-                text.set_alignment(align);
-                text.set_outline_width(outline_width);
-                text.set_kerning(use_kerning);
-                text.set_leaning(leaning);
-                //for(int i = 0; i < 30; ++i)
+                for(const auto& window : windows)
                 {
-                    list.add_text(text, transform);
-                    //list.add_text_subscript(text, text, transform, align);
-                }
+                    const auto& win = *window.window;
+                    auto& rend = *window.renderer;
+                    rend.clear(video_ctrl::color::white());
 
-                if(debug)
+                    auto pos = os::mouse::get_position(win);
+                    transform.set_position(pos.x, pos.y, 0.0f);
+
+                    video_ctrl::draw_list list;
+                    video_ctrl::text text;
+                    text.set_font(use_sdf ? font : font_bitmap);
+                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+                    text.set_outline_color(video_ctrl::color::black());
+                    text.set_utf8_text(display_text);
+                    text.set_alignment(align);
+                    text.set_outline_width(outline_width);
+                    text.set_kerning(use_kerning);
+                    text.set_leaning(leaning);
+                    //for(int i = 0; i < 30; ++i)
+                    {
+                        list.add_text(text, transform);
+                        //list.add_text_subscript(text, text, transform, align);
+                    }
+
+                    if(debug)
+                    {
+                        list.add_text_debug_info(text, transform);
+                    }
+
+                    rend.draw_cmd_list(list);
+                    rend.present();
+                }
+                auto end = std::chrono::high_resolution_clock::now();
+                auto dur = std::chrono::duration_cast<std::chrono::duration<float>>(end - start);
+
+                auto scale = transform.get_scale().x;
+                scale = std::max(0.05f, math::lerp(scale, target_scale, dur.count()));
+                transform.set_scale(scale, scale, 1.0f);
+
+
+                static decltype(dur) avg_dur{};
+                static int count = 0;
+
+                if(count > 100)
                 {
-                    list.add_text_debug_info(text, transform);
+                    count = 0;
+                    avg_dur = {};
                 }
+                count++;
+                avg_dur += dur;
+                std::cout << (avg_dur.count() * 1000) / count << std::endl;
 
-                rend.draw_cmd_list(list);
-                rend.present();
             }
-            auto end = std::chrono::high_resolution_clock::now();
-            auto dur = std::chrono::duration_cast<std::chrono::duration<float>>(end - start);
-
-            auto scale = transform.get_scale().x;
-            scale = std::max(0.05f, math::lerp(scale, target_scale, dur.count()));
-            transform.set_scale(scale, scale, 1.0f);
-
-
-            static decltype(dur) avg_dur{};
-            static int count = 0;
-
-            if(count > 100)
-            {
-                count = 0;
-                avg_dur = {};
-            }
-            count++;
-            avg_dur += dur;
-            std::cout << (avg_dur.count() * 1000) / count << std::endl;
-
         }
     }
 	os::shutdown();
