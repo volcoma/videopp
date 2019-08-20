@@ -55,7 +55,7 @@ struct texture_view
 
 struct gpu_program
 {
-    shader* shader{};
+    video_ctrl::shader* shader{};
 };
 
 struct gpu_context
