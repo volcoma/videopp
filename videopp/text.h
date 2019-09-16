@@ -182,6 +182,11 @@ public:
     const font_ptr& get_font() const;
 
     //-----------------------------------------------------------------------------
+    /// Gets the alignment of the text (relative to the origin point).
+    //-----------------------------------------------------------------------------
+    alignment get_alignment() const;
+
+    //-----------------------------------------------------------------------------
     /// Generates the geometry if needed
     /// buffer of quads - each 4 vertices form a quad
     //-----------------------------------------------------------------------------
@@ -204,6 +209,9 @@ public:
 
     bool is_valid() const;
 
+    static std::pair<float, float> get_alignment_offsets(text::alignment alignment,
+                                   float minx, float miny, float maxx, float maxy);
+    bool debug = false;
 private:
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;

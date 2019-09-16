@@ -39,7 +39,24 @@ float get_alignment_maxy(text::alignment alignment,
     }
 }
 
-std::pair<float, float> get_alignment_offsets(text::alignment alignment,
+color get_gradient(const color& ct, const color& cb, float t, float dt)
+{
+    t = std::max(t, 0.0f);
+    t = std::min(t, dt);
+    const float fa = t/dt;
+    const float fc = (1.f-fa);
+    return {
+        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
+        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
+        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
+        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
+    };
+}
+
+}
+
+
+std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
         float minx, float miny, float maxx, float maxy)
 {
     // offset according to m_alignment
@@ -131,21 +148,6 @@ std::pair<float, float> get_alignment_offsets(text::alignment alignment,
     }
     return {xoffs, yoffs};
 }
-color get_gradient(const color& ct, const color& cb, float t, float dt)
-{
-    t = std::max(t, 0.0f);
-    t = std::min(t, dt);
-    const float fa = t/dt;
-    const float fc = (1.f-fa);
-    return {
-        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
-        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
-        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
-        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
-    };
-}
-
-}
 
 void text::set_utf8_text(const std::string& t)
 {
@@ -173,6 +175,11 @@ void text::set_font(const font_ptr& f)
 const font_ptr& text::get_font() const
 {
     return font_;
+}
+
+text::alignment text::get_alignment() const
+{
+    return alignment_;
 }
 
 void text::set_color(color c)

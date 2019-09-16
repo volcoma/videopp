@@ -72,38 +72,30 @@ struct draw_list
 
 
     void add_text_superscript(const text& whole_text,
-                              const text& partial_text,
+                              const text& script_text,
                               const math::transformf& transform,
-                              text::alignment align = text::alignment::top_left,
-                              float partial_scale = 0.7f,
-                              const program_setup& setup = empty_setup());
+                              float script_scale = 0.7f);
 
     void add_text_superscript(const text& whole_text,
-                              const text& partial_text,
+                              const text& script_text,
                               const math::transformf& transform,
                               const rect& dst_rect,
-                              text::alignment align = text::alignment::top_left,
-                              float partial_scale = 0.7f,
+                              float script_scale = 0.7f,
                               size_fit sz_fit = size_fit::shrink_to_fit,
-                              dimension_fit dim_fit = dimension_fit::uniform,
-                              const program_setup& setup = empty_setup());
+                              dimension_fit dim_fit = dimension_fit::uniform);
 
     void add_text_subscript(const text& whole_text,
-                              const text& partial_text,
-                              const math::transformf& transform,
-                              text::alignment align = text::alignment::top_left,
-                              float partial_scale = 0.7f,
-                              const program_setup& setup = empty_setup());
+                            const text& script_text,
+                            const math::transformf& transform,
+                            float script_scale = 0.7f);
 
     void add_text_subscript(const text& whole_text,
-                            const text& partial_text,
+                            const text& script_text,
                             const math::transformf& transform,
                             const rect& dst_rect,
-                            text::alignment align = text::alignment::top_left,
-                            float partial_scale = 0.7f,
+                            float script_scale = 0.7f,
                             size_fit sz_fit = size_fit::shrink_to_fit,
-                            dimension_fit dim_fit = dimension_fit::uniform,
-                            const program_setup& setup = empty_setup());
+                            dimension_fit dim_fit = dimension_fit::uniform);
 
     void add_polyline(const polyline& poly, const color& col, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
     void add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness = 1.0f, float antialias_size = 1.0f);
@@ -124,22 +116,13 @@ struct draw_list
 
     void add_text_debug_info(const text& t, const math::transformf& transform);
     void add_text_superscript_impl(const text& whole_text,
-                                   const text& partial_text,
+                                   const text& script_text,
                                    const math::transformf& transform,
-                                   math::transformf& whole_transform,
-                                   math::transformf& partial_transform,
-                                   text::alignment align,
-                                   float partial_scale,
-                                   const program_setup& setup);
-
+                                   float script_scale);
     void add_text_subscript_impl(const text& whole_text,
-                                 const text& partial_text,
+                                 const text& script_text,
                                  const math::transformf& transform,
-                                 math::transformf& whole_transform,
-                                 math::transformf& partial_transform,
-                                 text::alignment align,
-                                 float partial_scale,
-                                 const program_setup& setup);
+                                 float script_scale);
 
     using index_t = uint32_t;
     std::vector<vertex_2d> vertices; // vertices to draw

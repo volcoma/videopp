@@ -496,21 +496,6 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
     }
 }
 
-void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst, size_fit sz_fit,
-                         dimension_fit dim_fit, const program_setup& setup)
-{
-
-    // TODO this doesn't handle if any rotation
-    // is applied
-    const auto& scale = transform.get_scale();
-    float text_width = t.get_width() * scale.x;
-    float text_height = t.get_height() * scale.y;
-
-    auto fit_trans = fit_item(text_width, text_height, dst.w, dst.h, sz_fit, dim_fit);
-
-    add_text(t, transform * fit_trans, setup);
-}
-
 void draw_list::add_text(const text& t, const math::transformf& transform, const program_setup& setup)
 {
     if(!t.is_valid())
@@ -605,9 +590,12 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     if(cpu_batch)
     {
-        auto transformed_geometry = geometry;
-        for(auto& v : transformed_geometry)
+        auto vtx_offset = vertices.size();
+        add_vertices(*this, geometry, primitive_type::triangles, texture, std::move(program));
+
+        for(size_t i = vtx_offset; i < vertices.size(); ++i)
         {
+            auto& v = vertices[i];
             v.pos = transform.transform_coord(v.pos);
 
             if(pixel_snap)
@@ -615,7 +603,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
                 v.pos.x = int(v.pos.x);
             }
         }
-        add_vertices(*this, transformed_geometry, primitive_type::triangles, texture, std::move(program));
     }
     else
     {
@@ -689,330 +676,355 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         }
 
     }
+
+    add_text_debug_info(t, transform);
 }
 
-void draw_list::add_text_superscript(const text& text_whole, const text& text_partial,
-                                     const math::transformf& transform, text::alignment align,
-                                     float partial_scale, const program_setup& setup)
+void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
+                         dimension_fit dim_fit, const program_setup& setup)
 {
-    math::transformf transform_whole;
-    math::transformf transform_partial;
-    transform_partial.scale({partial_scale, partial_scale, 1.0f});
+    auto align = t.get_alignment();
+    auto scale_x = transform.get_scale().x;
+    auto scale_y = transform.get_scale().y;
+    float text_width = t.get_width() * scale_x;
+    float text_height = t.get_height() * scale_y;
 
-    add_text_superscript_impl(text_whole, text_partial, transform, transform_whole, transform_partial, align,
-                              partial_scale, setup);
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
+
+    math::transformf parent{};
+    parent.translate(transform.get_position());
+    parent.set_rotation(transform.get_rotation());
+
+    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    local.scale(transform.get_scale());
+    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
+
+    add_text(t, parent * local, setup);
 }
 
-void draw_list::add_text_superscript(const text& whole_text, const text& partial_text,
+
+void draw_list::add_text_superscript(const text& whole_text, const text& script_text,
+                                     const math::transformf& transform,
+                                     float script_scale)
+{
+    add_text_superscript_impl(whole_text, script_text, transform, script_scale);
+}
+
+void draw_list::add_text_superscript(const text& whole_text, const text& script_text,
                                      const math::transformf& transform, const rect& dst_rect,
-                                     text::alignment align, float partial_scale, size_fit sz_fit,
-                                     dimension_fit dim_fit, const program_setup& setup)
+                                     float script_scale, size_fit sz_fit,
+                                     dimension_fit dim_fit)
 {
-    math::transformf transform_whole;
-    math::transformf transform_partial;
+    auto align = whole_text.get_alignment();
 
-    transform_partial.scale({partial_scale, partial_scale, 1.0f});
-
-    auto scale_whole = transform_whole.get_scale() * transform.get_scale();
-    auto scale_partial = transform_partial.get_scale() * transform.get_scale();
-    float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
+    auto scale_whole = transform.get_scale();
+    auto scale_partial = script_scale * transform.get_scale();
+    float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
 
-    auto fit_trans = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    math::transformf parent{};
+    parent.translate(transform.get_position());
+    parent.set_rotation(transform.get_rotation());
 
-    add_text_superscript_impl(whole_text, partial_text, transform * fit_trans, transform_whole,
-                              transform_partial, align, partial_scale, setup);
+    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    local.scale(transform.get_scale());
+    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
+
+    add_text_superscript_impl(whole_text, script_text, parent * local, script_scale);
 }
 
-void draw_list::add_text_superscript_impl(const text& text_whole, const text& text_partial,
+void draw_list::add_text_superscript_impl(const text& whole_text, const text& script_text,
                                           const math::transformf& transform,
-                                          math::transformf& transform_whole,
-                                          math::transformf& transform_partial, text::alignment align,
-                                          float partial_scale, const program_setup& setup)
+                                          float script_scale)
 {
-    if(text_whole.get_lines().size() > 1)
+
+    if(whole_text.get_lines().size() > 1)
     {
         log("Superscript text should not be multiline. This api will not behave properly.");
     }
-    const auto text_whole_width = text_whole.get_width();
+    const auto whole_text_width = whole_text.get_width();
 
-    const auto text_whole_min_baseline_height = text_whole.get_utf8_text().empty() ?
-                                                text_partial.get_min_baseline_height() :
-                                                text_whole.get_min_baseline_height();
-    const auto text_whole_max_baseline_height = text_whole.get_utf8_text().empty() ?
-                                                text_partial.get_max_baseline_height() :
-                                                text_whole.get_max_baseline_height();
+    const auto whole_text_min_baseline_height = whole_text.get_utf8_text().empty() ?
+                                                script_text.get_min_baseline_height() :
+                                                whole_text.get_min_baseline_height();
+    const auto whole_text_max_baseline_height = whole_text.get_utf8_text().empty() ?
+                                                script_text.get_max_baseline_height() :
+                                                whole_text.get_max_baseline_height();
 
-    const auto text_partial_width = text_partial.get_width() * partial_scale;
-    const auto text_parital_height = text_whole.get_utf8_text().empty() ?
-                                     text_partial.get_height() * (1.0f - partial_scale) :
-                                     text_whole.get_height() - (text_partial.get_height() * partial_scale);
+    const auto script_text_width = script_text.get_width() * script_scale;
+    const auto text_parital_height = whole_text.get_utf8_text().empty() ?
+                                     script_text.get_height() * (1.0f - script_scale) :
+                                     whole_text.get_height() - (script_text.get_height() * script_scale);
 
-    const auto text_partial_min_baseline_height =
-        text_partial.get_min_baseline_height() * partial_scale;
-    const auto text_partial_max_baseline_height =
-        text_partial.get_max_baseline_height() * partial_scale;
+    const auto script_text_min_baseline_height =
+        script_text.get_min_baseline_height() * script_scale;
+    const auto script_text_max_baseline_height =
+        script_text.get_max_baseline_height() * script_scale;
 
-    const auto half_text_whole_width = text_whole_width * 0.5f;
-    const auto half_text_partial_width = text_partial_width * 0.5f;
+    const auto half_whole_text_width = whole_text_width * 0.5f;
+    const auto half_script_text_width = script_text_width * 0.5f;
     const auto half_text_parital_height = text_parital_height * 0.5f;
 
-    const auto text_whole_shadow_height = text_whole.get_utf8_text().empty() ?
-                                          text_partial.get_shadow_offsets().y :
-                                          text_whole.get_shadow_offsets().y;
-    const auto text_partial_shadow_height = text_partial.get_shadow_offsets().y * partial_scale;
-    const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
+    const auto whole_text_shadow_height = whole_text.get_utf8_text().empty() ?
+                                          script_text.get_shadow_offsets().y :
+                                          whole_text.get_shadow_offsets().y;
+    const auto script_text_shadow_height = script_text.get_shadow_offsets().y * script_scale;
+    const auto shadows_height_dif = whole_text_shadow_height - script_text_shadow_height;
     const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
 
+    assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    auto align = whole_text.get_alignment();
+
+    math::transformf whole_transform{};
+    math::transformf script_transform{};
+    script_transform.scale({script_scale, script_scale, 1.0f});
     switch(align)
     {
         case text::alignment::top_left:
         {
-            transform_partial.translate({text_whole_width, 0.0f, 0.0f});
+            script_transform.translate({whole_text_width, 0.0f, 0.0f});
         }
         break;
         case text::alignment::baseline_top_left:
         {
-            transform_partial.translate({text_whole_width, 0.0f, 0.0f});
-            transform_partial.translate(
+            script_transform.translate({whole_text_width, 0.0f, 0.0f});
+            script_transform.translate(
                 {0.0f, shadows_height_dif -
-                 (text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
+                 (whole_text_min_baseline_height - script_text_min_baseline_height), 0.0f});
         }
         break;
 
         case text::alignment::top:
         {
-            transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, 0.0f, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
         }
         break;
         case text::alignment::baseline_top:
         {
-            transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width,
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width,
                                          shadows_height_dif -
-                                         (text_whole_min_baseline_height - text_partial_min_baseline_height),
+                                         (whole_text_min_baseline_height - script_text_min_baseline_height),
                                          0.0f});
         }
         break;
 
         case text::alignment::top_right:
         {
-            transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
         }
         break;
         case text::alignment::baseline_top_right:
         {
-            transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate(
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate(
                 {0.0f, shadows_height_dif -
-                 (text_whole_min_baseline_height - text_partial_min_baseline_height), 0.0f});
+                 (whole_text_min_baseline_height - script_text_min_baseline_height), 0.0f});
         }
         break;
 
         case text::alignment::left:
         {
-            transform_partial.translate({text_whole_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
+            script_transform.translate({whole_text_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::center:
         {
-            transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::right:
         {
-            transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, half_shadows_height_dif - half_text_parital_height, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate({0.0f, half_shadows_height_dif - half_text_parital_height, 0.0f});
         }
         break;
 
         case text::alignment::bottom_left:
         {
-            transform_partial.translate({text_whole_width, shadows_height_dif - text_parital_height, 0.0f});
+            script_transform.translate({whole_text_width, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_left:
         {
-            transform_partial.translate({text_whole_width,
+            script_transform.translate({whole_text_width,
                                          shadows_height_dif -
-                                         (text_whole_max_baseline_height - text_partial_max_baseline_height),
+                                         (whole_text_max_baseline_height - script_text_max_baseline_height),
                                          0.0f});
         }
         break;
 
         case text::alignment::bottom:
         {
-            transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width, shadows_height_dif - text_parital_height, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom:
         {
-            transform_whole.translate({-half_text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({half_text_whole_width,
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width,
                                          shadows_height_dif -
-                                         (text_whole_max_baseline_height - text_partial_max_baseline_height),
+                                         (whole_text_max_baseline_height - script_text_max_baseline_height),
                                          0.0f});
         }
         break;
 
         case text::alignment::bottom_right:
         {
-            transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate({0.0f, shadows_height_dif - text_parital_height, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate({0.0f, shadows_height_dif - text_parital_height, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_right:
         {
-            transform_whole.translate({-text_partial_width, 0.0f, 0.0f});
-            transform_partial.translate(
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate(
                 {0.0f, shadows_height_dif -
-                 (text_whole_max_baseline_height - text_partial_max_baseline_height), 0.0f});
+                 (whole_text_max_baseline_height - script_text_max_baseline_height), 0.0f});
         }
         break;
         default:
             break;
     }
-    add_text(text_whole, transform * transform_whole, setup);
-    add_text(text_partial, transform * transform_partial, setup);
+    add_text(whole_text, transform * whole_transform);
+    add_text(script_text, transform * script_transform);
 }
 
 void draw_list::add_text_subscript(const text& whole_text,
-                                   const text& partial_text,
+                                   const text& script_text,
                                    const math::transformf& transform,
-                                   text::alignment align,
-                                   float partial_scale,
-                                   const program_setup& setup)
+                                   float script_scale)
 {
-    math::transformf transform_whole;
-    math::transformf transform_partial;
-    transform_partial.scale({partial_scale, partial_scale, 1.0f});
-
-    add_text_subscript_impl(whole_text, partial_text, transform, transform_whole, transform_partial, align,
-                            partial_scale, setup);
+    add_text_subscript_impl(whole_text, script_text, transform, script_scale);
 }
 
 void draw_list::add_text_subscript(const text& whole_text,
-                                   const text& partial_text,
+                                   const text& script_text,
                                    const math::transformf& transform,
                                    const rect& dst_rect,
-                                   text::alignment align,
-                                   float partial_scale,
+                                   float script_scale,
                                    size_fit sz_fit,
-                                   dimension_fit dim_fit,
-                                   const program_setup& setup)
+                                   dimension_fit dim_fit)
 {
-    math::transformf transform_whole;
-    math::transformf transform_partial;
+    auto align = whole_text.get_alignment();
 
-    transform_partial.scale({partial_scale, partial_scale, 1.0f});
-
-    auto scale_whole = transform_whole.get_scale() * transform.get_scale();
-    auto scale_partial = transform_partial.get_scale() * transform.get_scale();
-    float text_width = whole_text.get_width() * scale_whole.x + partial_text.get_width() * scale_partial.x;
+    auto scale_whole = transform.get_scale();
+    auto scale_partial = script_scale * transform.get_scale();
+    float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
 
-    auto fit_trans = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    math::transformf parent{};
+    parent.translate(transform.get_position());
+    parent.set_rotation(transform.get_rotation());
 
-    add_text_subscript_impl(whole_text, partial_text, transform * fit_trans, transform_whole,
-                            transform_partial, align, partial_scale, setup);
+    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    local.scale(transform.get_scale());
+    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
+
+    add_text_subscript_impl(whole_text, script_text, parent * local, script_scale);
 }
 
 void draw_list::add_text_subscript_impl(const text& whole_text,
-                                        const text& partial_text,
+                                        const text& script_text,
                                         const math::transformf& transform,
-                                        math::transformf& whole_transform,
-                                        math::transformf& partial_transform,
-                                        text::alignment align,
-                                        float partial_scale,
-                                        const program_setup& setup)
+                                        float script_scale)
 {
     if(whole_text.get_lines().size() > 1)
     {
         log("Subscript text should not be multiline. This api will not behave properly.");
     }
 
-    const auto text_whole_width = whole_text.get_width();
+    const auto whole_text_width = whole_text.get_width();
 
-    const auto text_whole_height = whole_text.get_utf8_text().empty() ?
-                                   partial_text.get_height() :
+    const auto whole_text_height = whole_text.get_utf8_text().empty() ?
+                                   script_text.get_height() :
                                    whole_text.get_height();
 
-    const auto text_whole_shadow_height = whole_text.get_utf8_text().empty() ?
-                                          partial_text.get_shadow_offsets().y :
+    const auto whole_text_shadow_height = whole_text.get_utf8_text().empty() ?
+                                          script_text.get_shadow_offsets().y :
                                           whole_text.get_shadow_offsets().y;
 
-    const auto text_whole_max_baseline_height = whole_text.get_utf8_text().empty() ?
-                                                partial_text.get_max_baseline_height() :
+    const auto whole_text_max_baseline_height = whole_text.get_utf8_text().empty() ?
+                                                script_text.get_max_baseline_height() :
                                                 whole_text.get_max_baseline_height();
 
-    const auto text_partial_width = partial_text.get_width() * partial_scale;
-    const auto text_parital_height = partial_scale * partial_text.get_height();
-    const auto text_parital_height_dif = text_whole_height - text_parital_height;
+    const auto script_text_width = script_text.get_width() * script_scale;
+    const auto text_parital_height = script_scale * script_text.get_height();
+    const auto text_parital_height_dif = whole_text_height - text_parital_height;
 
-    const auto text_partial_shadow_height = partial_text.get_shadow_offsets().y * partial_scale;
-    const auto shadows_height_dif = text_whole_shadow_height - text_partial_shadow_height;
+    const auto script_text_shadow_height = script_text.get_shadow_offsets().y * script_scale;
+    const auto shadows_height_dif = whole_text_shadow_height - script_text_shadow_height;
     const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
 
-    const auto text_partial_max_baseline_height =
-        partial_text.get_max_baseline_height() * partial_scale;
+    const auto script_text_max_baseline_height =
+        script_text.get_max_baseline_height() * script_scale;
 
-    const auto half_text_whole_width = text_whole_width * 0.5f;
-    const auto half_text_partial_width = text_partial_width * 0.5f;
+    const auto half_whole_text_width = whole_text_width * 0.5f;
+    const auto half_script_text_width = script_text_width * 0.5f;
     const auto half_text_parital_height_dif = text_parital_height_dif * 0.5f;
 
-    const auto top_y_aligns_parial_offset = text_whole_max_baseline_height - text_partial_max_baseline_height - shadows_height_dif;
-    const auto center_y_aligns_parial_offset = text_whole_max_baseline_height - (half_text_parital_height_dif + text_partial_max_baseline_height) - half_shadows_height_dif;
-    const auto bottom_y_aligns_parial_offset = - ((text_whole_height - text_whole_max_baseline_height) -
-                                                  (text_parital_height - text_partial_max_baseline_height));
+    const auto top_y_aligns_parial_offset = whole_text_max_baseline_height - script_text_max_baseline_height - shadows_height_dif;
+    const auto center_y_aligns_parial_offset = whole_text_max_baseline_height - (half_text_parital_height_dif + script_text_max_baseline_height) - half_shadows_height_dif;
+    const auto bottom_y_aligns_parial_offset = - ((whole_text_height - whole_text_max_baseline_height) -
+                                                  (text_parital_height - script_text_max_baseline_height));
+
+    assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    auto align = whole_text.get_alignment();
+
+    math::transformf whole_transform{};
+    math::transformf script_transform{};
+    script_transform.scale({script_scale, script_scale, 1.0f});
 
     switch(align)
     {
         case text::alignment::top_left:
         {
-            partial_transform.translate({text_whole_width, top_y_aligns_parial_offset, 0.0f});
+            script_transform.translate({whole_text_width, top_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_top_left:
         {
-            partial_transform.translate({text_whole_width, 0.0f, 0.0f});
+            script_transform.translate({whole_text_width, 0.0f, 0.0f});
         }
         break;
 
         case text::alignment::top:
         {
-            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({half_text_whole_width, top_y_aligns_parial_offset, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, top_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_top:
         {
-            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({half_text_whole_width, 0.0f, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
         }
         break;
 
         case text::alignment::top_right:
         {
-            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({0.0f, top_y_aligns_parial_offset, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate({0.0f, top_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_top_right:
         {
-            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
         }
         break;
 
         case text::alignment::left:
         {
-            partial_transform.translate({text_whole_width,
+            script_transform.translate({whole_text_width,
                                          center_y_aligns_parial_offset,
                                          0.0f});
         }
@@ -1020,8 +1032,8 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
 
         case text::alignment::center:
         {
-            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({half_text_whole_width,
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width,
                                          center_y_aligns_parial_offset,
                                          0.0f});
         }
@@ -1029,53 +1041,53 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
 
         case text::alignment::right:
         {
-            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({0.0f, center_y_aligns_parial_offset, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate({0.0f, center_y_aligns_parial_offset, 0.0f});
         }
         break;
 
         case text::alignment::bottom_left:
         {
-            partial_transform.translate({text_whole_width, bottom_y_aligns_parial_offset, 0.0f});
+            script_transform.translate({whole_text_width, bottom_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_left:
         {
-            partial_transform.translate({text_whole_width, 0.0f, 0.0f});
+            script_transform.translate({whole_text_width, 0.0f, 0.0f});
         }
         break;
 
         case text::alignment::bottom:
         {
-            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({half_text_whole_width, bottom_y_aligns_parial_offset, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, bottom_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom:
         {
-            whole_transform.translate({-half_text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({half_text_whole_width, 0.0f, 0.0f});
+            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
+            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
         }
         break;
 
         case text::alignment::bottom_right:
         {
-            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
-            partial_transform.translate({0.0f, bottom_y_aligns_parial_offset, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
+            script_transform.translate({0.0f, bottom_y_aligns_parial_offset, 0.0f});
         }
         break;
         case text::alignment::baseline_bottom_right:
         {
-            whole_transform.translate({-text_partial_width, 0.0f, 0.0f});
+            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
         }
         break;
         default:
             break;
     }
 
-    add_text(whole_text, transform * whole_transform, setup);
-    add_text(partial_text, transform * partial_transform, setup);
-};
+    add_text(whole_text, transform * whole_transform);
+    add_text(script_text, transform * script_transform);
+}
 
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
@@ -1507,6 +1519,11 @@ void draw_list::reserve_rects(size_t count)
 
 void draw_list::add_text_debug_info(const text& t, const math::transformf& transform)
 {
+    if(t.debug)
+    {
+        return;
+    }
+
     math::transformf tr;
     tr.set_scale(transform.get_scale());
 
@@ -1545,6 +1562,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(v1, v2, col);
 
             text txt;
+            txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
@@ -1575,6 +1593,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(v1, v2, col);
 
             text txt;
+            txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
@@ -1595,6 +1614,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(v1, v2, col, 1.0f);
 
             text txt;
+            txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
