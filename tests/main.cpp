@@ -205,12 +205,12 @@ int main()
 
                 using namespace std::chrono_literals;
                 auto start = std::chrono::high_resolution_clock::now();
-
+                //transform.rotate(0.0f, 0.0f, math::radians(0.01f));
                 for(const auto& window : windows)
                 {
                     const auto& win = *window.window;
                     auto& rend = *window.renderer;
-                    rend.clear(video_ctrl::color::white());
+                    rend.clear(video_ctrl::color::gray());
 
                     auto pos = os::mouse::get_position(win);
                     transform.set_position(pos.x, pos.y, 0.0f);
@@ -227,7 +227,10 @@ int main()
                     text.set_leaning(leaning);
                     //for(int i = 0; i < 30; ++i)
                     {
-                        list.add_text(text, transform);
+                        video_ctrl::rect rect{0, 0, 200, 200};
+                        list.add_rect(rect, transform);
+
+                        list.add_text(text, transform, rect);
                         //list.add_text_subscript(text, text, transform, align);
                     }
 

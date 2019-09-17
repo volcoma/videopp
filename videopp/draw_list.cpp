@@ -689,7 +689,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float text_width = t.get_width() * scale_x;
     float text_height = t.get_height() * scale_y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align,
+                                               dst_rect.x,
+                                               dst_rect.y,
+                                               dst_rect.x + dst_rect.w,
+                                               dst_rect.y + dst_rect.h);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -722,7 +726,11 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align,
+                                               dst_rect.x,
+                                               dst_rect.y,
+                                               dst_rect.x + dst_rect.w,
+                                               dst_rect.y + dst_rect.h);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -920,7 +928,11 @@ void draw_list::add_text_subscript(const text& whole_text,
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align,
+                                               dst_rect.x,
+                                               dst_rect.y,
+                                               dst_rect.x + dst_rect.w,
+                                               dst_rect.y + dst_rect.h);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -1523,34 +1535,13 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     {
         return;
     }
-
-    math::transformf tr;
-    tr.set_scale(transform.get_scale());
-
-    {
-        auto geometry = t.get_geometry();
-        for(auto& v : geometry)
-        {
-            v.pos = transform.transform_coord(v.pos);
-        }
-
-        for(size_t i = 0; i < geometry.size(); i+=4)
-        {
-            polyline line;
-            color col{};
-            for(size_t j = 0; j < 4; ++j)
-            {
-                col = geometry[i + j].col;
-                line.line_to(geometry[i + j].pos);
-            }
-            add_polyline(line, col, true);
-        }
-
-    }
-
-    const auto& rect = t.get_frect();
-    add_rect(rect, transform, color::red(), false, 1.0f);
     const auto& lines = t.get_lines_metrics();
+
+    auto font_size = t.get_font()->size;
+    auto default_font_size = default_font()->size;
+    float scale = float(default_font_size) / float(font_size);
+    math::transformf tr = transform;
+    tr.scale(scale, scale, 1.0f);
     {
         auto col = color::cyan();
         std::string desc = "ascent ";
@@ -1559,12 +1550,10 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             auto v1 = transform.transform_coord({line.minx, line.ascent});
             auto v2 = transform.transform_coord({line.maxx, line.ascent});
 
-            add_line(v1, v2, col);
-
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(default_font());
+            txt.set_font(t.get_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
@@ -1588,14 +1577,11 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         for(const auto& line : lines)
         {
             auto v1 = transform.transform_coord({line.minx, line.baseline});
-            auto v2 = transform.transform_coord({line.maxx, line.baseline});
-
-            add_line(v1, v2, col);
 
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(default_font());
+            txt.set_font(t.get_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
@@ -1609,14 +1595,11 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         for(const auto& line : lines)
         {
             auto v1 = transform.transform_coord({line.minx, line.descent});
-            auto v2 = transform.transform_coord({line.maxx, line.descent});
-
-            add_line(v1, v2, col, 1.0f);
 
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(default_font());
+            txt.set_font(t.get_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
@@ -1625,9 +1608,61 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
 
+
+    {
+        auto geometry = t.get_geometry();
+        for(auto& v : geometry)
+        {
+            v.pos = transform.transform_coord(v.pos);
+        }
+
+        for(size_t i = 0; i < geometry.size(); i+=4)
+        {
+            polyline line;
+            color col = geometry[i].col;
+            for(size_t j = 0; j < 4; ++j)
+            {
+                line.line_to(geometry[i + j].pos);
+            }
+            add_polyline(line, col, true);
+        }
+    }
+
+    const auto& rect = t.get_frect();
+    add_rect(rect, transform, color::red(), false, 1.0f);
+    {
+        auto col = color::cyan();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.ascent});
+            auto v2 = transform.transform_coord({line.maxx, line.ascent});
+
+            add_line(v1, v2, col);
+        }
+    }
+    {
+        auto col = color::magenta();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.baseline});
+            auto v2 = transform.transform_coord({line.maxx, line.baseline});
+
+            add_line(v1, v2, col);
+        }
+    }
+    {
+        auto col = color::blue();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.descent});
+            auto v2 = transform.transform_coord({line.maxx, line.descent});
+
+            add_line(v1, v2, col, 1.0f);
+        }
+    }
+
     {
         auto col = color::green();
-        std::string desc = " line height = ";
         for(const auto& line : lines)
         {
             auto line_height = t.get_font()->line_height;
@@ -1638,7 +1673,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
         }
     }
-
 }
 
 
