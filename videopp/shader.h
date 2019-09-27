@@ -22,9 +22,9 @@ namespace video_ctrl
         void enable() const;
         void disable() const;
 
-        void set_uniform(const std::string& uniform_name, const texture_view& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat,
+        void set_uniform(const std::string& uniform_name, const texture_view& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_clamp,
                          texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const;
-        void set_uniform(const std::string& uniform_name, const texture_ptr& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat,
+        void set_uniform(const std::string& uniform_name, const texture_ptr& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_clamp,
                          texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const;
 
         void set_uniform(const std::string& uniform_name, int data) const;

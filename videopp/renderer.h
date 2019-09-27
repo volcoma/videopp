@@ -40,18 +40,9 @@ public:
     // comsumes font_info
     font_ptr create_font(font_info&& info) const noexcept;
 
-    // Set colors & blending
-    bool set_blending_mode(const blending_mode mode) const noexcept;
-    
     // Bind textures
-    bool set_texture(const uint32_t texture, uint32_t id = 0, 
-                    texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat, 
-                    texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const noexcept;
     bool set_texture(texture_view texture, uint32_t id = 0,
-                     texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat, 
-                     texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const noexcept;
-    bool set_texture(const texture_ptr& texture, uint32_t id = 0, 
-                     texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat, 
+                     texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat,
                      texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const noexcept;
     void reset_texture(uint32_t id = 0) const noexcept;
     
@@ -62,14 +53,6 @@ public:
     bool pop_transform() const noexcept;
     bool reset_transform() const noexcept;
 
-    // Clipping
-    bool set_clip_rect(const rect& rect) const noexcept;
-    bool remove_clip_rect() const noexcept;
-    bool set_clip_rect_only(const rect& rect) const noexcept;
-    bool set_clip_planes(const rect& rect, const math::transformf& transform) const noexcept;
-    bool remove_clip_planes() const noexcept;
-
-    void set_line_width(float width) const noexcept;
     // Destinations
     bool push_fbo(const texture_ptr& texture);
     bool pop_fbo();
@@ -90,13 +73,17 @@ public:
     renderer(renderer&& other) = delete;
     ~renderer();
 
-    void resize(int new_width, int new_height) noexcept;
-	bool set_current_context() const noexcept;
 
 private:
-    void set_model_view(const uint32_t model, const rect& rect) const noexcept;
+    void set_model_view(uint32_t model, const rect& rect) const noexcept;
     void clear_fbo(uint32_t fbo_id, const color& color) const noexcept;
     void set_old_framebuffer() const noexcept;
+    void resize(int new_width, int new_height) noexcept;
+    bool set_current_context() const noexcept;
+
+    bool set_blending_mode(blending_mode mode) const noexcept;
+    bool push_clip(const rect& rect) const noexcept;
+    bool pop_clip() const noexcept;
 
     friend class texture;
     friend class shader;

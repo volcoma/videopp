@@ -63,7 +63,6 @@ int main()
     {
         std::cout << msg << std::endl;
     });
-    display_text = "1000";
     {
         os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
         video_ctrl::renderer master_rend(master_win, true);
@@ -84,12 +83,12 @@ int main()
             builder.add(video_ctrl::get_latin_glyph_range());
             builder.add(video_ctrl::get_cyrillic_glyph_range());
 
-            auto font_path = DATA "/fonts/wds052801.ttf";
+            auto font_path = DATA"fonts/wds052801.ttf";
             auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
             auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
 
-            video_ctrl::text::alignment align{ video_ctrl::text::alignment::baseline_top};
+            video_ctrl::text::alignment align{ video_ctrl::text::alignment::top_left};
             math::transformf transform;
             int num = 100;
 
@@ -187,8 +186,8 @@ int main()
                             }
                             else if(e.key.alt)
                             {
-                                use_sdf = !use_sdf;
-                                //use_kerning = !use_kerning;
+                                //use_sdf = !use_sdf;
+                                use_kerning = !use_kerning;
                             }
                             else
                             {
@@ -203,14 +202,15 @@ int main()
 
                 }
 
+                //transform.rotate(0.0f, 0.0f, math::radians(0.01f));
                 using namespace std::chrono_literals;
                 auto start = std::chrono::high_resolution_clock::now();
-                //transform.rotate(0.0f, 0.0f, math::radians(0.01f));
+
                 for(const auto& window : windows)
                 {
                     const auto& win = *window.window;
                     auto& rend = *window.renderer;
-                    rend.clear(video_ctrl::color::gray());
+                    rend.clear(video_ctrl::color::white());
 
                     auto pos = os::mouse::get_position(win);
                     transform.set_position(pos.x, pos.y, 0.0f);
@@ -225,19 +225,9 @@ int main()
                     text.set_outline_width(outline_width);
                     text.set_kerning(use_kerning);
                     text.set_leaning(leaning);
-                    //for(int i = 0; i < 30; ++i)
-                    {
-                        video_ctrl::rect rect{0, 0, 200, 200};
-                        list.add_rect(rect, transform);
+                    //text.set_advance({-10.5f, 0.0f});
 
-                        list.add_text(text, transform, rect);
-                        //list.add_text_subscript(text, text, transform, align);
-                    }
-
-                    if(debug)
-                    {
-                        list.add_text_debug_info(text, transform);
-                    }
+                    list.add_text(text, transform);
 
                     rend.draw_cmd_list(list);
                     rend.present();

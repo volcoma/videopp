@@ -55,8 +55,8 @@ renderer::renderer(os::window& win, bool vsync)
         throw video_ctrl::exception("Cannot load glad.");
     }
 
-    rect_.x = win_.get_position().x;
-    rect_.y = win_.get_position().y;
+    //rect_.x = win_.get_position().x;
+    //rect_.y = win_.get_position().y;
     rect_.w = win_.get_size().w;
     rect_.h = win_.get_size().h;
 
@@ -218,20 +218,16 @@ void renderer::set_model_view(const uint32_t fbo, const rect& rect) const noexce
 
     // Set the viewport
     gl_call(glViewport(0, 0, rect.w, rect.h));
-    //gl_call(glMatrixMode(GL_PROJECTION));
-    //gl_call(glLoadIdentity());
-    
+
     // Set the projection
     if(fbo == 0)
     {
         // If we have 0 it is the back buffer
-        //gl_call(glOrtho(0, rect.w, rect.h, 0, 0, FARTHEST_Z));
         current_ortho_ = math::ortho<float>(0, rect.w, rect.h, 0, 0, FARTHEST_Z);
     }
     else
     {
         // If we have > 0 the fbo must be flipped
-        //gl_call(glOrtho(0, rect.w, 0, rect.h, 0, FARTHEST_Z));
         current_ortho_ = math::ortho<float>(0, rect.w, 0, rect.h, 0, FARTHEST_Z);
     }
 
@@ -417,7 +413,7 @@ font_ptr renderer::create_font(font_info&& info) const noexcept
 /// Set the blending mode for drawing
 ///	@param mode - blending mode to set
 ///	@return true on success
-bool renderer::set_blending_mode(const blending_mode mode) const noexcept
+bool renderer::set_blending_mode(blending_mode mode) const noexcept
 {
     if(!set_current_context())
     {
@@ -461,32 +457,26 @@ bool renderer::set_blending_mode(const blending_mode mode) const noexcept
 }
 
 /// Lowest level texture binding call, for both fixed pipeline and shaders, and provide optional wrapping and interpolation modes
-///     @param texture - the texture id (internal GL id)
+///     @param texture - the texture view
 ///     @param id - texture unit id (for the shader)
 ///     @param wrap_type - wrapping type
 ///     @param interp_type - interpolation type
-bool renderer::set_texture(const uint32_t texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept 
+bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept
 {
-    // Check if texture is valid
-    if (!texture)
-    {
-        return false;
-    }
-
     // Activate texture for shader
     gl_call(glActiveTexture(GL_TEXTURE0 + id));
-    
+
     // Bind texture to the pipeline, and the currently active texture
-    gl_call(glBindTexture(GL_TEXTURE_2D, texture));
-    
+    gl_call(glBindTexture(GL_TEXTURE_2D, texture.id));
+
     // Pick the wrap mode for rendering
     GLint wmode = GL_REPEAT;
     switch(wtype)
     {
-        case texture::wrap_type::wrap_clamp: 
+        case texture::wrap_type::wrap_clamp:
             wmode = GL_CLAMP_TO_EDGE;
             break;
-        case texture::wrap_type::wrap_mirror: 
+        case texture::wrap_type::wrap_mirror:
             wmode = GL_MIRRORED_REPEAT;
             break;
         default:
@@ -495,7 +485,7 @@ bool renderer::set_texture(const uint32_t texture, uint32_t id, texture::wrap_ty
     }
     gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wmode));
     gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wmode));
-    
+
     // Pick the interpolation mode for rendering
     GLint imode = GL_LINEAR;
     switch(itype)
@@ -512,34 +502,6 @@ bool renderer::set_texture(const uint32_t texture, uint32_t id, texture::wrap_ty
 
     // Check errors and return
     return true;
-}
-
-/// Bind a texture view, for both fixed pipeline and shaders, and provide optional wrapping and interpolation modes
-///     @param texture - the texture view
-///     @param id - texture unit id (for the shader)
-///     @param wrap_type - wrapping type
-///     @param interp_type - interpolation type
-bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept
-{
-    // Check if texture is valid
-    if (!texture.is_valid())
-    {
-        return false;
-    }
-    
-    return set_texture(texture.id, id, wtype, itype);
-}
-
-/// Bind a texture, for both fixed pipeline and shaders
-/// and provide optional wrapping and interpolation modes
-///     @param texture - the texture
-///     @param id - texture unit id (for the shader)
-///     @param wrap_type - wrapping type
-///     @param interp_type - interpolation type
-bool renderer::set_texture(const texture_ptr& texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept 
-{
-    const video_ctrl::texture_view view(texture);
-    return set_texture(view, id, wtype, itype);
 }
 
 /// Reset a texture slot
@@ -583,7 +545,7 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
             ctx.program.shader->set_uniform("uDirection", direction);
         };
 
-        list.add_image(input, input->get_rect(), fbo->get_rect(), {}, color::white(), setup);
+        list.add_image(input, input->get_rect(), fbo->get_rect(), {}, color::white(), flip_format::none, setup);
 
         draw_cmd_list(list);
 
@@ -632,68 +594,10 @@ bool renderer::reset_transform() const noexcept
     return true;
 }
 
-/// Enable a scissor test (including viewport and ortho)
-///	@param rect - rectangle to clip
-///	@return true on success
-bool renderer::set_clip_rect(const rect& rect) const noexcept
-{
-    if(!set_current_context())
-    {
-        return false;
-    }
-
-    gl_call(glMatrixMode(GL_PROJECTION));
-    gl_call(glLoadIdentity());
-    
-    if(fbo_stack_.empty())
-    {
-        // If we have no fbo_target_ it is back buffer
-        gl_call(glViewport(rect.x, rect_.h - rect.y - rect.h, rect.w, rect.h));
-        gl_call(glOrtho(rect.x, rect.x + rect.w, rect.y + rect.h, rect.y, 0, FARTHEST_Z));
-        current_ortho_ = math::ortho<float>(rect.x, rect.x + rect.w, rect.y + rect.h, rect.y, 0, FARTHEST_Z);
-    }
-    else
-    {
-        // if we have it is fbo must be flipped
-        gl_call(glViewport(rect.x, rect.y, rect.w, rect.h));
-        gl_call(glOrtho(rect.x, rect.x + rect.w, rect.y, rect.y + rect.h, 0, FARTHEST_Z));
-        current_ortho_ = math::ortho<float>(rect.x, rect.x + rect.w, rect.y, rect.y + rect.h, 0, FARTHEST_Z);
-    }
-
-    reset_transform();
-    set_clip_rect_only(rect);
-
-    return true;
-}
-
-/// Reset any enabled scissor tests
-///	@param rect - rectangle to clip
-///	@return true on success
-bool renderer::remove_clip_rect() const noexcept
-{
-    if (!set_current_context())
-    {
-        return false;
-    }
-
-    gl_call(glDisable(GL_SCISSOR_TEST));
-    if (fbo_stack_.empty())
-    {
-        set_model_view(0, rect_);
-    }
-    else
-    {
-        const auto& top_texture = fbo_stack_.top();
-        set_model_view(top_texture->get_FBO(), top_texture->get_rect());
-    }
-
-    return true;
-}
-
 /// Set scissor test rectangle
 ///	@param rect - rectangle to clip
 ///	@return true on success
-bool renderer::set_clip_rect_only(const rect& rect) const noexcept
+bool renderer::push_clip(const rect& rect) const noexcept
 {
     if (!set_current_context())
     {
@@ -715,72 +619,16 @@ bool renderer::set_clip_rect_only(const rect& rect) const noexcept
     return true;
 }
 
-/// Set clipping planes
-///	@param rect - rectangle to clip
-///	@param transform - transformation
-///	@return true on success
-bool renderer::set_clip_planes(const rect& rect, const math::transformf& transform) const noexcept
-{
-    if(!set_current_context())
-    {
-        return false;
-    }
-
-    auto from_point_normal = [](const math::vec2& point, const math::vec2& normal) -> math::tvec4<double> {
-        math::vec2 normalized_normal = glm::normalize(normal);
-        math::vec4 result(normalized_normal.x, normalized_normal.y, 0.0f,
-                          -glm::dot(point, normalized_normal));
-        return result;
-    };
-
-    auto plane0 = from_point_normal({rect.x, rect.y}, {1.0f, 0.0f});
-    auto plane1 = from_point_normal({rect.x + rect.w, rect.y}, {0.0f, 1.0f});
-    auto plane2 = from_point_normal({rect.x + rect.w, rect.y + rect.h}, {-1.0f, 0.0f});
-    auto plane3 = from_point_normal({rect.x, rect.y + rect.h}, {0.0f, -1.0f});
-
-    // Enable each clipping plane
-    gl_call(glEnable(GL_CLIP_PLANE0));
-    gl_call(glEnable(GL_CLIP_PLANE1));
-    gl_call(glEnable(GL_CLIP_PLANE2));
-    gl_call(glEnable(GL_CLIP_PLANE3));
-
-    push_transform(transform);
-    gl_call(glClipPlane(GL_CLIP_PLANE0, math::value_ptr(plane0)));
-    gl_call(glClipPlane(GL_CLIP_PLANE1, math::value_ptr(plane1)));
-    gl_call(glClipPlane(GL_CLIP_PLANE2, math::value_ptr(plane2)));
-    gl_call(glClipPlane(GL_CLIP_PLANE3, math::value_ptr(plane3)));
-    pop_transform();
-
-    return true;
-}
-
-/// Disable clipping planes
-///	@return true on success
-bool renderer::remove_clip_planes() const noexcept
+bool renderer::pop_clip() const noexcept
 {
     if (!set_current_context())
     {
         return false;
     }
 
-    // Disable each clipping plane
-    gl_call(glDisable(GL_CLIP_PLANE0));
-    gl_call(glDisable(GL_CLIP_PLANE1));
-    gl_call(glDisable(GL_CLIP_PLANE2));
-    gl_call(glDisable(GL_CLIP_PLANE3));
+    gl_call(glDisable(GL_SCISSOR_TEST));
 
     return true;
-}
-
-void renderer::set_line_width(float width) const noexcept
-{
-    if(math::epsilonEqual(width, 0.0f, math::epsilon<float>()))
-    {
-        return;
-    }
-
-    width = std::max(1.0f, width);
-    gl_call(glLineWidth(width));
 }
 
 /// Set FBO target for drawing
@@ -894,6 +742,9 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         return false;
     }
 
+    log(list.to_string());
+    list.validate_stacks();
+
     const auto vtx_stride = sizeof(decltype(list.vertices)::value_type);
     const auto vertices_mem_size = list.vertices.size() * vtx_stride;
     const auto idx_stride = sizeof(decltype(list.indices)::value_type);
@@ -928,56 +779,89 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
     }
 
 
-    set_blending_mode(blending_mode::blend_normal);
-
-    shader* last_shader{};
-
-    // Draw commands
-    for (const auto& cmd : list.commands)
     {
-        if(cmd.setup.program.shader && cmd.setup.program.shader != last_shader)
-        {
-            cmd.setup.program.shader->enable();
+        blending_mode last_blend{blending_mode::blend_none};
+        set_blending_mode(last_blend);
 
-            last_shader = cmd.setup.program.shader;
+        shader* last_shader{};
+
+        rect clip{};
+
+        // Draw commands
+        for (const auto& cmd : list.commands)
+        {
+            {
+                if(cmd.setup.program.shader && cmd.setup.program.shader != last_shader)
+                {
+                    cmd.setup.program.shader->enable();
+
+                    last_shader = cmd.setup.program.shader;
+                }
+
+                if (cmd.clip_rect)
+                {
+                    push_clip(cmd.clip_rect);
+                }
+
+                if(cmd.setup.begin)
+                {
+                    cmd.setup.begin(gpu_context{*this, cmd.setup.program});
+                }
+
+                if(cmd.setup.program.shader && cmd.setup.program.shader->has_uniform("uProjection"))
+                {
+                    const auto& projection = current_ortho_ * transforms_.top();
+                    cmd.setup.program.shader->set_uniform("uProjection", projection);
+                }
+
+                if (cmd.blend != last_blend)
+                {
+                    set_blending_mode(cmd.blend);
+                    last_blend = cmd.blend;
+                }
+            }
+
+            switch(cmd.dr_type)
+            {
+                case draw_type::elements:
+                {
+                    gl_call(glDrawElements(to_gl_primitive(cmd.type), GLsizei(cmd.indices_count), get_index_type(),
+                                           reinterpret_cast<const GLvoid*>(uintptr_t(cmd.indices_offset * idx_stride))));
+                }
+                break;
+
+                case draw_type::array:
+                {
+                    gl_call(glDrawArrays(to_gl_primitive(cmd.type), GLint(cmd.vertices_offset), GLsizei(cmd.vertices_count)));
+                }
+                break;
+
+                default:
+                break;
+            }
+
+
+            {
+                if (cmd.setup.end)
+                {
+                    cmd.setup.end(gpu_context{*this, cmd.setup.program});
+                }
+
+                if (cmd.clip_rect)
+                {
+                    pop_clip();
+                }
+            }
         }
 
-        if(cmd.setup.begin)
+
+        if(last_shader)
         {
-            cmd.setup.begin(gpu_context{*this, cmd.setup.program});
+            last_shader->disable();
         }
 
-        if(cmd.setup.program.shader && cmd.setup.program.shader->has_uniform("uProjection"))
-        {
-            const auto& projection = current_ortho_ * transforms_.top();
-            cmd.setup.program.shader->set_uniform("uProjection", projection);
-        }
-
-        if (cmd.clip_rect)
-        {
-            set_clip_rect_only(cmd.clip_rect);
-        }
-
-        gl_call(glDrawElements(to_gl_primitive(cmd.type), GLsizei(cmd.indices_count), get_index_type(),
-                               reinterpret_cast<const GLvoid*>(uintptr_t(cmd.indices_offset * idx_stride))));
-
-        if (cmd.clip_rect)
-        {
-            remove_clip_rect();
-        }
-
-        if (cmd.setup.end)
-        {
-            cmd.setup.end(gpu_context{*this, cmd.setup.program});
-        }
+        set_blending_mode(blending_mode::blend_none);
     }
-
-    if(last_shader)
-    {
-        last_shader->disable();
-    }
-
-    set_blending_mode(blending_mode::blend_none);
 
     vbo.unbind();
     ibo.unbind();

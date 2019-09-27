@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rect.h"
-#include "texture.h"
 #include "vertex.h"
 #include "shader.h"
 #include "font.h"
@@ -23,35 +22,13 @@ enum class primitive_type
     lines,
     lines_loop,
 };
-
-/// A non-owning texture representation
-struct texture_view
+/// Types of primitives to draw
+enum class draw_type
 {
-    texture_view() = default;
-    texture_view(const texture_ptr& texture) noexcept;
-    texture_view(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
-    /// Check if texture representation is valid
-    inline bool is_valid() const noexcept
-    {
-        return id != 0 && width != 0 && height != 0;
-    }
-    inline operator bool() const
-    {
-        return is_valid();
-    }
-
-    /// Compare textures by id and size
-    bool operator==(const texture_view& rhs) const noexcept;
-    void* get() const noexcept;
-
-    /// Create a texture representation from a loaded texture
-    static texture_view create(const texture_ptr& texture) noexcept;
-    static texture_view create(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
-
-    std::uint32_t width = 0;    // texture width
-    std::uint32_t height = 0;   // texture height
-    std::uint32_t id = 0;       // internal VRAM texture id
+    elements,
+    array,
 };
+
 
 struct gpu_program
 {
@@ -77,17 +54,25 @@ struct program_setup
 /// A draw command
 struct draw_cmd
 {
-    // Type of primitive we're drawing
+    /// Type of primitive we're drawing
     primitive_type type{primitive_type::triangles};
-    // Starting index for the vertex buffer
+    /// Type of draw method
+    draw_type dr_type{draw_type::elements};
+    /// Type of blend mode
+    blending_mode blend{blending_mode::blend_none};
+    /// Starting index for the index buffer buffer
     std::uint32_t indices_offset{0};
-    // Number of indices to draw
+    /// Number of indices to draw
     std::uint32_t indices_count{0};
-    // Clipping rectangle
+    /// Starting index for the vertex buffer
+    std::uint32_t vertices_offset{0};
+    /// Number of vertices to draw
+    std::uint32_t vertices_count{0};
+    /// Clipping rectangle
     rect clip_rect{0, 0, 0, 0};
-    // Program setup
+    /// Program setup
     program_setup setup{};
-    // Uniforms's hash used for batching.
+    /// Uniforms's hash used for batching.
     uint64_t hash{0};
 };
 
@@ -100,18 +85,4 @@ gpu_program& fxaa_program();
 font_ptr& default_font();
 }
 
-namespace std
-{
-    template<> struct hash<video_ctrl::texture_view>
-    {
-        using argument_type = video_ctrl::texture_view;
-        using result_type = std::size_t;
-        result_type operator()(argument_type const& s) const noexcept
-        {
-            uint64_t seed{0};
-            utils::hash(seed, s.id);
-            return seed;
-        }
-    };
-}
 

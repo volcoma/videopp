@@ -1,7 +1,6 @@
 #pragma once
 
 #include "font_ptr.h"
-#include "math/glm_includes.h"
 #include "vertex.h"
 #include "rect.h"
 
@@ -75,7 +74,8 @@ public:
     void set_outline_color(color c);
 
     //-----------------------------------------------------------------------------
-    /// Set outline width of the text in range [0.0f, 0.4f].  Note this will only
+    /// Set outline width of the text in range [0.0f, 0.4f]. Max outline width (0.4)
+    /// will be the font's 'sdf_spread' thick in pixels.  Note this will only
     /// have any effect if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------
     void set_outline_width(float owidth);
@@ -210,7 +210,8 @@ public:
     bool is_valid() const;
 
     static std::pair<float, float> get_alignment_offsets(text::alignment alignment,
-                                   float minx, float miny, float maxx, float maxy);
+                                   float minx, float miny, float maxx, float maxy, bool pixel_snap);
+
     bool debug = false;
 private:
     float get_advance_offset_x() const;
@@ -219,7 +220,7 @@ private:
     void clear_geometry();
     void clear_lines();
     void update_lines() const;
-    void update_geometry() const;
+    void update_geometry(bool all) const;
     void regen_unicode_text();
 
     /// Buffer of quads.
@@ -269,11 +270,11 @@ private:
     /// Extra advance
     math::vec2 advance_ = {0, 0};
 
-    /// Max width
-    float max_width_{};
-
     /// Leaning
     float leaning_{};
+
+    /// Max width
+    float max_width_{};
 
     /// Kerning usage if the font provides any kerning pairs.
     bool kerning_enabled_ = false;

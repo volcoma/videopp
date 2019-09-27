@@ -92,4 +92,50 @@ namespace video_ctrl
 
     using texture_ptr = std::shared_ptr<texture>;
     using texture_weak_ptr = std::weak_ptr<texture>;
+
+    /// A non-owning texture representation
+    struct texture_view
+    {
+        texture_view() = default;
+        texture_view(const texture_ptr& texture) noexcept;
+        texture_view(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
+        /// Check if texture representation is valid
+        inline bool is_valid() const noexcept
+        {
+            return id != 0 && width != 0 && height != 0;
+        }
+        inline operator bool() const
+        {
+            return is_valid();
+        }
+
+        /// Compare textures by id and size
+        bool operator==(const texture_view& rhs) const noexcept;
+        void* get() const noexcept;
+
+        /// Create a texture representation from a loaded texture
+        static texture_view create(const texture_ptr& texture) noexcept;
+        static texture_view create(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
+
+        std::uint32_t width = 0;    // texture width
+        std::uint32_t height = 0;   // texture height
+        std::uint32_t id = 0;       // internal VRAM texture id
+        bool requires_blending{true};
+    };
+}
+
+
+namespace std
+{
+    template<> struct hash<video_ctrl::texture_view>
+    {
+        using argument_type = video_ctrl::texture_view;
+        using result_type = std::size_t;
+        result_type operator()(argument_type const& s) const noexcept
+        {
+            uint64_t seed{0};
+            utils::hash(seed, s.id);
+            return seed;
+        }
+    };
 }

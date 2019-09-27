@@ -242,8 +242,9 @@ namespace video_ctrl
     {
         for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
         {
-            rend_.set_texture(0, uint32_t(slot));
+            rend_.reset_texture(uint32_t(slot));
         }
+        rend_.reset_texture(0);
         max_bound_slot_ = -1;
     }
 

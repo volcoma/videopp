@@ -1,6 +1,5 @@
 #include "text.h"
 #include "font.h"
-#include <fontpp/font.h>
 #include <algorithm>
 #include <iostream>
 
@@ -39,6 +38,7 @@ float get_alignment_maxy(text::alignment alignment,
     }
 }
 
+
 color get_gradient(const color& ct, const color& cb, float t, float dt)
 {
     t = std::max(t, 0.0f);
@@ -55,9 +55,8 @@ color get_gradient(const color& ct, const color& cb, float t, float dt)
 
 }
 
-
 std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
-        float minx, float miny, float maxx, float maxy)
+        float minx, float miny, float maxx, float maxy, bool pixel_snap)
 {
     // offset according to m_alignment
     enum class align
@@ -146,6 +145,12 @@ std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
             yoffs = (-miny -maxy) / 2.0f;
             break;
     }
+
+    if(pixel_snap)
+    {
+        return {int(xoffs), yoffs};
+    }
+
     return {xoffs, yoffs};
 }
 
@@ -274,7 +279,7 @@ const std::vector<vertex_2d>& text::get_geometry() const
 {
     if(geometry_.empty())
     {
-        update_geometry();
+        update_geometry(true);
     }
     return geometry_;
 }
@@ -300,7 +305,7 @@ float text::get_advance_offset_y() const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.y + (outline_width_ * 10.0f);
+        return advance_.y + (outline_width_ * font_->sdf_spread * 2.0f);
     }
 
     return advance_.y;
@@ -327,6 +332,16 @@ void text::set_leaning(float leaning)
     clear_geometry();
 }
 
+float text::get_advance_offset_x() const
+{
+    if(font_ && font_->sdf_spread > 0)
+    {
+        return advance_.x + (outline_width_ * font_->sdf_spread * 2.0f);
+    }
+
+    return advance_.x;
+}
+
 void text::set_max_width(float max_width)
 {
     if(math::epsilonEqual(max_width_, max_width, math::epsilon<float>()))
@@ -336,16 +351,6 @@ void text::set_max_width(float max_width)
     max_width_ = max_width;
     clear_lines();
     clear_geometry();
-}
-
-float text::get_advance_offset_x() const
-{
-    if(font_ && font_->sdf_spread > 0)
-    {
-        return advance_.x + (outline_width_ * 10.0f);
-    }
-
-    return advance_.x;
 }
 
 const std::string& text::get_utf8_text() const
@@ -459,7 +464,7 @@ void text::regen_unicode_text()
     }
 }
 
-void text::update_geometry() const
+void text::update_geometry(bool all) const
 {
     if(!font_)
     {
@@ -490,8 +495,13 @@ void text::update_geometry() const
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();
     const auto& lines = get_lines();
-    lines_metrics_.reserve(lines.size());
-    geometry_.resize(chars_ * vertices_per_quad);
+
+    if(all)
+    {
+        lines_metrics_.reserve(lines.size());
+        geometry_.resize(chars_ * vertices_per_quad);
+    }
+    size_t offset = 0;
     auto vptr = geometry_.data();
 
     auto pixel_snap = font_->pixel_snap;
@@ -501,17 +511,16 @@ void text::update_geometry() const
     auto height = ascent - descent;
     auto baseline = ascent;
 
+
     auto leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
     // Set glyph positions on a (0,0) baseline.
     // (x0,y0) for a glyph is the bottom-lefts
     auto pen_x = 0.0f;
     auto pen_y = baseline;
 
-    size_t offset = 0;
     for(const auto& line : lines)
     {
-        lines_metrics_.emplace_back();
-        auto& line_info = lines_metrics_.back();
+        line_metrics line_info{};
         line_info.minx = pen_x;
         line_info.ascent = pen_y - ascent;
         line_info.baseline = pen_y;
@@ -531,97 +540,119 @@ void text::update_geometry() const
                 last_codepoint = g.codepoint;
             }
 
-            auto y0_offs = g.y0 + baseline;
-            auto y0_factor = 1.0f - y0_offs / baseline;
-            auto leaning0 = leaning * y0_factor;
+            if(all)
+            {
+                auto y0_offs = g.y0 + baseline;
+                auto y0_factor = 1.0f - y0_offs / baseline;
+                auto leaning0 = leaning * y0_factor;
 
-            auto y1_offs = g.y1 + baseline;
-            auto y1_factor = 1.0f - y1_offs / baseline;
-            auto leaning1 = leaning * y1_factor;
+                auto y1_offs = g.y1 + baseline;
+                auto y1_factor = 1.0f - y1_offs / baseline;
+                auto leaning1 = leaning * y1_factor;
 
-            auto x0 = pen_x + g.x0;
-            auto x1 = pen_x + g.x1;
-            auto y0 = pen_y + g.y0;
-            auto y1 = pen_y + g.y1;
+                auto x0 = pen_x + g.x0;
+                auto x1 = pen_x + g.x1;
+                auto y0 = pen_y + g.y0;
+                auto y1 = pen_y + g.y1;
 
-            auto y0_h = y0 - line_info.ascent;
-            auto y1_h = y1 - line_info.ascent;
-            auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
-            auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
+                auto y0_h = y0 - line_info.ascent;
+                auto y1_h = y1 - line_info.ascent;
+                auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
+                auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
 
-            *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop};
-            *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop};
-            *vptr++ = {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot};
-            *vptr++ = {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot};
+                *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop};
+                *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop};
+                *vptr++ = {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot};
+                *vptr++ = {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot};
 
-            vtx_count += vertices_per_quad;
+                vtx_count += vertices_per_quad;
+            }
 
             pen_x += g.advance_x + advance_offset_x;
+
         }
 
         line_info.maxx = pen_x;
 
+
         line_info.miny = get_alignment_miny(alignment_, line_info.ascent, line_info.baseline);
         line_info.maxy = get_alignment_maxy(alignment_, line_info.descent, line_info.baseline);
 
-        auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy);
-        auto align_x = align_offsets.first;
-
-        if(align_x != 0.0f || pixel_snap)
+        if(all)
         {
-            auto v = geometry_.data() + offset;
-            for(size_t i = 0; i < vtx_count; ++i)
+            auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy, pixel_snap);
+            auto align_x = align_offsets.first;
+
+            if(align_x != 0 || pixel_snap)
             {
-                auto& vv = *(v+i);
-                vv.pos.x += align_x;
+
+                auto v = geometry_.data() + offset;
+                for(size_t i = 0; i < vtx_count; ++i)
+                {
+                    auto& vv = *(v+i);
+                    vv.pos.x += align_x;
+
+                    if(pixel_snap)
+                    {
+                        vv.pos.x = int(vv.pos.x);
+                    }
+                }
             }
+
+            line_info.minx += align_x;
+            line_info.maxx += align_x;
+
+            offset += vtx_count;
         }
-
-        line_info.minx += align_x;
-        line_info.maxx += align_x;
-
-        offset += vtx_count;
 
         minx = std::min(line_info.minx, minx);
         maxx = std::max(line_info.maxx, maxx);
 
         maxy_descent = std::max(line_info.descent, maxy_descent);
-        maxy_baseline = std::max(line_info.baseline, maxy_baseline);
-
         miny_ascent = std::min(line_info.ascent, miny_ascent);
-        miny_baseline = std::min(line_info.baseline, miny_baseline);
+
+        if(all)
+        {
+            maxy_baseline = std::max(line_info.baseline, maxy_baseline);
+            miny_baseline = std::min(line_info.baseline, miny_baseline);
+            lines_metrics_.emplace_back(line_info);
+        }
 
         // go to next line
         pen_x = 0;
         pen_y += line_height;
     }
 
-    auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
-    auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
-
-    auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy);
-    auto align_y = align_offsets.second;
-
-    if(align_y != 0.0f)
+    if(all)
     {
-        for(auto& v : geometry_)
+        auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
+        auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
+
+        auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy, pixel_snap);
+        auto align_y = align_offsets.second;
+
+        if(align_y != 0)
         {
-            auto& pos = v.pos;
-            pos.y += align_y;
+            for(auto& v : geometry_)
+            {
+                auto& pos = v.pos;
+                pos.y += align_y;
+            }
+
+            for(auto& line : lines_metrics_)
+            {
+                line.ascent += align_y;
+                line.baseline += align_y;
+                line.descent += align_y;
+                line.miny += align_y;
+                line.maxy += align_y;
+            }
         }
 
-        for(auto& line : lines_metrics_)
-        {
-            line.ascent += align_y;
-            line.baseline += align_y;
-            line.descent += align_y;
-            line.miny += align_y;
-            line.maxy += align_y;
-        }
+        rect_.x = minx;
+        rect_.y = align_y;
     }
 
-    rect_.x = minx;
-    rect_.y = align_y;
     rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
     rect_.w = maxx - minx + shadow_offsets_.x;
 }
@@ -633,7 +664,7 @@ float text::get_width() const
         return rect_.w;
     }
 
-    update_geometry();
+    update_geometry(false);
 
     return rect_.w;
 }
@@ -645,7 +676,7 @@ float text::get_height() const
         return rect_.h;
     }
 
-    update_geometry();
+    update_geometry(false);
 
     return rect_.h;
 }
@@ -684,12 +715,7 @@ rect text::get_rect() const
 
 const frect& text::get_frect() const
 {
-    if(rect_)
-    {
-        return rect_;
-    }
-
-    update_geometry();
+    update_geometry(true);
 
     return rect_;
 }

@@ -1,4 +1,3 @@
-
 #include "draw_list.h"
 #include <cmath>
 #include <codecvt>
@@ -6,27 +5,38 @@
 #include <sstream>
 #include <iomanip>
 
-#include "logger.h"
 #include "font.h"
+#include "logger.h"
 #include "renderer.h"
 #include "text.h"
 
 namespace video_ctrl
 {
+
 namespace
 {
+bool debug_draw = false;
 
 std::array<math::vec2, 4> transform_rect(const rect& r, const math::transformf& transform)
 {
     math::vec2 lt = {r.x, r.y};
-    math::vec2 rt = {r.x + r.w, r.y};
     math::vec2 rb = {r.x + r.w, r.y + r.h};
-    math::vec2 lb = {r.x, r.y + r.h};
 
-    auto p0 = transform.transform_coord(lt);
-    auto p1 = transform.transform_coord(rt);
-    auto p2 = transform.transform_coord(rb);
-    auto p3 = transform.transform_coord(lb);
+    math::vec2 p0 = transform.transform_coord(lt);
+    math::vec2 p2 = transform.transform_coord(rb);
+
+    math::vec2 p1 = {p2.x, p0.y};
+    math::vec2 p3 = {p0.x, p2.y};
+
+//    math::vec2 lt = {r.x, r.y};
+//    math::vec2 rt = {r.x + r.w, r.y};
+//    math::vec2 rb = {r.x + r.w, r.y + r.h};
+//    math::vec2 lb = {r.x, r.y + r.h};
+
+//    auto p0 = transform.transform_coord(lt);
+//    auto p1 = transform.transform_coord(rt);
+//    auto p2 = transform.transform_coord(rb);
+//    auto p3 = transform.transform_coord(lb);
 
     std::array<math::vec2, 4> points = {{p0, p1, p2, p3}};
     return points;
@@ -46,47 +56,52 @@ inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
 
 
 template<typename Setup>
-void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t index_offset,
-                 primitive_type type, Setup&& setup)
+void add_indices_impl(draw_list& list, draw_type dr_type, std::uint32_t vertices_added, std::uint32_t vertices_before,
+                      primitive_type type, blending_mode deduced_blend, Setup&& setup)
 {
     const auto indices_before = std::uint32_t(list.indices.size());
     std::uint32_t indices_added = 0;
-    switch(type)
+
+    if(dr_type == draw_type::elements)
     {
-        case primitive_type::triangles:
+        auto index_offset = vertices_before;
+        switch(type)
         {
-            // indices added will be (vertices_added - 2) * 3;
-            const uint32_t rect_vertices = 4;
-            const uint32_t rects = vertices_added / rect_vertices;
-            for(uint32_t r = 0; r < rects; ++r)
+            case primitive_type::triangles:
             {
-                for(std::uint32_t i = 2; i < rect_vertices; ++i)
+                // indices added will be (vertices_added - 2) * 3;
+                const uint32_t rect_vertices = 4;
+                const uint32_t rects = vertices_added / rect_vertices;
+                for(uint32_t r = 0; r < rects; ++r)
                 {
-                    list.indices.emplace_back(index_offset + 0);
-                    list.indices.emplace_back(index_offset + i - 1);
-                    list.indices.emplace_back(index_offset + i);
-                    indices_added += 3;
-                }
-                index_offset += rect_vertices;
-            }
-        }
-        break;
-        case primitive_type::lines:
-        case primitive_type::lines_loop:
-        {
-            if(vertices_added >= 2)
-            {
-                for(std::uint32_t i = 0; i < vertices_added - 1; ++i)
-                {
-                    list.indices.emplace_back(index_offset + i);
-                    list.indices.emplace_back(index_offset + i + 1);
-                    indices_added += 2;
+                    for(std::uint32_t i = 2; i < rect_vertices; ++i)
+                    {
+                        list.indices.emplace_back(index_offset + 0);
+                        list.indices.emplace_back(index_offset + i - 1);
+                        list.indices.emplace_back(index_offset + i);
+                        indices_added += 3;
+                    }
+                    index_offset += rect_vertices;
                 }
             }
-        }
-        break;
-        default:
             break;
+            case primitive_type::lines:
+            case primitive_type::lines_loop:
+            {
+                if(vertices_added >= 2)
+                {
+                    for(std::uint32_t i = 0; i < vertices_added - 1; ++i)
+                    {
+                        list.indices.emplace_back(index_offset + i);
+                        list.indices.emplace_back(index_offset + i + 1);
+                        indices_added += 2;
+                    }
+                }
+            }
+            break;
+            default:
+                break;
+        }
     }
 
     rect clip{};
@@ -94,13 +109,23 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     {
         clip = list.clip_rects.back();
     }
+
+    auto blend = deduced_blend;
+    if(!list.blend_modes.empty())
+    {
+        blend = list.blend_modes.back();
+    }
+
     const auto add_new_command = [&](uint64_t hash) {
         list.commands.emplace_back();
         auto& command = list.commands.back();
         command.type = type;
+        command.dr_type = dr_type;
+        command.vertices_offset = vertices_before;
         command.indices_offset = indices_before;
         command.setup = std::forward<Setup>(setup);
         command.hash = hash;
+        command.blend = blend;
         command.clip_rect = clip;
     };
 
@@ -112,7 +137,7 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     else
     {
         auto hash = setup.uniforms_hash;
-        utils::hash(hash, type, clip, setup.program.shader);
+        utils::hash(hash, dr_type, type, blend, clip, setup.program.shader);
         if(!can_be_batched(list, hash))
         {
             add_new_command(hash);
@@ -122,12 +147,14 @@ void add_indices(draw_list& list, std::uint32_t vertices_added, std::uint32_t in
     auto& command = list.commands.back();
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
+    command.vertices_offset = std::min(command.vertices_offset, vertices_before);
+    command.vertices_count += vertices_added;
 
 }
 
 
 
-void prim_reserve(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
+void prim_resize(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
     auto& cmd = list.commands.back();
     cmd.indices_count += idx_count;
@@ -157,10 +184,10 @@ void fixnormal2f(float& vx, float& vy)
     vy *= inv_lensq;
 }
 
-color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
+color get_vertical_gradient(const color& ct,const color& cb, float dh, float h)
 {
-    const float fa = DH/H;
-    const float fc = (1.f-fa);
+    const float fa = dh/h;
+    const float fc = (1.0f-fa);
     return {
         uint8_t(float(ct.r) * fc + float(cb.r) * fa),
         uint8_t(float(ct.g) * fc + float(cb.g) * fa),
@@ -169,7 +196,6 @@ color get_vertical_gradient(const color& ct,const color& cb, float DH, float H)
     };
 }
 
-}
 
 const program_setup& get_simple_setup() noexcept
 {
@@ -183,11 +209,6 @@ const program_setup& get_simple_setup() noexcept
     return setup;
 }
 
-const program_setup& empty_setup() noexcept
-{
-    static program_setup setup;
-    return setup;
-}
 
 uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<math::vec2, 4>& points,
                             const color& col, const math::vec2& min_uv, const math::vec2& max_uv)
@@ -200,22 +221,24 @@ uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<m
     return 4;
 }
 
+
 template<typename Setup>
-void add_vertices(draw_list& list, const std::vector<vertex_2d>& verts, primitive_type type,
-                             const texture_view& texture, Setup&& setup)
+void add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
+                       primitive_type type, const texture_view& texture, Setup&& setup)
 {
-    auto count = verts.size();
     if(count == 0)
     {
         return;
     }
-    const auto index_offset = std::uint32_t(list.vertices.size());
-    list.vertices.resize(index_offset + count);
-    std::memcpy(list.vertices.data() + index_offset, verts.data(), sizeof(vertex_2d) * count);
+    const auto vertices_before = std::uint32_t(list.vertices.size());
+    list.vertices.resize(vertices_before + count);
+    std::memcpy(list.vertices.data() + vertices_before, verts, sizeof(vertex_2d) * count);
+
+    blending_mode blend = texture.requires_blending ? blending_mode::blend_normal : blending_mode::blend_none;
 
     if(setup.program.shader)
     {
-        add_indices(list, std::uint32_t(count), index_offset, type, std::forward<Setup>(setup));
+        add_indices_impl(list, dr_type, std::uint32_t(count), vertices_before, type, blend, std::forward<Setup>(setup));
     }
     else
     {
@@ -229,7 +252,7 @@ void add_vertices(draw_list& list, const std::vector<vertex_2d>& verts, primitiv
             program.uniforms_hash = hash;
 
 
-            add_indices(list, std::uint32_t(count), index_offset, type, std::move(program));
+            add_indices_impl(list, dr_type, std::uint32_t(count), vertices_before, type, blend, std::move(program));
 
             // check if a new command was added
             if(!list.commands.empty())
@@ -247,9 +270,11 @@ void add_vertices(draw_list& list, const std::vector<vertex_2d>& verts, primitiv
         }
         else
         {
-            add_indices(list, std::uint32_t(count), index_offset, type, get_simple_setup());
+            add_indices_impl(list, dr_type, std::uint32_t(count), vertices_before, type, blend, get_simple_setup());
         }
     }
+}
+
 }
 
 math::transformf fit_item(float item_w, float item_h,
@@ -331,9 +356,23 @@ math::transformf fit_item(float item_w, float item_h,
     return fit_trans;
 }
 
+const program_setup& empty_setup() noexcept
+{
+    static program_setup setup;
+    return setup;
+}
 draw_list::draw_list()
 {
     reserve_rects(32);
+}
+
+void draw_list::clear() noexcept
+{
+    vertices.clear();
+    indices.clear();
+    commands.clear();
+    clip_rects.clear();
+    commands_requested = 0;
 }
 
 void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& col, bool filled,
@@ -365,17 +404,9 @@ void draw_list::add_rect(const rect& dst, const color& col, bool filled, float t
     add_rect(points, col, filled, thickness);
 }
 
-void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
-                         float thickness)
-{
-    add_rect(frect(dst.x, dst.y, dst.w, dst.h), transform, col, filled, thickness);
-}
-
 void draw_list::add_rect(const frect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
-    // If we want this to be batched with other calls we need to
-    // do the transformations on the cpu side
     std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y),
                                          math::vec2(dst.x + dst.w, dst.y),
                                          math::vec2(dst.x + dst.w, dst.y + dst.h),
@@ -384,9 +415,13 @@ void draw_list::add_rect(const frect& dst, const math::transformf& transform, co
     {
         p = transform.transform_coord(p);
     }
-
-
     add_rect(points, col, filled, thickness);
+}
+
+void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
+                         float thickness)
+{
+    add_rect(frect(dst.x, dst.y, dst.w, dst.h), transform, col, filled, thickness);
 }
 
 void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
@@ -398,7 +433,7 @@ void draw_list::add_line(const math::vec2& start, const math::vec2& end, const c
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst,
-                          const math::transformf& transform, const color& col, const program_setup& setup)
+                          const math::transformf& transform, const color& col, flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? video_ctrl::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
@@ -409,11 +444,11 @@ void draw_list::add_image(const texture_view& texture, const rect& src, const re
     const math::vec2 max_uv = {right, bottom};
 
     const auto points = transform_rect(dst, transform);
-    add_image(texture, points, col, min_uv, max_uv, setup);
+    add_image(texture, points, col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst, const color& col,
-                          const program_setup& setup)
+                          flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? video_ctrl::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
@@ -423,44 +458,71 @@ void draw_list::add_image(const texture_view& texture, const rect& src, const re
     const math::vec2 min_uv = {left, top};
     const math::vec2 max_uv = {right, bottom};
 
-    add_image(texture, dst, col, min_uv, max_uv, setup);
+    add_image(texture, dst, col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& dst, const color& col,
-                          const math::vec2& min_uv, const math::vec2& max_uv, const program_setup& setup)
+                          math::vec2 min_uv, math::vec2 max_uv, flip_format flip, const program_setup& setup)
 {
     std::array<math::vec2, 4> points = {{math::vec2(dst.x, dst.y), math::vec2(dst.x + dst.w, dst.y),
                                          math::vec2(dst.x + dst.w, dst.y + dst.h),
                                          math::vec2(dst.x, dst.y + dst.h)}};
 
-    add_image(texture, points, col, min_uv, max_uv, setup);
+    add_image(texture, points, col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& dst, const math::transformf& transform,
-                          const color& col, const math::vec2& min_uv, const math::vec2& max_uv,
-                          const program_setup& setup)
+                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
+                          flip_format flip, const program_setup& setup)
 {
     const auto points = transform_rect(dst, transform);
-    add_image(texture, points, col, min_uv, max_uv, setup);
+    add_image(texture, points, col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(const texture_view& texture, const point& pos, const color& col,
-                          const math::vec2& min_uv, const math::vec2& max_uv, const program_setup& setup)
+                          math::vec2 min_uv, math::vec2 max_uv, flip_format flip,
+                          const program_setup& setup)
 {
     const auto rect = texture ? video_ctrl::rect{pos.x, pos.y, int(texture.width), int(texture.height)}
                               : video_ctrl::rect{pos.x, pos.y, 0, 0};
-    add_image(texture, rect, col, min_uv, max_uv, setup);
+    add_image(texture, rect, col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(const texture_view& texture, const std::array<math::vec2, 4>& points,
-                          const color& col, const math::vec2& min_uv, const math::vec2& max_uv, const program_setup& setup)
+                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
+                          flip_format flip, const program_setup& setup)
 {
     constexpr auto type = primitive_type::triangles;
-    const auto index_offset = std::uint32_t(vertices.size());
+    const auto vertices_before = std::uint32_t(vertices.size());
+
+    switch (flip)
+    {
+        case flip_format::horizontal:
+            std::swap(min_uv.x, max_uv.x);
+            break;
+        case flip_format::vertical:
+            std::swap(min_uv.y, max_uv.y);
+            break;
+        case flip_format::both:
+            std::swap(min_uv.x, max_uv.x);
+            std::swap(min_uv.y, max_uv.y);
+            break;
+        default:
+        break;
+    }
+
+    blending_mode blend = texture.requires_blending ? blending_mode::blend_normal : blending_mode::blend_none;
+
+    if(col.a < 255)
+    {
+        blend = blending_mode::blend_normal;
+    }
+
+    constexpr auto dr_type = draw_type::elements;
     const auto vertices_added = add_rect_primitive(vertices, points, col, min_uv, max_uv);
     if(setup.program.shader)
     {
-        add_indices(*this, vertices_added, index_offset, type, setup);
+        add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, setup);
     }
     else
     {
@@ -473,12 +535,12 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
 
-            add_indices(*this, vertices_added, index_offset, type, std::move(program));
+            add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, std::move(program));
 
-            // check if a new command was added
             if(!commands.empty())
             {
                 auto& cmd = commands.back();
+                // if it is a new cmd
                 if(!cmd.setup.begin)
                 {
                     cmd.setup.begin = [texture](const gpu_context& ctx)
@@ -487,13 +549,60 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
                     };
                 }
             }
-
         }
         else
         {
-            add_indices(*this, vertices_added, index_offset, type, get_simple_setup());
+            add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, get_simple_setup());
         }
     }
+}
+
+void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, const texture_view& texture, const program_setup& setup)
+{
+    add_vertices_impl(*this, dr_type, vertices, count, type, texture, setup);
+}
+
+void draw_list::add_list(const draw_list& list)
+{
+    auto vtx_offset = vertices.size();
+    auto idx_offset = indices.size();
+    auto cmd_offset = commands.size();
+
+    vertices.resize(vtx_offset + list.vertices.size());
+    std::memcpy(vertices.data() + vtx_offset,
+                list.vertices.data(),
+                list.vertices.size() * sizeof(decltype (list.vertices)::value_type));
+
+    indices.resize(idx_offset + list.indices.size());
+    std::memcpy(indices.data() + idx_offset,
+                list.indices.data(),
+                list.indices.size() * sizeof(decltype (list.indices)::value_type));
+
+
+    if(vtx_offset != 0)
+    {
+        // offset the indices from the new list with the current
+        for(size_t i = idx_offset; i < indices.size(); ++i)
+        {
+            indices[i] += vtx_offset;
+        }
+
+    }
+
+    // These are not trivially copiable. So the memcpy is a no-no
+    commands.reserve(commands.size() + list.commands.size());
+    std::copy(std::begin(list.commands), std::end(list.commands), std::back_inserter(commands));
+
+    if(idx_offset != 0)
+    {
+        // offset the indices from the new list with the current
+        for(size_t i = cmd_offset; i < commands.size(); ++i)
+        {
+            commands[i].indices_offset += idx_offset;
+        }
+    }
+
+    commands_requested += list.commands_requested;
 }
 
 void draw_list::add_text(const text& t, const math::transformf& transform, const program_setup& setup)
@@ -502,6 +611,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     {
         return;
     }
+
     const auto& font = t.get_font();
     auto pixel_snap = font->pixel_snap;
 
@@ -509,6 +619,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
     {
         auto shadow = t;
+        shadow.debug = true;
         shadow.set_vgradient_colors(t.get_shadow_color_top(), t.get_shadow_color_bot());
         shadow.set_outline_color(t.get_shadow_color_top());
         shadow.set_shadow_offsets({0.0f, 0.0f});
@@ -588,11 +699,10 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     }
 
+    const auto vtx_offset = std::uint32_t(vertices.size());
+    add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, texture, std::move(program));
     if(cpu_batch)
     {
-        auto vtx_offset = vertices.size();
-        add_vertices(*this, geometry, primitive_type::triangles, texture, std::move(program));
-
         for(size_t i = vtx_offset; i < vertices.size(); ++i)
         {
             auto& v = vertices[i];
@@ -604,10 +714,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
             }
         }
     }
-    else
-    {
-        add_vertices(*this, geometry, primitive_type::triangles, texture, std::move(program));
-    }
 
     // check if a new command was added
     if(!commands.empty())
@@ -617,20 +723,20 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         {
             if(sdf_spread > 0)
             {
-                cmd.setup.begin = [transform=transform,
-                        distance_field_multiplier,
-                        outline_width,
-                        outline_color,
-                        texture,
-                        cpu_batch,
-                        has_multiplier,
-                        pixel_snap](const gpu_context& ctx) mutable
+                cmd.setup.begin = [transform = transform,
+                                   distance_field_multiplier,
+                                   outline_width,
+                                   outline_color,
+                                   texture,
+                                   cpu_batch,
+                                   pixel_snap,
+                                   has_multiplier](const gpu_context& ctx) mutable
                 {
                     if(!cpu_batch)
                     {
                         if(pixel_snap)
                         {
-                            const auto& pos = transform.get_position();
+                            auto pos = transform.get_position();
                             transform.set_position(int(pos.x), pos.y, pos.z);
                         }
 
@@ -647,16 +753,13 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
             }
             else
             {
-                cmd.setup.begin = [transform=transform,
-                        cpu_batch,
-                        pixel_snap,
-                        texture](const gpu_context& ctx) mutable
+                cmd.setup.begin = [transform = transform, texture, cpu_batch, pixel_snap](const gpu_context& ctx) mutable
                 {
                     if(!cpu_batch)
                     {
                         if(pixel_snap)
                         {
-                            const auto& pos = transform.get_position();
+                            auto pos = transform.get_position();
                             transform.set_position(int(pos.x), pos.y, pos.z);
                         }
                         ctx.rend.push_transform(transform);
@@ -677,7 +780,10 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     }
 
-    add_text_debug_info(t, transform);
+    if(debug_draw)
+    {
+        add_text_debug_info(t, transform);
+    }
 }
 
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
@@ -689,11 +795,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float text_width = t.get_width() * scale_x;
     float text_height = t.get_height() * scale_y;
 
-    auto offsets = text::get_alignment_offsets(align,
-                                               dst_rect.x,
-                                               dst_rect.y,
-                                               dst_rect.x + dst_rect.w,
-                                               dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -719,18 +821,30 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
                                      float script_scale, size_fit sz_fit,
                                      dimension_fit dim_fit)
 {
-    auto align = whole_text.get_alignment();
+    if(!whole_text.is_valid() && !script_text.is_valid())
+    {
+        return;
+    }
+    if(whole_text.is_valid() && !script_text.is_valid())
+    {
+        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    }
+    auto align = [&]()
+    {
+        if(whole_text.is_valid())
+        {
+            return whole_text.get_alignment();
+        }
+
+        return script_text.get_alignment();
+    }();
 
     auto scale_whole = transform.get_scale();
     auto scale_partial = script_scale * transform.get_scale();
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align,
-                                               dst_rect.x,
-                                               dst_rect.y,
-                                               dst_rect.x + dst_rect.w,
-                                               dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -747,6 +861,23 @@ void draw_list::add_text_superscript_impl(const text& whole_text, const text& sc
                                           const math::transformf& transform,
                                           float script_scale)
 {
+    if(!whole_text.is_valid() && !script_text.is_valid())
+    {
+        return;
+    }
+    if(whole_text.is_valid() && !script_text.is_valid())
+    {
+        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    }
+    auto align = [&]()
+    {
+        if(whole_text.is_valid())
+        {
+            return whole_text.get_alignment();
+        }
+
+        return script_text.get_alignment();
+    }();
 
     if(whole_text.get_lines().size() > 1)
     {
@@ -782,8 +913,6 @@ void draw_list::add_text_superscript_impl(const text& whole_text, const text& sc
     const auto shadows_height_dif = whole_text_shadow_height - script_text_shadow_height;
     const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
 
-    assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    auto align = whole_text.get_alignment();
 
     math::transformf whole_transform{};
     math::transformf script_transform{};
@@ -921,18 +1050,30 @@ void draw_list::add_text_subscript(const text& whole_text,
                                    size_fit sz_fit,
                                    dimension_fit dim_fit)
 {
-    auto align = whole_text.get_alignment();
+    if(!whole_text.is_valid() && !script_text.is_valid())
+    {
+        return;
+    }
+    if(whole_text.is_valid() && !script_text.is_valid())
+    {
+        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    }
+    auto align = [&]()
+    {
+        if(whole_text.is_valid())
+        {
+            return whole_text.get_alignment();
+        }
+
+        return script_text.get_alignment();
+    }();
 
     auto scale_whole = transform.get_scale();
     auto scale_partial = script_scale * transform.get_scale();
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align,
-                                               dst_rect.x,
-                                               dst_rect.y,
-                                               dst_rect.x + dst_rect.w,
-                                               dst_rect.y + dst_rect.h);
+    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -950,6 +1091,23 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
                                         const math::transformf& transform,
                                         float script_scale)
 {
+    if(!whole_text.is_valid() && !script_text.is_valid())
+    {
+        return;
+    }
+    if(whole_text.is_valid() && !script_text.is_valid())
+    {
+        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
+    }
+    auto align = [&]()
+    {
+        if(whole_text.is_valid())
+        {
+            return whole_text.get_alignment();
+        }
+
+        return script_text.get_alignment();
+    }();
     if(whole_text.get_lines().size() > 1)
     {
         log("Subscript text should not be multiline. This api will not behave properly.");
@@ -988,9 +1146,6 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
     const auto center_y_aligns_parial_offset = whole_text_max_baseline_height - (half_text_parital_height_dif + script_text_max_baseline_height) - half_shadows_height_dif;
     const auto bottom_y_aligns_parial_offset = - ((whole_text_height - whole_text_max_baseline_height) -
                                                   (text_parital_height - script_text_max_baseline_height));
-
-    assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    auto align = whole_text.get_alignment();
 
     math::transformf whole_transform{};
     math::transformf script_transform{};
@@ -1101,6 +1256,39 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
     add_text(script_text, transform * script_transform);
 }
 
+void draw_list::set_debug_draw(bool debug)
+{
+    debug_draw = debug;
+}
+
+void draw_list::toggle_debug_draw()
+{
+    debug_draw = !debug_draw;
+}
+
+std::string draw_list::to_string() const
+{
+    std::stringstream ss;
+    ss << "\n";
+    ss << "[REQUESTED CALLS]: " << commands_requested;
+    ss << "\n";
+    ss << "[RENDERED CALLS]: " << commands.size();
+    ss << "\n";
+    ss << "[BATCHED CALLS]: " << commands_requested - commands.size();
+    ss << "\n";
+    ss << "[VERTICES]: " << vertices.size();
+    ss << "\n";
+    ss << "[INDICES]: " << indices.size();
+    return ss.str();
+}
+
+void draw_list::validate_stacks() const noexcept
+{
+    assert(clip_rects.empty() && "draw_list::clip_rects stack was not popped");
+    assert(blend_modes.empty() && "draw_list::blend_modes stack was not popped");
+
+}
+
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
     add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
@@ -1109,7 +1297,9 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
 
 void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
-    add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
+    blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
+
+    add_indices_impl(*this, draw_type::elements, 0, 0, primitive_type::triangles, blend, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1135,7 +1325,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
 
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_resize(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1281,7 +1471,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
         const size_t vtx_count = count*4;      // FIXME-OPT: Not sharing edges
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_resize(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1320,7 +1510,9 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
 
 void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
-    add_indices(*this, 0, 0, primitive_type::triangles, get_simple_setup());
+    blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
+
+    add_indices_impl(*this, draw_type::elements, 0, 0, primitive_type::triangles, blend, get_simple_setup());
 
     const auto& points = poly.get_points();
     auto points_count = points.size();
@@ -1362,7 +1554,7 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
 
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_resize(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1425,7 +1617,7 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
         const size_t vtx_count = points_count;
         size_t idx_current_idx{};
         size_t vtx_current_idx{};
-        prim_reserve(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
+        prim_resize(*this, idx_count, vtx_count, idx_current_idx, vtx_current_idx);
 
         auto idx_write_ptr = &indices[idx_current_idx];
         auto vtx_write_ptr = &vertices[vtx_current_idx];
@@ -1443,7 +1635,6 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
         }
     }
 }
-
 void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
 {
     add_ellipse_gradient(center, radii, col, col, num_segments, thickness);
@@ -1514,6 +1705,18 @@ void draw_list::pop_clip()
     }
 }
 
+void draw_list::push_blend(blending_mode blend)
+{
+    blend_modes.emplace_back(blend);
+}
+
+void draw_list::pop_blend()
+{
+    if(!blend_modes.empty())
+    {
+        blend_modes.pop_back();
+    }
+}
 
 void draw_list::reserve_vertices(size_t count)
 {
@@ -1535,40 +1738,37 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     {
         return;
     }
+
     const auto& lines = t.get_lines_metrics();
 
-    auto font_size = t.get_font()->size;
-    auto default_font_size = default_font()->size;
-    float scale = float(default_font_size) / float(font_size);
     math::transformf tr = transform;
-    tr.scale(scale, scale, 1.0f);
     {
         auto col = color::cyan();
         std::string desc = "ascent ";
         for(const auto& line : lines)
         {
             auto v1 = transform.transform_coord({line.minx, line.ascent});
-            auto v2 = transform.transform_coord({line.maxx, line.ascent});
+            //auto v2 = transform.transform_coord({line.maxx, line.ascent});
 
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(t.get_font());
+            txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
             tr.set_position(v1.x, v1.y, 0.0f);
             add_text(txt, tr);
 
-            auto width = line.maxx - line.minx;
-            std::stringstream ss;
-            ss << " width = " << std::fixed << std::setprecision(2) << width;
+//            auto width = line.maxx - line.minx;
+//            std::stringstream ss;
+//            ss << " width = " << std::fixed << std::setprecision(2) << width;
 
-            txt.set_alignment(text::alignment::left);
-            txt.set_utf8_text(ss.str());
+//            txt.set_alignment(text::alignment::left);
+//            txt.set_utf8_text(ss.str());
 
-            tr.set_position(v2.x, v1.y, 0.0f);
-            add_text(txt, tr);
+//            tr.set_position(v2.x, v1.y, 0.0f);
+//            add_text(txt, tr);
         }
     }
     {
@@ -1581,7 +1781,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(t.get_font());
+            txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
@@ -1599,7 +1799,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             text txt;
             txt.debug = true;
             txt.set_color(col);
-            txt.set_font(t.get_font());
+            txt.set_font(default_font());
             txt.set_alignment(text::alignment::right);
             txt.set_utf8_text(desc);
 
@@ -1674,6 +1874,5 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
 }
-
 
 }
