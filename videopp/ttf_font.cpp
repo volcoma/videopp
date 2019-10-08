@@ -80,7 +80,7 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     f.line_height = font->line_height;
 
     f.kernings = std::move(font->kernings);
-    f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
+    f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::red);
 
     return f;
 }
@@ -138,7 +138,7 @@ font_info create_default_font(float font_size, int sdf_spread)
     f.descent = font->descent;
     f.x_height = font->x_height;
     f.line_height = font->line_height;
-    f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::gray);
+    f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::red);
 
     return f;
 }

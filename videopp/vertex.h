@@ -16,6 +16,7 @@ struct vertex_buffer_element
     std::uint32_t offset = 0;
     std::uint32_t size = 0;
     std::uint32_t attr_type = 0;
+    std::uint32_t stride = 0;
     std::int32_t location = -1;
     bool normalized = false;
 };
@@ -26,10 +27,9 @@ class vertex_buffer_layout
 {
 public:
     void set_program_id(uint32_t id) noexcept;
-    void set_stride(uint32_t stride) noexcept;
 
     template <typename T>
-    void add(uint8_t count, uint8_t offset, const std::string& attr, bool normalized = false);
+    void add(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized = false);
     void bind() const noexcept;
     void unbind() const noexcept;
 
@@ -41,16 +41,15 @@ public:
 private:
     uint32_t id_ = 0;
     std::vector<vertex_buffer_element> elements_;
-    uint32_t stride_ = 0;
 };
 
 /// Specializations for pushing data to vertex_buffer_layout
 template <>
-void vertex_buffer_layout::add<float>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized);
+void vertex_buffer_layout::add<float>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 template <>
-void vertex_buffer_layout::add<uint32_t>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized);
+void vertex_buffer_layout::add<uint32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 template <>
-void vertex_buffer_layout::add<uint8_t>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized);
+void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 
 /// A common vertex definition
 struct vertex_2d

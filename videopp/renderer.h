@@ -28,6 +28,12 @@ class renderer
 {
 public:
     renderer(os::window& win, bool vsync);
+    renderer(const renderer& rhs) = delete;
+    renderer(renderer&& other) = delete;
+    renderer& operator=(const renderer& rhs) = delete;
+    renderer& operator=(renderer& rhs) = delete;
+
+    ~renderer();
 
     // Create texture for unique use with these functions
     texture_ptr create_texture(const surface& surface) const noexcept;
@@ -41,17 +47,16 @@ public:
     font_ptr create_font(font_info&& info) const noexcept;
 
     // Bind textures
-    bool set_texture(texture_view texture, uint32_t id = 0,
-                     texture::wrap_type wrap_type = texture::wrap_type::wrap_repeat,
-                     texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const noexcept;
-    void reset_texture(uint32_t id = 0) const noexcept;
+    bool bind_texture(texture_view texture, uint32_t id = 0,
+                      texture::wrap_type wrap_type = texture::wrap_type::repeat,
+                      texture::interpolation_type interp_type = texture::interpolation_type::linear) const noexcept;
+    void unbind_texture(uint32_t id = 0) const noexcept;
     
     texture_ptr blur(const texture_ptr& texture, uint32_t passes = 2);
 
     // Transformation
     bool push_transform(const math::transformf& transform) const noexcept;
     bool pop_transform() const noexcept;
-    bool reset_transform() const noexcept;
 
     // Destinations
     bool push_fbo(const texture_ptr& texture);
@@ -69,16 +74,13 @@ public:
 
     const rect& get_rect() const;
 
-    renderer(const renderer& other) = delete;
-    renderer(renderer&& other) = delete;
-    ~renderer();
-
-
 private:
+    bool reset_transform() const noexcept;
+
     void set_model_view(uint32_t model, const rect& rect) const noexcept;
     void clear_fbo(uint32_t fbo_id, const color& color) const noexcept;
     void set_old_framebuffer() const noexcept;
-    void resize(int new_width, int new_height) noexcept;
+    void resize(uint32_t new_width, uint32_t new_height) noexcept;
     bool set_current_context() const noexcept;
 
     bool set_blending_mode(blending_mode mode) const noexcept;

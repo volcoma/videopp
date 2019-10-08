@@ -8,8 +8,8 @@ namespace video_ctrl
     template<typename T>
     struct rect_t
     {
-        T x = 0, y = 0;
-        T w = 0, h = 0;
+        T x{}, y{};
+        T w{}, h{};
 
         constexpr rect_t() noexcept = default;
         constexpr rect_t(T x, T y, T w, T h) noexcept : x(x), y(y), w(w), h(h) {}
@@ -156,17 +156,15 @@ namespace video_ctrl
     
     using rect = rect_t<int>;
     using frect = rect_t<float>;
-    using tcoords = frect;
 }
 
 
 namespace std
 {
-    template<> struct hash<video_ctrl::rect>
+    template<typename T>
+    struct hash<video_ctrl::rect_t<T>>
     {
-        using argument_type = video_ctrl::rect;
-        using result_type = std::size_t;
-        result_type operator()(argument_type const& s) const noexcept
+        std::size_t operator()(video_ctrl::rect_t<T> const& s) const noexcept
         {
             uint64_t seed{0};
             utils::hash(seed, s.x, s.y, s.w, s.h);

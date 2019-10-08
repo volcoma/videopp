@@ -12,7 +12,7 @@ namespace video_ctrl
     surface::surface(const std::string &file_name)
     {
         int w = 0,h = 0,n = 0;
-        unsigned char* data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
+        uint8_t* data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
         if(!data)
         {
             throw video_ctrl::exception("Cannot create surface from file " + file_name);
@@ -21,7 +21,7 @@ namespace video_ctrl
         switch(n)
         {
             case 1:
-                type_ = pix_type::gray;
+                type_ = pix_type::red;
             break;
             case 3:
                 type_ = pix_type::rgb;
@@ -121,7 +121,7 @@ namespace video_ctrl
 
         switch (type_)
         {
-        case pix_type::gray:
+        case pix_type::red:
             *pixel_start = static_cast<uint8_t>((color.r + color.g + color.b) / 3);
             break;
         case pix_type::rgb:
@@ -140,7 +140,7 @@ namespace video_ctrl
         return true;
     }
 
-    color surface::get_pixel(const point &point) const noexcept
+    color surface::get_pixel(const point& point) const noexcept
     {
         if (surface_type_ != surface_type::raw)
         {
@@ -158,7 +158,7 @@ namespace video_ctrl
 
         switch (type_)
         {
-        case pix_type::gray:
+        case pix_type::red:
             return {*search_pixel_start, *search_pixel_start, *search_pixel_start};
         case pix_type::rgb:
             return {*search_pixel_start, *(search_pixel_start+1), *(search_pixel_start+2)};
@@ -178,7 +178,7 @@ namespace video_ctrl
 
         switch (type_)
         {
-        case pix_type::gray:
+        case pix_type::red:
             std::fill(data_.begin(), data_.end(), color.r);
             break;
         case pix_type::rgb:
@@ -245,18 +245,6 @@ namespace video_ctrl
     }
 
     const uint8_t* surface::get_pixels() const
-    {
-        if (surface_type_ == surface_type::raw)
-        {
-            return data_.data();
-        }
-        else
-        {
-            return data_.data();
-        }
-    }
-
-    uint8_t* surface::get_buffer()
     {
         if (surface_type_ == surface_type::raw)
         {
@@ -396,11 +384,4 @@ namespace video_ctrl
 
     }
 
-    void surface::file_deleter::operator()(FILE *fp)
-    {
-        if (fp != nullptr)
-        {
-            fclose(fp);
-        }
-    }
 }

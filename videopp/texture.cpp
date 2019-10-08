@@ -8,6 +8,24 @@
 namespace video_ctrl
 {
 
+    namespace
+    {
+        std::tuple<int32_t, int32_t> get_opengl_pixel_format(const pix_type &pixel_type)
+        {
+            switch (pixel_type)
+            {
+                case pix_type::red:
+                    return {GL_RED, GL_R8};
+                case pix_type::rgb:
+                    return {GL_RGB, GL_RGB8};
+                case pix_type::rgba:
+                    return {GL_RGBA, GL_RGBA8};
+                default:
+                    return {GL_RGBA, GL_RGBA8};
+            }
+        }
+
+    }
 
     texture::texture(const renderer &rend) noexcept
         : rend_(rend)
@@ -30,40 +48,36 @@ namespace video_ctrl
         {
             throw video_ctrl::exception("Cannot set current context!");
         }
-
-        if (texture::format_type::pixmap == format_type_)
-        {
-
-        }
-
         // Generate the OGL texture ID
-        int pixel_format = get_opengl_pixel_format(pixel_type);
+        int32_t format{};
+        int32_t internal_format{};
+        std::tie(format, internal_format) = get_opengl_pixel_format(pixel_type);
         gl_call(glGenTextures(1, &texture_));
-        rend_.set_texture(texture_, 0, wrap_type::wrap_clamp, interpolation_type::interpolate_linear);
+        gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
 
         // Upload data to VRAM
         if (texture::format_type::target == format_type_)
         {
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, pixel_format, width, height, 0, static_cast<GLenum> (pixel_format), GL_UNSIGNED_BYTE, nullptr));
+            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, nullptr));
         }
         else if (texture::format_type::streaming == format_type_)
         {
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, pixel_format, width, height, 0, static_cast<GLenum> (pixel_format), GL_UNSIGNED_BYTE, nullptr));
+            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, nullptr));
 
             // We're building a framebuffer object
             gl_call(glGenFramebuffers(1, &fbo_));
-            gl_call(glBindFramebuffer(GL_FRAMEBUFFER_EXT, fbo_));
-            gl_call(glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture_, 0));
+            gl_call(glBindFramebuffer(GL_FRAMEBUFFER, fbo_));
+            gl_call(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0));
 
-            GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
-            gl_call(glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0));
-            if(status != GL_FRAMEBUFFER_COMPLETE_EXT)
+            GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+            gl_call(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+            if(status != GL_FRAMEBUFFER_COMPLETE)
             {
                 throw video_ctrl::exception("Cannot create FBO. GL ERROR CODE: " + std::to_string(status));
             }
         }
 
-        rend_.reset_texture(0);
+        gl_call(glBindTexture(GL_TEXTURE_2D, 0));
     }
 
     /// Texture constructor from a surface
@@ -150,29 +164,21 @@ namespace video_ctrl
 
         if (surface.surface_type_ == surface::surface_type::raw)
         {
-            rend_.set_texture(texture_, 0, wrap_type::wrap_clamp, interpolation_type::interpolate_linear);
+            pixel_type_ = surface.get_type();
 
-            GLenum format = static_cast<GLenum> (get_opengl_pixel_format(surface.get_type()));
-            int32_t internal_format = GL_RGBA;
-            pixel_type_ = pix_type::rgba;
+            int32_t format{};
+            int32_t internal_format{};
+            std::tie(format, internal_format) = get_opengl_pixel_format(surface.get_type());
 
-            switch(surface.get_type())
-            {
-                case pix_type::gray:
-                    internal_format = format;
-                    pixel_type_ = surface.get_type();
-                break;
-                default:
+            gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
+            gl_call(glTexStorage2D(GL_TEXTURE_2D, 1, GLenum(internal_format), surface.get_width(), surface.get_height()));
+            gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface.get_width(), surface.get_height(),
+                            static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
+            gl_call(glBindTexture(GL_TEXTURE_2D, 0));
 
-                break;
-            }
-
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, surface.get_width(), surface.get_height(), 0, format,
-                         GL_UNSIGNED_BYTE, surface.get_pixels()));
-
-            rend_.reset_texture(0);
+            format_type_ = format_type::immutable;
         }
-        else if (surface.surface_type_ == surface::surface_type::compress)
+        else if (surface.surface_type_ == surface::surface_type::compressed)
         {
             return false;
         }
@@ -182,28 +188,6 @@ namespace video_ctrl
         }
 
         return true;
-    }
-
-    /// Hat pixel format to opengl pixel format converter
-    ///     @param pixel_type - hat format to convert
-    ///     @return the opengl format
-    int32_t texture::get_opengl_pixel_format(const pix_type &pixel_type) const
-    {
-        int32_t pixel_format = GL_RGBA;
-        switch (pixel_type)
-        {
-            case pix_type::gray:
-                pixel_format = GL_RED;
-                break;
-            case pix_type::rgb:
-                pixel_format = GL_RGB;
-                break;
-            case pix_type::rgba:
-                pixel_format = GL_RGBA;
-                break;
-        }
-
-        return pixel_format;
     }
 
     /// Upload new data to VRAM buffer (from surface)
@@ -228,10 +212,13 @@ namespace video_ctrl
             return false;
         }
 
-        const auto format = static_cast<GLenum> (get_opengl_pixel_format(pix_format));
-        rend_.set_texture(texture_, 0, wrap_type::wrap_repeat, interpolation_type::interpolate_linear);
-        gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, rect.x, rect.y, rect.w, rect.h, format, GL_UNSIGNED_BYTE, buffer));
-        rend_.reset_texture(0);
+        int32_t format{};
+        int32_t internal_format{};
+        std::tie(format, internal_format) = get_opengl_pixel_format(pix_format);
+
+        gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
+        gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, rect.x, rect.y, rect.w, rect.h, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, buffer));
+        gl_call(glBindTexture(GL_TEXTURE_2D, 0));
         return true;
     }
 
@@ -247,7 +234,7 @@ namespace video_ctrl
             return false;
         }
 
-        gl_call(glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo_));
+        gl_call(glBindFramebuffer(GL_FRAMEBUFFER, fbo_));
         gl_call(glReadPixels(rect.x, rect.y, rect.w, rect.h, type == pix_type::rgba ? GL_BGRA : GL_BGR, GL_UNSIGNED_BYTE, buffer));
         rend_.set_old_framebuffer();
         return true;

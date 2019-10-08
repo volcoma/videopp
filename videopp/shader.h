@@ -4,7 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include "math/transform.hpp"
 #include "texture.h"
 
@@ -22,29 +22,27 @@ namespace video_ctrl
         void enable() const;
         void disable() const;
 
-        void set_uniform(const std::string& uniform_name, const texture_view& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_clamp,
-                         texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const;
-        void set_uniform(const std::string& uniform_name, const texture_ptr& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::wrap_clamp,
-                         texture::interpolation_type interp_type = texture::interpolation_type::interpolate_linear) const;
+        void set_uniform(const char* uniform_name, const texture_view& tex, uint32_t slot = 0, texture::wrap_type wrap_type = texture::wrap_type::clamp,
+                         texture::interpolation_type interp_type = texture::interpolation_type::linear) const;
 
-        void set_uniform(const std::string& uniform_name, int data) const;
-        void set_uniform(const std::string& uniform_name, float data) const;
+        void set_uniform(const char* uniform_name, int data) const;
+        void set_uniform(const char* uniform_name, float data) const;
 
-        void set_uniform(const std::string& uniform_name, const math::transform_t<float>& data) const;
-        void set_uniform(const std::string& uniform_name, const math::transform_t<float>::mat4_t &data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<float>& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<float>::mat4_t &data) const;
 
-        void set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec2_t& data) const;
-        void set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec2_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<int>::vec2_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<float>::vec2_t& data) const;
 
-        void set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec3_t& data) const;
-        void set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec3_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<int>::vec3_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<float>::vec3_t& data) const;
 
-        void set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec4_t& data) const;
-        void set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec4_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<int>::vec4_t& data) const;
+        void set_uniform(const char* uniform_name, const math::transform_t<float>::vec4_t& data) const;
 
-        void set_uniform(const std::string& uniform_name, const color& data) const;
+        void set_uniform(const char* uniform_name, const color& data) const;
 
-        bool has_uniform(const std::string& uniform_name) const;
+        bool has_uniform(const char* uniform_name) const;
         void clear_textures() const;
         uint32_t get_program_id() const { return program_id_; }
 
@@ -52,7 +50,7 @@ namespace video_ctrl
         const vertex_buffer_layout& get_layout() const { return layout_; }
 
     private:
-        int get_uniform_location(const std::string& uniform_name) const;
+        int get_uniform_location(const char* uniform_name) const;
 
         friend class renderer;
         shader(const video_ctrl::renderer &rend, const char* fragment_code, const char* vertex_code);
@@ -63,7 +61,7 @@ namespace video_ctrl
         void cache_uniform_locations();
 
         vertex_buffer_layout layout_;
-        std::unordered_map<std::string, int> locations_;
+        std::map<std::string, int, std::less<>> locations_;
 
         uint32_t program_id_ = 0;
         uint32_t fragment_shader_id_ = 0;

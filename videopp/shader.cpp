@@ -147,7 +147,7 @@ namespace video_ctrl
         clear_textures();
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<float>::mat4_t &data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::mat4_t &data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -156,17 +156,11 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const texture_ptr& tex, uint32_t slot,
-                             texture::wrap_type wrap_type, texture::interpolation_type interp_type) const
-    {
-        set_uniform(uniform_name, texture_view(tex), slot, wrap_type, interp_type);
-    }
-
-    void shader::set_uniform(const std::string& uniform_name, const texture_view& tex, uint32_t slot,
+    void shader::set_uniform(const char* uniform_name, const texture_view& tex, uint32_t slot,
                              texture::wrap_type wrap_type, texture::interpolation_type interp_type) const
     {
         max_bound_slot_ = std::max(max_bound_slot_, int32_t(slot));
-        rend_.set_texture(tex, slot, wrap_type, interp_type);
+        rend_.bind_texture(tex, slot, wrap_type, interp_type);
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
         {
@@ -174,7 +168,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec2_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec2_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -183,7 +177,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec2_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec2_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -192,7 +186,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec3_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec3_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -201,7 +195,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec3_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec3_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -210,7 +204,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<int>::vec4_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec4_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -219,7 +213,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const math::transform_t<float>::vec4_t& data) const
+    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec4_t& data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -228,27 +222,27 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, const color& data) const
+    void shader::set_uniform(const char* uniform_name, const color& data) const
     {
         set_uniform(uniform_name, math::vec4{data.r / 255.0f, data.g / 255.0f, data.b / 255.0f, data.a / 255.0f});
     }
 
-    bool shader::has_uniform(const std::string& uniform_name) const
+    bool shader::has_uniform(const char* uniform_name) const
     {
         return locations_.find(uniform_name) != std::end(locations_);
     }
 
     void shader::clear_textures() const
     {
-        for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
+        for(int32_t slot = 1; slot <= max_bound_slot_; ++slot)
         {
-            rend_.reset_texture(uint32_t(slot));
+            rend_.unbind_texture(uint32_t(slot));
         }
-        rend_.reset_texture(0);
+        rend_.unbind_texture(0);
         max_bound_slot_ = -1;
     }
 
-    int shader::get_uniform_location(const std::string& uniform_name) const
+    int shader::get_uniform_location(const char* uniform_name) const
     {
         auto it = locations_.find(uniform_name);
         if(it != std::end(locations_))
@@ -256,12 +250,12 @@ namespace video_ctrl
             return it->second;
         }
 
-        log("ERROR, could not find uniform: " + uniform_name);
+        log("ERROR, could not find uniform: " + std::string(uniform_name));
 
         return -1;
     }
 
-    void shader::set_uniform(const std::string& uniform_name, float data) const
+    void shader::set_uniform(const char* uniform_name, float data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)
@@ -270,7 +264,7 @@ namespace video_ctrl
         }
     }
 
-    void shader::set_uniform(const std::string& uniform_name, int data) const
+    void shader::set_uniform(const char* uniform_name, int data) const
     {
         auto location = get_uniform_location(uniform_name);
         if(location >= 0)

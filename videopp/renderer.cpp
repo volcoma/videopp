@@ -103,9 +103,8 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
 
@@ -117,10 +116,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
 
@@ -132,10 +130,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
 
@@ -147,10 +144,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
 
@@ -163,10 +159,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
 
@@ -178,10 +173,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.set_stride(sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition");
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord");
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
         }
     }
     if(!default_font())
@@ -268,7 +262,7 @@ void renderer::set_old_framebuffer() const noexcept
 /// Resize the dirty rectangle
 /// @param new_width - the new width
 /// @param new_height - the new height
-void renderer::resize(int new_width, int new_height) noexcept
+void renderer::resize(uint32_t new_width, uint32_t new_height) noexcept
 {
     rect_.w = new_width;
     rect_.h = new_height;
@@ -291,7 +285,7 @@ texture_ptr renderer::create_texture(const surface& surface) const noexcept
         auto tex = new texture(*this, surface);
         return texture_ptr(tex);
     }
-    catch(video_ctrl::exception& e)
+    catch(const std::exception& e)
     {
         log(std::string("ERROR: Cannot create texture from surface. Reason ") + e.what());
     }
@@ -322,7 +316,7 @@ texture_ptr renderer::create_texture(const std::string& file_name) const noexcep
 
         return texture;
     }
-    catch(video_ctrl::exception& e)
+    catch(const std::exception& e)
     {
         log(std::string("ERROR: Cannot create texture from file. Reason ") + e.what());
     }
@@ -349,7 +343,7 @@ texture_ptr renderer::create_texture(int w, int h, pix_type pixel_type, texture:
         auto tex = new texture(*this, w, h, pixel_type, format_type);
         return texture_ptr(tex);
     }
-    catch(video_ctrl::exception& e)
+    catch(const std::exception& e)
     {
         log(std::string("ERROR: Cannot create blank texture. Reason ") + e.what());
     }
@@ -373,7 +367,7 @@ shader_ptr renderer::create_shader(const char* fragment_code, const char* vertex
         auto* shad = new shader(*this, fragment_code, vertex_code);
         return shader_ptr(shad);
     }
-    catch(video_ctrl::exception& e)
+    catch(const std::exception& e)
     {
         log(std::string("ERROR: Cannot create shader. Reason ") + e.what());
     }
@@ -401,7 +395,7 @@ font_ptr renderer::create_font(font_info&& info) const noexcept
         r->surface.reset();
         return r;
     }
-    catch(video_ctrl::exception& e)
+    catch(const std::exception& e)
     {
         log(std::string("ERROR: Cannot create font. Reason ") + e.what());
     }
@@ -422,31 +416,33 @@ bool renderer::set_blending_mode(blending_mode mode) const noexcept
 
     switch(mode)
     {
-        case video_ctrl::blending_mode::blend_none:
+        case blending_mode::blend_none:
             gl_call(glDisable(GL_BLEND));
             break;
-        case video_ctrl::blending_mode::blend_normal:
+        case blending_mode::blend_normal:
             gl_call(glEnable(GL_BLEND));
             gl_call(glBlendEquation(GL_FUNC_ADD));
             gl_call(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
             break;
-        case video_ctrl::blending_mode::blend_add:
+        case blending_mode::blend_add:
             gl_call(glEnable(GL_BLEND));
             gl_call(glBlendEquation(GL_FUNC_ADD));
             gl_call(glBlendFunc(GL_SRC_ALPHA, GL_ONE));
             break;
-        case video_ctrl::blending_mode::blend_lighten:
+        case blending_mode::blend_lighten:
             gl_call(glEnable(GL_BLEND));
             gl_call(glBlendEquation(GL_MAX));
             gl_call(glBlendFunc(GL_ONE, GL_ONE));
             break;
-        case video_ctrl::blending_mode::pre_multiplication:
+        case blending_mode::pre_multiplication:
+            gl_call(glEnable(GL_BLEND));
             gl_call(glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE));
             break;
-        case video_ctrl::blending_mode::unmultiplied_alpha:
+        case blending_mode::unmultiplied_alpha:
+            gl_call(glEnable(GL_BLEND));
             gl_call(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
             break;
-        case video_ctrl::blending_mode::blend_screen:
+        case blending_mode::blend_screen:
         default:
             // TODO
             gl_call(glEnable(GL_BLEND));
@@ -461,7 +457,7 @@ bool renderer::set_blending_mode(blending_mode mode) const noexcept
 ///     @param id - texture unit id (for the shader)
 ///     @param wrap_type - wrapping type
 ///     @param interp_type - interpolation type
-bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept
+bool renderer::bind_texture(texture_view texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept
 {
     // Activate texture for shader
     gl_call(glActiveTexture(GL_TEXTURE0 + id));
@@ -473,10 +469,10 @@ bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type
     GLint wmode = GL_REPEAT;
     switch(wtype)
     {
-        case texture::wrap_type::wrap_clamp:
+        case texture::wrap_type::clamp:
             wmode = GL_CLAMP_TO_EDGE;
             break;
-        case texture::wrap_type::wrap_mirror:
+        case texture::wrap_type::mirror:
             wmode = GL_MIRRORED_REPEAT;
             break;
         default:
@@ -490,10 +486,10 @@ bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type
     GLint imode = GL_LINEAR;
     switch(itype)
     {
-        case texture::interpolation_type::interpolate_none:
+        case texture::interpolation_type::nearest:
             imode = GL_NEAREST;
             break;
-        case texture::interpolation_type::interpolate_linear:
+        case texture::interpolation_type::linear:
             imode = GL_LINEAR;
             break;
     }
@@ -506,7 +502,7 @@ bool renderer::set_texture(texture_view texture, uint32_t id, texture::wrap_type
 
 /// Reset a texture slot
 ///     @param id - the texture to reset
-void renderer::reset_texture(uint32_t id) const noexcept
+void renderer::unbind_texture(uint32_t id) const noexcept
 {
     gl_call(glActiveTexture(GL_TEXTURE0 + id));
     gl_call(glBindTexture(GL_TEXTURE_2D, 0));
@@ -545,7 +541,7 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
             ctx.program.shader->set_uniform("uDirection", direction);
         };
 
-        list.add_image(input, input->get_rect(), fbo->get_rect(), {}, color::white(), flip_format::none, setup);
+        list.add_image(input, input->get_rect(), fbo->get_rect(), color::white(), flip_format::none, setup);
 
         draw_cmd_list(list);
 
@@ -696,7 +692,8 @@ bool renderer::reset_fbo()
 /// Swap buffers
 void renderer::present() noexcept
 {
-    resize(win_.get_size().w, win_.get_size().h);
+    auto sz = win_.get_size();
+    resize(sz.w, sz.h);
 
     draw_list list{};
     list.add_line({0, 0}, {1, 1}, {255, 255, 255, 0});
@@ -785,8 +782,6 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
         shader* last_shader{};
 
-        rect clip{};
-
         // Draw commands
         for (const auto& cmd : list.commands)
         {
@@ -803,6 +798,12 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
                     push_clip(cmd.clip_rect);
                 }
 
+                if (cmd.blend != last_blend)
+                {
+                    set_blending_mode(cmd.blend);
+                    last_blend = cmd.blend;
+                }
+
                 if(cmd.setup.begin)
                 {
                     cmd.setup.begin(gpu_context{*this, cmd.setup.program});
@@ -814,11 +815,6 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
                     cmd.setup.program.shader->set_uniform("uProjection", projection);
                 }
 
-                if (cmd.blend != last_blend)
-                {
-                    set_blending_mode(cmd.blend);
-                    last_blend = cmd.blend;
-                }
             }
 
             switch(cmd.dr_type)
@@ -834,9 +830,6 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
                 {
                     gl_call(glDrawArrays(to_gl_primitive(cmd.type), GLint(cmd.vertices_offset), GLsizei(cmd.vertices_count)));
                 }
-                break;
-
-                default:
                 break;
             }
 

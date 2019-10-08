@@ -35,9 +35,8 @@ inline bool fixed_decompose(tmat4x4<T, Q> const& ModelMatrix, tvec3<T, Q> & Scal
         PerspectiveMatrix[i][3] = static_cast<T>(0);
     PerspectiveMatrix[3][3] = T(1);
 
-    /// TODO: Fixme!
-//    if(epsilonEqual(determinant(PerspectiveMatrix), static_cast<T>(0), epsilon<T>()))
-//        return false;
+    if(epsilonEqual(determinant(PerspectiveMatrix), static_cast<T>(0), epsilon<T>()))
+        return false;
 
     // First, isolate perspective.  This is the messiest.
     if(

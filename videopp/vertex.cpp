@@ -164,7 +164,7 @@ void index_buffer::unbind() const noexcept
 }
 
 template <>
-void vertex_buffer_layout::add<float>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized)
+void vertex_buffer_layout::add<float>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
 {
     elements_.emplace_back();
     auto& element = elements_.back();
@@ -174,10 +174,11 @@ void vertex_buffer_layout::add<float>(uint8_t count, uint8_t offset, const std::
     element.size = sizeof(GLfloat) * count;
     element.attr_type = GL_FLOAT;
     element.normalized = normalized;
+    element.stride = stride;
     element.location = glGetAttribLocation(id_, element.atrr.c_str());
 }
 template <>
-void vertex_buffer_layout::add<uint32_t>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized)
+void vertex_buffer_layout::add<uint32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
 {
     elements_.emplace_back();
     auto& element = elements_.back();
@@ -187,10 +188,11 @@ void vertex_buffer_layout::add<uint32_t>(uint8_t count, uint8_t offset, const st
     element.size = sizeof(GLuint) * count;
     element.attr_type = GL_UNSIGNED_INT;
     element.normalized = normalized;
+    element.stride = stride;
     element.location = glGetAttribLocation(id_, element.atrr.c_str());
 }
 template <>
-void vertex_buffer_layout::add<uint8_t>(uint8_t count, uint8_t offset, const std::string& attr, bool normalized)
+void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
 {
     elements_.emplace_back();
     auto& element = elements_.back();
@@ -200,6 +202,7 @@ void vertex_buffer_layout::add<uint8_t>(uint8_t count, uint8_t offset, const std
     element.size = sizeof(GLubyte) * element.count;
     element.attr_type = GL_UNSIGNED_BYTE;
     element.normalized = normalized;
+    element.stride = stride;
     element.location = glGetAttribLocation(id_, element.atrr.c_str());
 }
 
@@ -213,7 +216,7 @@ void vertex_buffer_layout::bind() const noexcept
                                       GLint(element.count),
                                       GLenum(element.attr_type),
                                       GLboolean(element.normalized),
-                                      GLsizei(stride_),
+                                      GLsizei(element.stride),
                                       reinterpret_cast<const GLvoid*>(uintptr_t(element.offset))));
     }
 }
@@ -221,11 +224,6 @@ void vertex_buffer_layout::bind() const noexcept
 void vertex_buffer_layout::set_program_id(uint32_t id) noexcept
 {
     id_ = id;
-}
-
-void vertex_buffer_layout::set_stride(uint32_t stride) noexcept
-{
-    stride_ = stride;
 }
 
 void vertex_buffer_layout::unbind() const noexcept

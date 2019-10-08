@@ -583,7 +583,7 @@ void text::update_geometry(bool all) const
             auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy, pixel_snap);
             auto align_x = align_offsets.first;
 
-            if(align_x != 0 || pixel_snap)
+            if(math::epsilonNotEqual(align_x, 0.0f, math::epsilon<float>()) || pixel_snap)
             {
 
                 auto v = geometry_.data() + offset;
@@ -631,7 +631,7 @@ void text::update_geometry(bool all) const
         auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy, pixel_snap);
         auto align_y = align_offsets.second;
 
-        if(align_y != 0)
+        if(math::epsilonNotEqual(align_y, 0.0f, math::epsilon<float>()))
         {
             for(auto& v : geometry_)
             {

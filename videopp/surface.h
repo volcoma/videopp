@@ -36,14 +36,13 @@ namespace video_ctrl
         std::pair<point, bool> find_pixel(const color &color, point start = {}) const noexcept;
 
         bool set_pixel(point pos, const color &color) noexcept;
-        color get_pixel(const video_ctrl::point &point) const noexcept;
+        color get_pixel(const point& point) const noexcept;
         void fill(const color &color) noexcept;
 
         std::unique_ptr<surface> convert_to(pix_type type);
 
         surface subsurface(const rect &rct);
         const uint8_t* get_pixels() const;
-        uint8_t* get_buffer();
 
         void flip(flip_format flip);
 
@@ -55,16 +54,12 @@ namespace video_ctrl
         enum class surface_type
         {
             raw,
-            compress
+            compressed
         };
 
         void flip_horizontally();
         void flip_vertically();
 
-        struct file_deleter
-        {
-            void operator()(FILE *fp);
-        };
 
         rect rect_;
         surface_type surface_type_ = surface_type::raw;

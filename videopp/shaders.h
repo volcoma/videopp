@@ -93,7 +93,7 @@ static constexpr const char* fs_distance_field =
                     uniform sampler2D uTexture;
 
                     #ifndef HAS_DERIVATIVES
-                        uniform float uDistanceFieldMultiplier;
+                        uniform float uDFMultiplier;
                     #else
                         float contour( in float d, in float w )
                         {
@@ -152,7 +152,7 @@ static constexpr const char* fs_distance_field =
                         float oalpha = aastep(odist, obox_distances);
                         vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
                     #else
-                        float multiplier = uDistanceFieldMultiplier;
+                        float multiplier = uDFMultiplier;
                         float alpha = (dist - 0.5) * multiplier + 0.5;
                         vec4 color = vec4(master_color.rgb, alpha);
                         float odist = dist + outline_width;

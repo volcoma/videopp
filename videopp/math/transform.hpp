@@ -36,95 +36,95 @@ public:
     transform_t& operator=(const transform_t& m) = default;
     transform_t& operator=(transform_t&& m) noexcept = default;
 
-    transform_t(const mat4_t& m);
+    transform_t(const mat4_t& m) noexcept;
 
-    const vec3_t& get_position() const;
-    void set_position(const vec3_t& position);
-    void set_position(T x, T y, T z);
+    const vec3_t& get_position() const noexcept;
+    void set_position(const vec3_t& position) noexcept;
+    void set_position(T x, T y, T z) noexcept;
 
-    vec3_t get_rotation_euler() const;
-    void set_rotation_euler(const vec3_t& euler_angles);
-    void set_rotation_euler(T x, T y, T z);
+    vec3_t get_rotation_euler() const noexcept;
+    void set_rotation_euler(const vec3_t& euler_angles) noexcept;
+    void set_rotation_euler(T x, T y, T z) noexcept;
 
-    const vec3_t& get_scale() const;
-    void set_scale(const vec3_t& scale);
-    void set_scale(T x, T y, T z);
+    const vec3_t& get_scale() const noexcept;
+    void set_scale(const vec3_t& scale) noexcept;
+    void set_scale(T x, T y, T z) noexcept;
 
-    const quat_t& get_rotation() const;
-    void set_rotation(const quat_t& rotation);
-    void set_rotation(const vec3_t& x, const vec3_t& y, const vec3_t& z);
+    const quat_t& get_rotation() const noexcept;
+    void set_rotation(const quat_t& rotation) noexcept;
+    void set_rotation(const vec3_t& x, const vec3_t& y, const vec3_t& z) noexcept;
 
-    vec3_t x_axis() const;
-    vec3_t y_axis() const;
-    vec3_t z_axis() const;
-    vec3_t x_unit_axis() const;
-    vec3_t y_unit_axis() const;
-    vec3_t z_unit_axis() const;
+    vec3_t x_axis() const noexcept;
+    vec3_t y_axis() const noexcept;
+    vec3_t z_axis() const noexcept;
+    vec3_t x_unit_axis() const noexcept;
+    vec3_t y_unit_axis() const noexcept;
+    vec3_t z_unit_axis() const noexcept;
 
     // these transform from the current state
-    void rotate_axis(T a, const vec3_t& v);
-    void rotate(T x, T y, T z);
-    void rotate(const vec3_t& v);
-    void rotate_local(T x, T y, T z);
-    void rotate_local(const vec3_t& v);
-    void scale(T x, T y, T z);
-    void scale(const vec3_t& v);
-    void translate(T x, T y, T z);
-    void translate(const vec3_t& v);
-    void translate_local(T x, T y, T z);
-    void translate_local(const vec3_t& v);
+    void rotate_axis(T a, const vec3_t& v) noexcept;
+    void rotate(T x, T y, T z) noexcept;
+    void rotate(const vec3_t& v) noexcept;
+    void rotate_local(T x, T y, T z) noexcept;
+    void rotate_local(const vec3_t& v) noexcept;
+    void scale(T x, T y, T z) noexcept;
+    void scale(const vec3_t& v) noexcept;
+    void translate(T x, T y, T z) noexcept;
+    void translate(const vec3_t& v) noexcept;
+    void translate_local(T x, T y, T z) noexcept;
+    void translate_local(const vec3_t& v) noexcept;
 
-    int compare(const transform_t& t) const;
-    int compare(const transform_t& t, T tolerance) const;
+    int compare(const transform_t& t) const noexcept;
+    int compare(const transform_t& t, T tolerance) const noexcept;
 
-    vec2_t transform_coord(const vec2_t& v) const;
-    vec2_t inverse_transform_coord(const vec2_t& v) const;
-    vec2_t transform_normal(const vec2_t& v) const;
-    vec2_t inverse_transform_normal(const vec2_t& v) const;
+    vec2_t transform_coord(const vec2_t& v) const noexcept;
+    vec2_t inverse_transform_coord(const vec2_t& v) const noexcept;
+    vec2_t transform_normal(const vec2_t& v) const noexcept;
+    vec2_t inverse_transform_normal(const vec2_t& v) const noexcept;
 
-    static vec2_t transform_coord(const vec2_t& v, const transform_t& t);
-    static vec2_t inverse_transform_coord(const vec2_t& v, const transform_t& t);
-    static vec2_t transform_normal(const vec2_t& v, const transform_t& t);
-    static vec2_t inverse_transform_normal(const vec2_t& v, const transform_t& t);
+    static vec2_t transform_coord(const vec2_t& v, const transform_t& t) noexcept;
+    static vec2_t inverse_transform_coord(const vec2_t& v, const transform_t& t) noexcept;
+    static vec2_t transform_normal(const vec2_t& v, const transform_t& t) noexcept;
+    static vec2_t inverse_transform_normal(const vec2_t& v, const transform_t& t) noexcept;
 
-    vec3_t transform_coord(const vec3_t& v) const;
-    vec3_t inverse_transform_coord(const vec3_t& v) const;
-    vec3_t transform_normal(const vec3_t& v) const;
-    vec3_t inverse_transform_normal(const vec3_t& v) const;
+    vec3_t transform_coord(const vec3_t& v) const noexcept;
+    vec3_t inverse_transform_coord(const vec3_t& v) const noexcept;
+    vec3_t transform_normal(const vec3_t& v) const noexcept;
+    vec3_t inverse_transform_normal(const vec3_t& v) const noexcept;
 
-    static vec3_t transform_coord(const vec3_t& v, const transform_t& t);
-    static vec3_t inverse_transform_coord(const vec3_t& v, const transform_t& t);
-    static vec3_t transform_normal(const vec3_t& v, const transform_t& t);
-    static vec3_t inverse_transform_normal(const vec3_t& v, const transform_t& t);
+    static vec3_t transform_coord(const vec3_t& v, const transform_t& t) noexcept;
+    static vec3_t inverse_transform_coord(const vec3_t& v, const transform_t& t) noexcept;
+    static vec3_t transform_normal(const vec3_t& v, const transform_t& t) noexcept;
+    static vec3_t inverse_transform_normal(const vec3_t& v, const transform_t& t) noexcept;
 
-    static const transform_t& identity();
+    static const transform_t& identity() noexcept;
     //-------------------------------------------------------------------------
     // Public Operator Overloads
     //-------------------------------------------------------------------------
-    operator const mat4_t&() const;
-    operator const mat4_t*() const;
-    operator const typename mat4_t::value_type*() const;
+    operator const mat4_t&() const noexcept;
+    operator const mat4_t*() const noexcept;
+    operator const typename mat4_t::value_type*() const noexcept;
 
-    transform_t operator*(const transform_t& t) const;
-    typename mat4_t::col_type const& operator[](typename mat4_t::length_type i) const
+    transform_t operator*(const transform_t& t) const noexcept;
+    inline typename mat4_t::col_type const& operator[](typename mat4_t::length_type i) const noexcept
     {
         return get_matrix()[i];
     }
 
-    vec4_t operator*(const vec4_t& v) const
+    inline vec4_t operator*(const vec4_t& v) const noexcept
     {
         vec4_t result = get_matrix() * v;
         return result;
     }
 
-    const mat4_t& get_matrix() const
+    inline const mat4_t& get_matrix() const noexcept
     {
         update_matrix();
         return matrix_;
     }
 
 private:
-    void update_components()
+    inline void update_components() noexcept
     {
         vec3_t skew;
         vec4_t perspective;
@@ -137,7 +137,7 @@ private:
         fixed_decompose(m, scale_, rotation_, position_, skew, perspective);
     }
 
-    void update_matrix() const
+    inline void update_matrix() const noexcept
     {
         if(dirty_)
         {
@@ -150,7 +150,7 @@ private:
             dirty_ = false;
         }
     }
-    void make_dirty()
+    inline void make_dirty() noexcept
     {
         dirty_ = true;
     }
@@ -168,90 +168,90 @@ private:
 };
 
 template <typename T, precision Q>
-transform_t<T, Q> inverse(transform_t<T, Q> const& t)
+transform_t<T, Q> inverse(transform_t<T, Q> const& t) noexcept
 {
     const auto& m = t.get_matrix();
     return glm::inverse(m);
 }
 
 template <typename T, precision Q>
-transform_t<T, Q> transpose(transform_t<T, Q> const& t)
+transform_t<T, Q> transpose(transform_t<T, Q> const& t) noexcept
 {
     const auto& m = t.get_matrix();
     return glm::transpose(m);
 }
 
 template <typename T, precision Q>
-inline transform_t<T, Q>::transform_t(const typename transform_t::mat4_t& m)
+inline transform_t<T, Q>::transform_t(const typename transform_t::mat4_t& m) noexcept
     : matrix_(m)
 {
     update_components();
 }
 
 template <typename T, precision Q>
-inline const typename transform_t<T, Q>::vec3_t& transform_t<T, Q>::get_position() const
+inline const typename transform_t<T, Q>::vec3_t& transform_t<T, Q>::get_position() const noexcept
 {
     return position_;
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_position(const typename transform_t::vec3_t& position)
+inline void transform_t<T, Q>::set_position(const typename transform_t::vec3_t& position) noexcept
 {
     position_ = position;
     make_dirty();
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_position(T x, T y, T z)
+inline void transform_t<T, Q>::set_position(T x, T y, T z) noexcept
 {
     set_position({x, y, z});
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::get_rotation_euler() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::get_rotation_euler() const noexcept
 {
     return eulerAngles(rotation_);
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_rotation_euler(const typename transform_t::vec3_t& euler_angles)
+inline void transform_t<T, Q>::set_rotation_euler(const typename transform_t::vec3_t& euler_angles) noexcept
 {
     set_rotation(quat_t(euler_angles));
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_rotation_euler(T x, T y, T z)
+inline void transform_t<T, Q>::set_rotation_euler(T x, T y, T z) noexcept
 {
     set_rotation_euler({x, y, z});
 }
 
 template <typename T, precision Q>
-inline const typename transform_t<T, Q>::vec3_t& transform_t<T, Q>::get_scale() const
+inline const typename transform_t<T, Q>::vec3_t& transform_t<T, Q>::get_scale() const noexcept
 {
     return scale_;
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_scale(const typename transform_t::vec3_t& scale)
+inline void transform_t<T, Q>::set_scale(const typename transform_t::vec3_t& scale) noexcept
 {
     scale_ = scale;
     make_dirty();
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_scale(T x, T y, T z)
+inline void transform_t<T, Q>::set_scale(T x, T y, T z) noexcept
 {
     set_scale({x, y, z});
 }
 
 template <typename T, precision Q>
-inline const typename transform_t<T, Q>::quat_t& transform_t<T, Q>::get_rotation() const
+inline const typename transform_t<T, Q>::quat_t& transform_t<T, Q>::get_rotation() const noexcept
 {
     return rotation_;
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::set_rotation(const typename transform_t::quat_t& rotation)
+inline void transform_t<T, Q>::set_rotation(const typename transform_t::quat_t& rotation) noexcept
 {
     rotation_ = rotation;
     make_dirty();
@@ -260,7 +260,7 @@ inline void transform_t<T, Q>::set_rotation(const typename transform_t::quat_t& 
 template <typename T, precision Q>
 inline void transform_t<T, Q>::set_rotation(const typename transform_t::vec3_t& x,
                                             const typename transform_t::vec3_t& y,
-                                            const typename transform_t::vec3_t& z)
+                                            const typename transform_t::vec3_t& z) noexcept
 {
     // Get current scale so that it can be preserved.
     const auto& scale = get_scale();
@@ -280,56 +280,56 @@ inline void transform_t<T, Q>::set_rotation(const typename transform_t::vec3_t& 
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::x_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::x_axis() const noexcept
 {
     return get_matrix()[0];
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::y_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::y_axis() const noexcept
 {
     return get_matrix()[1];
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::z_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::z_axis() const noexcept
 {
     return get_matrix()[2];
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::x_unit_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::x_unit_axis() const noexcept
 {
     return normalize(x_axis());
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::y_unit_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::y_unit_axis() const noexcept
 {
     return normalize(y_axis());
 }
 
 template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::z_unit_axis() const
+inline typename transform_t<T, Q>::vec3_t transform_t<T, Q>::z_unit_axis() const noexcept
 {
     return normalize(z_axis());
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::rotate_axis(T a, const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::rotate_axis(T a, const typename transform_t::vec3_t& v) noexcept
 {
     quat_t q = glm::angleAxis(a, v) * get_rotation();
     set_rotation(q);
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::rotate(T x, T y, T z)
+inline void transform_t<T, Q>::rotate(T x, T y, T z) noexcept
 {
     rotate({x, y, z});
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::rotate(const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::rotate(const typename transform_t::vec3_t& v) noexcept
 {
     quat_t qx = glm::angleAxis(v.x, vec3_t{1, 0, 0});
     quat_t qy = glm::angleAxis(v.y, vec3_t{0, 1, 0});
@@ -339,13 +339,13 @@ inline void transform_t<T, Q>::rotate(const typename transform_t::vec3_t& v)
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::rotate_local(T x, T y, T z)
+inline void transform_t<T, Q>::rotate_local(T x, T y, T z) noexcept
 {
     rotate_local({x, y, z});
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::rotate_local(const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::rotate_local(const typename transform_t::vec3_t& v) noexcept
 {
     quat_t qx = glm::angleAxis(v.x, x_unit_axis());
     quat_t qy = glm::angleAxis(v.y, y_unit_axis());
@@ -355,37 +355,37 @@ inline void transform_t<T, Q>::rotate_local(const typename transform_t::vec3_t& 
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::scale(T x, T y, T z)
+inline void transform_t<T, Q>::scale(T x, T y, T z) noexcept
 {
     scale({x, y, z});
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::scale(const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::scale(const typename transform_t::vec3_t& v) noexcept
 {
     set_scale(get_scale() * v);
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::translate(T x, T y, T z)
+inline void transform_t<T, Q>::translate(T x, T y, T z) noexcept
 {
     translate({x, y, z});
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::translate(const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::translate(const typename transform_t::vec3_t& v) noexcept
 {
     set_position(get_position() + v);
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::translate_local(T x, T y, T z)
+inline void transform_t<T, Q>::translate_local(T x, T y, T z) noexcept
 {
     translate_local({x, y, z});
 }
 
 template <typename T, precision Q>
-inline void transform_t<T, Q>::translate_local(const typename transform_t::vec3_t& v)
+inline void transform_t<T, Q>::translate_local(const typename transform_t::vec3_t& v) noexcept
 {
     set_position(get_position() + (x_unit_axis() * v.x));
     set_position(get_position() + (y_unit_axis() * v.y));
@@ -393,13 +393,13 @@ inline void transform_t<T, Q>::translate_local(const typename transform_t::vec3_
 }
 
 template <typename T, precision Q>
-inline int transform_t<T, Q>::compare(const transform_t& t) const
+inline int transform_t<T, Q>::compare(const transform_t& t) const noexcept
 {
     return static_cast<int>(get_matrix() == t.get_matrix());
 }
 
 template <typename T, precision Q>
-inline int transform_t<T, Q>::compare(const transform_t& t, T tolerance) const
+inline int transform_t<T, Q>::compare(const transform_t& t, T tolerance) const noexcept
 {
     const auto& m1 = get_matrix();
     const auto& m2 = t.get_matrix();
@@ -421,91 +421,91 @@ inline int transform_t<T, Q>::compare(const transform_t& t, T tolerance) const
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v) const
+transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v) const noexcept
 {
     return transform_coord(vec3_t(v, 0), *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v) const
+transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v) const noexcept
 {
     return inverse_transform_coord(vec3_t(v, 0), *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v) const
+transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v) const noexcept
 {
     return transform_normal(vec3_t(v, 0), *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v) const
+transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v) const noexcept
 {
     return inverse_transform_normal(vec3_t(v, 0), *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v, const transform_t& t)
+transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
 {
     return transform_coord(vec3_t(v, 0), t);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v, const transform_t& t)
+transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
 {
     return inverse_transform_coord(vec3_t(v, 0), t);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v, const transform_t& t)
+transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
 {
     return transform_normal(vec3_t(v, 0), t);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v, const transform_t& t)
+transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
 {
     return inverse_transform_normal(vec3_t(v, 0), t);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v) const
+transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v) const noexcept
 {
     return transform_coord(v, *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v) const
+transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v) const noexcept
 {
     return inverse_transform_coord(v, *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v) const
+transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v) const noexcept
 {
     return transform_normal(v, *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v) const
+transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v) const noexcept
 {
     return inverse_transform_normal(v, *this);
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v, const transform_t& t)
+transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
 {
     const mat4_t& m = t.get_matrix();
     vec4_t result = m * vec4_t{v, 1.0f};
@@ -515,7 +515,7 @@ transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v, const 
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v, const transform_t& t)
+transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
 {
     const mat4_t& m = t.get_matrix();
     mat4_t im = glm::inverse(m);
@@ -525,7 +525,7 @@ transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v, const transform_t& t)
+transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
 {
     const mat4_t& m = t.get_matrix();
     vec4_t result = m * vec4_t{v, 0.0f};
@@ -535,7 +535,7 @@ transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v, const
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v, const transform_t& t)
+transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
 {
     const mat4_t& m = t.get_matrix();
     mat4_t im = glm::inverse(m);
@@ -544,33 +544,33 @@ transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& 
 }
 
 template <typename T, precision Q>
-inline const transform_t<T, Q>& transform_t<T, Q>::identity()
+inline const transform_t<T, Q>& transform_t<T, Q>::identity() noexcept
 {
     static transform_t identity;
     return identity;
 }
 
 template <typename T, precision Q>
-inline transform_t<T, Q> transform_t<T, Q>::operator*(const transform_t& t) const
+inline transform_t<T, Q> transform_t<T, Q>::operator*(const transform_t& t) const noexcept
 {
     transform_t result(get_matrix() * t.get_matrix());
     return result;
 }
 
 template <typename T, precision Q>
-inline transform_t<T, Q>::operator const typename transform_t<T, Q>::mat4_t::value_type*() const
+inline transform_t<T, Q>::operator const typename transform_t<T, Q>::mat4_t::value_type*() const noexcept
 {
     return value_ptr(get_matrix());
 }
 
 template <typename T, precision Q>
-inline transform_t<T, Q>::operator const mat4_t*() const
+inline transform_t<T, Q>::operator const mat4_t*() const noexcept
 {
     return &get_matrix();
 }
 
 template <typename T, precision Q>
-inline transform_t<T, Q>::operator const mat4_t&() const
+inline transform_t<T, Q>::operator const mat4_t&() const noexcept
 {
     return get_matrix();
 }

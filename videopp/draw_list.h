@@ -90,7 +90,7 @@ struct draw_list
     //-----------------------------------------------------------------------------
     /// Adds an image to the list.
     //-----------------------------------------------------------------------------
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const rect& src,
                    const rect& dst,
                    const math::transformf& transform,
@@ -98,14 +98,14 @@ struct draw_list
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const rect& src,
                    const rect& dst,
                    const color& col = color::white(),
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const rect& dst,
                    const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
@@ -113,7 +113,7 @@ struct draw_list
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const rect& dst,
                    const math::transformf& transform,
                    const color& col = color::white(),
@@ -122,7 +122,7 @@ struct draw_list
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const point& pos,
                    const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
@@ -130,7 +130,7 @@ struct draw_list
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(const texture_view& texture,
+    void add_image(texture_view texture,
                    const std::array<math::vec2, 4>& points,
                    const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
@@ -142,7 +142,7 @@ struct draw_list
                       const vertex_2d* vertices,
                       size_t count,
                       primitive_type type,
-                      const texture_view& texture = {},
+                      texture_view texture = {},
                       const program_setup& setup = empty_setup());
     //-----------------------------------------------------------------------------
     /// Adds another draw_list into the list
@@ -157,16 +157,14 @@ struct draw_list
                   const math::transformf& transform,
                   const rect& dst_rect,
                   size_fit sz_fit = size_fit::shrink_to_fit,
-                  dimension_fit dim_fit = dimension_fit::uniform,
-                  const program_setup& setup = empty_setup());
+                  dimension_fit dim_fit = dimension_fit::uniform);
 
     //-----------------------------------------------------------------------------
     /// Adds a text to the list.
     /// The script part lies on the ascent of the whole part.
     //-----------------------------------------------------------------------------
     void add_text(const text& t,
-                  const math::transformf& transform,
-                  const program_setup& setup = empty_setup());
+                  const math::transformf& transform);
 
 
     //-----------------------------------------------------------------------------
@@ -323,7 +321,7 @@ struct draw_list
     /// clip rects stack
     std::vector<blending_mode> blend_modes;
     /// total commands requested
-    int commands_requested = 0;
+    size_t commands_requested = 0;
 };
 
 }

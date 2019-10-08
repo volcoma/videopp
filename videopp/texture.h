@@ -23,23 +23,23 @@ namespace video_ctrl
         enum class format_type
         {
             streaming,          // FBO (Frame Buffer Object), for drawing onto texture  
-            pixmap,             // x11 pixmap (X11 optimized texture surface)           
-            target              // Can be updated using update_texture()                
+            target,             // Can be updated using update_texture()
+            immutable           // immutable from surface
         };
         
         /// Texture wrapping styles                     
         enum class wrap_type
         {
-            wrap_clamp,         // Clamp texture to edges, avoiding color bleeding or repetition    
-            wrap_repeat,        // You can repeat the texture infinitely                            
-            wrap_mirror         // Each repeat of texture will be mirrored                          
+            clamp,         // Clamp texture to edges, avoiding color bleeding or repetition
+            repeat,        // You can repeat the texture infinitely
+            mirror         // Each repeat of texture will be mirrored
         };
 
         /// Texture interpolation styles                
         enum class interpolation_type
         {   
-            interpolate_none,   // A point filter, no interpolation whatsoever  
-            interpolate_linear  // Linear interpolation
+            nearest,   // A point filter, no interpolation whatsoever
+            linear  // Linear interpolation
         };
 
         ~texture();
@@ -85,7 +85,6 @@ namespace video_ctrl
         bool load_from_file(const std::string &path) noexcept;
         bool create_from_surface(const surface &surface) noexcept;
         bool check_for_error(const std::string &function_name) const noexcept;
-        int32_t get_opengl_pixel_format(const pix_type &pixel_type) const;
 
         inline uint32_t get_FBO() const { return fbo_; }
     };
