@@ -105,7 +105,7 @@ static constexpr const char* fs_multi_channel_dither =
                             170,106,154, 90,166,102,150, 86,169,105,153, 89,165,101,149, 85
                         );
 
-                        float limit = (bayer_matrix16x16[x * 16 + y])/256.0f;
+                        float limit = (bayer_matrix16x16[x + y * 16])/256.0f;
                         return limit;
                     }
 
@@ -120,7 +120,7 @@ static constexpr const char* fs_multi_channel_dither =
                         /* is scaled to the 0..63 range */
                         /* before looking in this table */
                         /* to determine the action. */
-                        int bayer_matrix8x8[8*8] = int[](
+                        const int bayer_matrix8x8[8*8] = int[](
                              0, 32, 8,  40, 2,  34, 10, 42,
                             48, 16, 56, 24, 50, 18, 58, 26,
                             12, 44, 4,  36, 14, 46, 6,  38,
@@ -131,7 +131,7 @@ static constexpr const char* fs_multi_channel_dither =
                             63, 31, 55, 23, 61, 29, 53, 21
                         );
 
-                        float limit = (bayer_matrix8x8[x * 8 + y])/64.0f;
+                        float limit = (bayer_matrix8x8[x + y * 8])/64.0f;
                         return limit;
 
                     }
