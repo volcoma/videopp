@@ -88,6 +88,14 @@ int main()
             auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
 
+            auto foreground = master_rend.create_texture(DATA"Untitled.png");
+
+            auto background = master_rend.create_texture(DATA"background1.png");
+            auto fig1 = master_rend.create_texture(DATA"Antharas2.png");
+            auto fig2 = master_rend.create_texture(DATA"Aurakyria2.png");
+            auto fig3 = master_rend.create_texture(DATA"BoarDark2.png");
+
+
             video_ctrl::text::alignment align{ video_ctrl::text::alignment::top_left};
             math::transformf transform;
             int num = 100;
@@ -99,6 +107,8 @@ int main()
             float target_scale = 1.0f;
             bool use_sdf = true;
             bool debug = false;
+
+            auto c = video_ctrl::color::white();
             while(running)
             {
                 os::event e{};
@@ -143,8 +153,15 @@ int main()
                         }
                         else
                         {
-                            float scale = float(e.wheel.y) * 0.1f;
-                            target_scale += scale;
+                            float scale = float(e.wheel.y);// * 0.1f;
+                            int alpha = c.a;
+                            alpha += scale;
+                            if(alpha <= 255 && alpha >= 0)
+                            {
+                                c.a = alpha;
+
+                            }
+                            //target_scale += scale;
                         }
                     }
                     if(e.type == os::events::text_input)
@@ -216,18 +233,28 @@ int main()
                     transform.set_position(pos.x, pos.y, 0.0f);
 
                     video_ctrl::draw_list list;
-                    video_ctrl::text text;
-                    text.set_font(use_sdf ? font : font_bitmap);
-                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
-                    text.set_outline_color(video_ctrl::color::black());
-                    text.set_utf8_text(display_text);
-                    text.set_alignment(align);
-                    text.set_outline_width(outline_width);
-                    text.set_kerning(use_kerning);
-                    text.set_leaning(leaning);
-                    //text.set_advance({-10.5f, 0.0f});
+//                    video_ctrl::text text;
+//                    text.set_font(use_sdf ? font : font_bitmap);
+//                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+//                    text.set_outline_color(video_ctrl::color::black());
+//                    text.set_utf8_text(display_text);
+//                    text.set_alignment(align);
+//                    text.set_outline_width(outline_width);
+//                    text.set_kerning(use_kerning);
+//                    text.set_leaning(leaning);
+//                    //text.set_advance({-10.5f, 0.0f});
 
-                    list.add_text(text, transform);
+//                    list.add_text(text, transform);
+
+                    list.push_blend(video_ctrl::blending_mode::blend_none);
+                    list.add_image(background, rend.get_rect());
+
+                    list.add_image(fig1, {000, 000, 200, 200});
+                    list.add_image(fig2, {000, 200, 200, 200});
+                    list.add_image(fig3, {000, 400, 200, 200});
+                    list.add_image(foreground, rend.get_rect(), c);
+
+                    list.pop_blend();
 
                     rend.draw_cmd_list(list);
                     rend.present();

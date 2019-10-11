@@ -112,7 +112,7 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = multi_channel_texture_program();
         if(!program.shader)
         {
-            auto shader = create_shader(fs_multi_channel, vs_simple);
+            auto shader = create_shader(fs_multi_channel_dither, vs_simple);
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
