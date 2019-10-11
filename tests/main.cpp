@@ -88,7 +88,7 @@ int main()
             auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
 
-            auto foreground = master_rend.create_texture(DATA"Untitled.png");
+            auto foreground = master_rend.create_texture(DATA"Background.png");
 
             auto background = master_rend.create_texture(DATA"background1.png");
             auto fig1 = master_rend.create_texture(DATA"Antharas2.png");
@@ -246,7 +246,7 @@ int main()
 
 //                    list.add_text(text, transform);
 
-                    list.push_blend(video_ctrl::blending_mode::blend_none);
+                    //list.push_blend(video_ctrl::blending_mode::blend_none);
                     list.add_image(background, rend.get_rect());
 
                     list.add_image(fig1, {000, 000, 200, 200});
@@ -254,7 +254,7 @@ int main()
                     list.add_image(fig3, {000, 400, 200, 200});
                     list.add_image(foreground, rend.get_rect(), c);
 
-                    list.pop_blend();
+                    //list.pop_blend();
 
                     rend.draw_cmd_list(list);
                     rend.present();

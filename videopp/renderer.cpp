@@ -112,6 +112,20 @@ renderer::renderer(os::window& win, bool vsync)
         auto& program = multi_channel_texture_program();
         if(!program.shader)
         {
+            auto shader = create_shader(fs_multi_channel, vs_simple);
+            embedded_shaders_.emplace_back(shader);
+            program.shader = shader.get();
+            auto& layout = program.shader->get_layout();
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+        }
+    }
+
+    {
+        auto& program = multi_channel_dither_texture_program();
+        if(!program.shader)
+        {
             auto shader = create_shader(fs_multi_channel_dither, vs_simple);
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();

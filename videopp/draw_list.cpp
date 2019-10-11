@@ -509,6 +509,9 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
             program_setup program{};
             program.program = multi_channel_texture_program();
 
+            //program.program = multi_channel_dither_texture_program();
+            //blend = blending_mode::blend_none;
+
             uint64_t hash{0};
             utils::hash(hash, texture);
             program.uniforms_hash = hash;

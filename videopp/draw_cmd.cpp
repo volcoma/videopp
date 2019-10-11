@@ -45,43 +45,49 @@ texture_view texture_view::create(uint32_t tex_id, uint32_t tex_width, uint32_t 
     return view;
 }
 
-gpu_program& simple_program()
+gpu_program& simple_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-gpu_program& multi_channel_texture_program()
+gpu_program& multi_channel_texture_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-gpu_program& single_channel_texture_program()
+gpu_program& multi_channel_dither_texture_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-gpu_program& distance_field_font_program()
+gpu_program& single_channel_texture_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-gpu_program& blur_program()
+gpu_program& distance_field_font_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-gpu_program& fxaa_program()
+gpu_program& blur_program() noexcept
 {
     static gpu_program program;
     return program;
 }
 
-font_ptr& default_font()
+gpu_program& fxaa_program() noexcept
+{
+    static gpu_program program;
+    return program;
+}
+
+font_ptr& default_font() noexcept
 {
     static font_ptr font;
     return font;
