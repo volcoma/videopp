@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <algorithm>
+#include "coz.h"
 
 static std::string display_text =
 R"(2 Choosing the voptimal platform
@@ -58,11 +59,13 @@ int main()
         std::unique_ptr<video_ctrl::renderer> renderer{};
     };
 
+    display_text = "12345678901234";
 	os::init();
     video_ctrl::set_extern_logger([](const std::string& msg)
     {
         std::cout << msg << std::endl;
     });
+
     {
         os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
         video_ctrl::renderer master_rend(master_win, true);
@@ -97,7 +100,7 @@ int main()
 
 
             video_ctrl::text::alignment align{ video_ctrl::text::alignment::top_left};
-            math::transformf transform;
+            math::transformf transform{};
             int num = 100;
 
             bool running = true;
@@ -111,6 +114,7 @@ int main()
             auto c = video_ctrl::color::white();
             while(running)
             {
+                COZ_BEGIN("main_loop")
                 os::event e{};
                 while(os::poll_event(e))
                 {
@@ -153,15 +157,15 @@ int main()
                         }
                         else
                         {
-                            float scale = float(e.wheel.y);// * 0.1f;
-                            int alpha = c.a;
-                            alpha += scale;
-                            if(alpha <= 255 && alpha >= 0)
-                            {
-                                c.a = alpha;
+                            float scale = float(e.wheel.y) * 0.1f;
+//                            int alpha = c.a;
+//                            alpha += scale *5;
+//                            if(alpha <= 255 && alpha >= 0)
+//                            {
+//                                c.a = alpha;
 
-                            }
-                            //target_scale += scale;
+//                            }
+                            target_scale += scale;
                         }
                     }
                     if(e.type == os::events::text_input)
@@ -230,23 +234,23 @@ int main()
                     rend.clear(video_ctrl::color::white());
 
                     auto pos = os::mouse::get_position(win);
-                    transform.set_position(pos.x, pos.y, 0.0f);
+                    transform.set_position(0, 0, 0.0f);
 
                     video_ctrl::draw_list list;
-//                    video_ctrl::text text;
-//                    text.set_font(use_sdf ? font : font_bitmap);
-//                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
-//                    text.set_outline_color(video_ctrl::color::black());
-//                    text.set_utf8_text(display_text);
-//                    text.set_alignment(align);
-//                    text.set_outline_width(outline_width);
-//                    text.set_kerning(use_kerning);
-//                    text.set_leaning(leaning);
-//                    //text.set_advance({-10.5f, 0.0f});
+                    video_ctrl::text text;
+                    text.set_font(use_sdf ? font : font_bitmap);
+                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+                    text.set_outline_color(video_ctrl::color::black());
+                    text.set_utf8_text(display_text);
+                    text.set_alignment(align);
+                    text.set_outline_width(outline_width);
+                    text.set_kerning(use_kerning);
+                    text.set_leaning(leaning);
+                    //text.set_advance({-10.5f, 0.0f});
 
-//                    list.add_text(text, transform);
+                    auto height = text.get_height() * transform.get_scale().y;
 
-                    //list.push_blend(video_ctrl::blending_mode::blend_none);
+                    auto width = text.get_width() * transform.get_scale().x;
                     list.add_image(background, rend.get_rect());
 
                     list.add_image(fig1, {000, 000, 200, 200});
@@ -254,8 +258,23 @@ int main()
                     list.add_image(fig3, {000, 400, 200, 200});
                     list.add_image(foreground, rend.get_rect(), c);
 
-                    //list.pop_blend();
+                    for(int k = 0; k < 20; ++k)
+                    {
 
+                        transform = {};
+                        for(int i = 0; i < 5; ++i)
+                        {
+
+                            for(int j = 0; j < 16; ++j)
+                            {
+                                list.add_text(text, transform);
+                                transform.translate(0.0f, height, 0.0f);
+                            }
+
+                            auto p = transform.get_position();
+                            transform.set_position(p.x + width, 0.0f, 0.0f);
+                        }
+                    }
                     rend.draw_cmd_list(list);
                     rend.present();
                 }
@@ -279,6 +298,8 @@ int main()
                 avg_dur += dur;
                 std::cout << (avg_dur.count() * 1000) / count << std::endl;
 
+
+                COZ_END("main_loop")
             }
         }
     }

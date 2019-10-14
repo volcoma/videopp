@@ -753,7 +753,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         return false;
     }
 
-    log(list.to_string());
+    //log(list.to_string());
     list.validate_stacks();
 
     const auto vtx_stride = sizeof(decltype(list.vertices)::value_type);

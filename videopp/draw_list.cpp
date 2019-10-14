@@ -21,13 +21,14 @@ template<typename T>
 std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transformf& transform) noexcept
 {
     math::vec2 lt = {r.x, r.y};
+    math::vec2 rt = {r.x + r.w, r.y};
     math::vec2 rb = {r.x + r.w, r.y + r.h};
+    math::vec2 lb = {r.x, r.y + r.h};
 
-    math::vec2 p0 = transform.transform_coord(lt);
-    math::vec2 p2 = transform.transform_coord(rb);
-
-    math::vec2 p1 = {p2.x, p0.y};
-    math::vec2 p3 = {p0.x, p2.y};
+    auto p0 = transform.transform_coord(lt);
+    auto p1 = transform.transform_coord(rt);
+    auto p2 = transform.transform_coord(rb);
+    auto p3 = transform.transform_coord(lb);
 
     return {{p0, p1, p2, p3}};
 }
@@ -55,7 +56,7 @@ inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
 
 
 template<typename Setup>
-void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertices_added, uint32_t vertices_before,
+inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertices_added, uint32_t vertices_before,
                       primitive_type type, blending_mode deduced_blend, Setup&& setup)
 {
     const auto indices_before = uint32_t(list.indices.size());
@@ -509,9 +510,6 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
             program_setup program{};
             program.program = multi_channel_texture_program();
 
-            //program.program = multi_channel_dither_texture_program();
-            //blend = blending_mode::blend_none;
-
             uint64_t hash{0};
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
@@ -682,7 +680,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, texture, std::move(program));
     if(cpu_batch)
     {
-        for(size_t i = vtx_offset; i < vertices.size(); ++i)
+        for(size_t i = vtx_offset, sz = vertices.size(); i < sz; ++i)
         {
             auto& v = vertices[i];
             v.pos = transform.transform_coord(v.pos);
