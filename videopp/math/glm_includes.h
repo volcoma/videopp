@@ -6,6 +6,13 @@
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
+#ifndef GLM_FORCE_INTRINSICS
+#define GLM_FORCE_INTRINSICS
+#endif
+#ifndef GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#endif
+
 #include <glm/ext.hpp> // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

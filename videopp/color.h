@@ -13,7 +13,7 @@ namespace video_ctrl
         uint8_t r = 0, g = 0, b = 0, a = 255;
         
         constexpr color() noexcept = default;
-        constexpr color(uint8_t rr, uint8_t gg, uint8_t bb, uint8_t aa = 0xff) noexcept 
+        constexpr color(uint8_t rr, uint8_t gg, uint8_t bb, uint8_t aa = 0xff) noexcept
             : r(rr)
             , g(gg)
             , b(bb)
@@ -28,6 +28,11 @@ namespace video_ctrl
 
         bool operator == (const color &rhs) const noexcept;
         bool operator != (const color &rhs) const noexcept;
+
+        operator uint32_t() const noexcept
+        {
+            return (((uint32_t)(a)<< 24) | ((uint32_t)(b)<<16) | ((uint32_t)(g)<<8) | ((uint32_t)(r)<<0));
+        }
 
         static const color black();
         static const color blue();

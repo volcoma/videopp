@@ -216,7 +216,7 @@ const program_setup& get_simple_setup() noexcept
 
 
 inline uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<math::vec2, 4>& points,
-                            const color& col, const math::vec2& min_uv, const math::vec2& max_uv)
+                            color col, const math::vec2& min_uv, const math::vec2& max_uv)
 {
     vertices.emplace_back(points[0], min_uv, col);
     vertices.emplace_back(points[1], math::vec2{max_uv.x, min_uv.y}, col);

@@ -58,9 +58,9 @@ struct vertex_2d
     vertex_2d(math::vec2 p, math::vec2 tex_coords, color c) noexcept
         : pos(p), uv(tex_coords), col(c)
     {}
-    math::vec2 pos; // 2d position
-    math::vec2 uv;  // 2d texture coordinates
-    color col;      // 32bit RGBA color
+    math::vec2 pos{0, 0}; // 2d position
+    math::vec2 uv{0, 0};  // 2d texture coordinates
+    color col{0, 0, 0, 0};// 32bit RGBA color
 };
 
 /// A vertex buffer object wrapper

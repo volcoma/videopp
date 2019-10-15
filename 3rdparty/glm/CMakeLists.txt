@@ -8,6 +8,7 @@ set(GLM_DISABLE_AUTO_DETECTION OFF CACHE BOOL "Force 'pure' instructions" FORCE)
 set(BUILD_STATIC_LIBS OFF CACHE BOOL "Build static library" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared library" FORCE)
 
-
+add_definitions(-GLM_FORCE_INTRINSICS)
+add_definitions(-GGLM_FORCE_DEFAULT_ALIGNED_GENTYPES)
 add_definitions(-DGLM_FORCE_LEFT_HANDED)
 add_subdirectory( glm )

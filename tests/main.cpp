@@ -79,7 +79,7 @@ int main()
                 auto centerd = os::window::centered;
                 auto flags = os::window::resizable;
                 win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
-                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
+                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, true);
             }
             video_ctrl::glyphs_builder builder;
             builder.add(video_ctrl::get_latin_glyph_range());
@@ -232,7 +232,7 @@ int main()
                     auto& rend = *window.renderer;
                     rend.clear(video_ctrl::color::white());
 
-                    auto pos = os::mouse::get_position(win);
+                    //auto pos = os::mouse::get_position(win);
                     transform.set_position(0, 0, 0.0f);
 
                     list.clear();
