@@ -69,16 +69,23 @@ inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertic
         {
             case primitive_type::triangles:
             {
-                // indices added will be (vertices_added - 2) * 3;
                 const uint32_t rect_vertices = 4;
                 const uint32_t rects = vertices_added / rect_vertices;
+                // indices added will be (rects * (rect_vertices - 2)) * 3;
+                list.indices.resize(indices_before + (rects * (rect_vertices - 2)) * 3);
                 for(uint32_t r = 0; r < rects; ++r)
                 {
                     for(uint32_t i = 2; i < rect_vertices; ++i)
                     {
-                        list.indices.emplace_back(index_offset + 0);
-                        list.indices.emplace_back(index_offset + i - 1);
-                        list.indices.emplace_back(index_offset + i);
+                        draw_list::index_t arr[] = {index_offset, index_offset + i - 1, index_offset + i};
+                        memcpy(list.indices.data() + indices_before + indices_added, arr, sizeof (arr));
+//                        list.indices[indices_before + indices_added ]    = index_offset + 0;
+//                        list.indices[indices_before + indices_added + 1] = index_offset + i - 1;
+//                        list.indices[indices_before + indices_added + 2] = index_offset + i;
+//                        list.indices.emplace_back(index_offset + 0);
+//                        list.indices.emplace_back(index_offset + i - 1);
+//                        list.indices.emplace_back(index_offset + i);
+
                         indices_added += 3;
                     }
                     index_offset += rect_vertices;
@@ -155,7 +162,7 @@ inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertic
 inline void prim_resize(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
     auto& cmd = list.commands.back();
-    cmd.indices_count += idx_count;
+    cmd.indices_count += static_cast<uint32_t>(idx_count);
 
     idx_current_idx = list.indices.size();
     vtx_current_idx = list.vertices.size();
@@ -406,7 +413,7 @@ void draw_list::add_rect(const frect& dst, const math::transformf& transform, co
 void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
-    add_rect(frect(dst.x, dst.y, dst.w, dst.h), transform, col, filled, thickness);
+    add_rect(frect(float(dst.x), float(dst.y), float(dst.w), float(dst.h)), transform, col, filled, thickness);
 }
 
 void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
@@ -563,7 +570,7 @@ void draw_list::add_list(const draw_list& list)
         // offset the indices from the new list with the current
         for(size_t i = idx_offset; i < indices.size(); ++i)
         {
-            indices[i] += vtx_offset;
+            indices[i] += static_cast<index_t>(vtx_offset);
         }
 
     }
@@ -577,7 +584,7 @@ void draw_list::add_list(const draw_list& list)
         // offset the indices from the new list with the current
         for(size_t i = cmd_offset; i < commands.size(); ++i)
         {
-            commands[i].indices_offset += idx_offset;
+            commands[i].indices_offset += static_cast<uint32_t>(idx_offset);
         }
     }
 
@@ -687,7 +694,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 
             if(pixel_snap)
             {
-                v.pos.x = int(v.pos.x);
+                v.pos.x = float(int(v.pos.x));
             }
         }
     }
@@ -714,7 +721,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                         if(pixel_snap)
                         {
                             auto pos = transform.get_position();
-                            transform.set_position(int(pos.x), pos.y, pos.z);
+                            transform.set_position(float(int(pos.x)), pos.y, pos.z);
                         }
 
                         ctx.rend.push_transform(transform);
@@ -737,7 +744,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                         if(pixel_snap)
                         {
                             auto pos = transform.get_position();
-                            transform.set_position(int(pos.x), pos.y, pos.z);
+                            transform.set_position(float(int(pos.x)), pos.y, pos.z);
                         }
                         ctx.rend.push_transform(transform);
                     }
@@ -772,13 +779,18 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float text_width = t.get_width() * scale_x;
     float text_height = t.get_height() * scale_y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
+    auto offsets = text::get_alignment_offsets(align,
+                                               float(dst_rect.x),
+                                               float(dst_rect.y),
+                                               float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
+                                               false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -821,13 +833,18 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
+    auto offsets = text::get_alignment_offsets(align,
+                                               float(dst_rect.x),
+                                               float(dst_rect.y),
+                                               float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
+                                               false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -1050,13 +1067,18 @@ void draw_list::add_text_subscript(const text& whole_text,
     float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
     float text_height = whole_text.get_height() * scale_whole.y;
 
-    auto offsets = text::get_alignment_offsets(align, dst_rect.x, dst_rect.y, dst_rect.x + dst_rect.w, dst_rect.y + dst_rect.h, false);
+    auto offsets = text::get_alignment_offsets(align,
+                                               float(dst_rect.x),
+                                               float(dst_rect.y),
+                                               float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
+                                               false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, dst_rect.w, dst_rect.h, sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -1497,10 +1519,10 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
     if (points_count < 3)
         return;
 
-    float miny = 999999999999999999;
+    float miny = 9999999999999.0f;
     float maxy = -miny;
 
-    float minx = 999999999999999999;
+    float minx = 9999999999999.0f;
     float maxx = -minx;
 
     for (size_t i = 0; i < points_count; i++)

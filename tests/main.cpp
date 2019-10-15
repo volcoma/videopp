@@ -6,7 +6,6 @@
 #include <thread>
 #include <chrono>
 #include <algorithm>
-#include "coz.h"
 
 static std::string display_text =
 R"(2 Choosing the voptimal platform
@@ -110,11 +109,11 @@ int main()
             float target_scale = 1.0f;
             bool use_sdf = true;
             bool debug = false;
-
             auto c = video_ctrl::color::white();
+            video_ctrl::draw_list list;
+            list.reserve_rects(4000);
             while(running)
             {
-                COZ_BEGIN("main_loop")
                 os::event e{};
                 while(os::poll_event(e))
                 {
@@ -236,7 +235,7 @@ int main()
                     auto pos = os::mouse::get_position(win);
                     transform.set_position(0, 0, 0.0f);
 
-                    video_ctrl::draw_list list;
+                    list.clear();
                     video_ctrl::text text;
                     text.set_font(use_sdf ? font : font_bitmap);
                     text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
@@ -297,9 +296,6 @@ int main()
                 count++;
                 avg_dur += dur;
                 std::cout << (avg_dur.count() * 1000) / count << std::endl;
-
-
-                COZ_END("main_loop")
             }
         }
     }

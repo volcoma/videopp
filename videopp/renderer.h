@@ -31,7 +31,7 @@ public:
     renderer(const renderer& rhs) = delete;
     renderer(renderer&& other) = delete;
     renderer& operator=(const renderer& rhs) = delete;
-    renderer& operator=(renderer& rhs) = delete;
+    renderer& operator=(renderer&& rhs) = delete;
 
     ~renderer();
 
