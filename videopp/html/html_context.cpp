@@ -241,12 +241,12 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 		{
             if(face_name == "embedded")
             {
-                font->face = rend.create_font(create_default_font(rasterize_size, sdf_spread));
+                font->face = rend.create_font(create_default_font(float(rasterize_size), sdf_spread));
             }
             else
             {
                 font->face = rend.create_font(
-                    create_font_from_ttf(face_name, builder.get(), rasterize_size, sdf_spread, use_kerning));
+                    create_font_from_ttf(face_name, builder.get(), float(rasterize_size), sdf_spread, use_kerning));
             }
 		}
 		catch(const std::exception& e)

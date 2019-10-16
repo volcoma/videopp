@@ -79,7 +79,7 @@ int main()
                 auto centerd = os::window::centered;
                 auto flags = os::window::resizable;
                 win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
-                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, true);
+                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
             }
             video_ctrl::glyphs_builder builder;
             builder.add(video_ctrl::get_latin_glyph_range());
@@ -257,7 +257,7 @@ int main()
                     list.add_image(fig3, {000, 400, 200, 200});
                     list.add_image(foreground, rend.get_rect(), c);
 
-                    for(int k = 0; k < 20; ++k)
+                    for(int k = 0; k < 500; ++k)
                     {
 
                         transform = {};

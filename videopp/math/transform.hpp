@@ -78,24 +78,16 @@ public:
     int compare(const transform_t& t, T tolerance) const noexcept;
 
     vec2_t transform_coord(const vec2_t& v) const noexcept;
-    vec2_t inverse_transform_coord(const vec2_t& v) const noexcept;
-    vec2_t transform_normal(const vec2_t& v) const noexcept;
-    vec2_t inverse_transform_normal(const vec2_t& v) const noexcept;
-
-    static vec2_t transform_coord(const vec2_t& v, const transform_t& t) noexcept;
-    static vec2_t inverse_transform_coord(const vec2_t& v, const transform_t& t) noexcept;
-    static vec2_t transform_normal(const vec2_t& v, const transform_t& t) noexcept;
-    static vec2_t inverse_transform_normal(const vec2_t& v, const transform_t& t) noexcept;
-
     vec3_t transform_coord(const vec3_t& v) const noexcept;
-    vec3_t inverse_transform_coord(const vec3_t& v) const noexcept;
-    vec3_t transform_normal(const vec3_t& v) const noexcept;
-    vec3_t inverse_transform_normal(const vec3_t& v) const noexcept;
 
-    static vec3_t transform_coord(const vec3_t& v, const transform_t& t) noexcept;
-    static vec3_t inverse_transform_coord(const vec3_t& v, const transform_t& t) noexcept;
-    static vec3_t transform_normal(const vec3_t& v, const transform_t& t) noexcept;
-    static vec3_t inverse_transform_normal(const vec3_t& v, const transform_t& t) noexcept;
+    vec2_t inverse_transform_coord(const vec2_t& v) const noexcept;
+    vec3_t inverse_transform_coord(const vec3_t& v) const noexcept;
+
+    vec2_t transform_normal(const vec2_t& v) const noexcept;
+    vec3_t transform_normal(const vec3_t& v) const noexcept;
+
+    vec2_t inverse_transform_normal(const vec2_t& v) const noexcept;
+    vec3_t inverse_transform_normal(const vec3_t& v) const noexcept;
 
     static const transform_t& identity() noexcept;
     //-------------------------------------------------------------------------
@@ -423,91 +415,48 @@ template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
 transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v) const noexcept
 {
-    return transform_coord(vec3_t(v, 0), *this);
+    const mat4_t& m = get_matrix();
+    vec4_t result = m * vec4_t{v, 0.0f, 1.0f};
+    result /= result.w;
+    return result;
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
 transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v) const noexcept
 {
-    return inverse_transform_coord(vec3_t(v, 0), *this);
+    const mat4_t& m = get_matrix();
+    mat4_t im = glm::inverse(m);
+    vec3_t result = im * vec4_t{v, 0.0f, 1.0f};
+    return result;
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
 transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v) const noexcept
 {
-    return transform_normal(vec3_t(v, 0), *this);
+    const mat4_t& m = get_matrix();
+    vec4_t result = m * vec4_t{v, 0.0f, 0.0f};
+    result /= result.w;
+    return result;
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec2_t
 transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v) const noexcept
 {
-    return inverse_transform_normal(vec3_t(v, 0), *this);
+    const mat4_t& m = get_matrix();
+    mat4_t im = glm::inverse(m);
+    vec3_t result = im * vec4_t{v, 0.0f, 0.0f};
+    return result;
 }
 
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
-{
-    return transform_coord(vec3_t(v, 0), t);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
-{
-    return inverse_transform_coord(vec3_t(v, 0), t);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
-{
-    return transform_normal(vec3_t(v, 0), t);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec2_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& v, const transform_t& t) noexcept
-{
-    return inverse_transform_normal(vec3_t(v, 0), t);
-}
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
 transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v) const noexcept
 {
-    return transform_coord(v, *this);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v) const noexcept
-{
-    return inverse_transform_coord(v, *this);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v) const noexcept
-{
-    return transform_normal(v, *this);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v) const noexcept
-{
-    return inverse_transform_normal(v, *this);
-}
-
-template <typename T, precision Q>
-inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
-{
-    const mat4_t& m = t.get_matrix();
+    const mat4_t& m = get_matrix();
     vec4_t result = m * vec4_t{v, 1.0f};
     result /= result.w;
     return result;
@@ -515,9 +464,9 @@ transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v, const 
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
+transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v) const noexcept
 {
-    const mat4_t& m = t.get_matrix();
+    const mat4_t& m = get_matrix();
     mat4_t im = glm::inverse(m);
     vec3_t result = im * vec4_t{v, 1.0f};
     return result;
@@ -525,19 +474,19 @@ transform_t<T, Q>::inverse_transform_coord(const typename transform_t::vec3_t& v
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
+transform_t<T, Q>::transform_normal(const typename transform_t::vec3_t& v) const noexcept
 {
-    const mat4_t& m = t.get_matrix();
-    vec4_t result = m * vec4_t{v, 0.0f};
+    const mat4_t& m = get_matrix();
+    vec4_t result = m * vec4_t{v, 0.0f, 0.0f};
     result /= result.w;
     return result;
 }
 
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
-transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v, const transform_t& t) noexcept
+transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec3_t& v) const noexcept
 {
-    const mat4_t& m = t.get_matrix();
+    const mat4_t& m = get_matrix();
     mat4_t im = glm::inverse(m);
     vec3_t result = im * vec4_t{v, 0.0f};
     return result;

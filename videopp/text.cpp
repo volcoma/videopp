@@ -148,7 +148,7 @@ std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
 
     if(pixel_snap)
     {
-        return {int(xoffs), yoffs};
+        return {float(int(xoffs)), yoffs};
     }
 
     return {xoffs, yoffs};
@@ -405,12 +405,14 @@ void text::update_lines() const
 
     lines_.clear();
     lines_.resize(1);
-    lines_.back().reserve(unicode_text_.size());
+
+    const auto unicode_text_size = unicode_text_.size();
+    lines_.back().reserve(unicode_text_size);
 
     auto max_width = float(max_width_);
     auto advance_offset_x = get_advance_offset_x();
 
-    for(size_t i = 0; i < unicode_text_.size(); ++i)
+    for(size_t i = 0; i < unicode_text_size; ++i)
     {
         uint32_t c = unicode_text_[i];
 
@@ -430,7 +432,7 @@ void text::update_lines() const
 
             i = last_space;
             lines_.resize(lines_.size() + 1);
-            lines_.back().reserve(unicode_text_.size() - chars_);
+            lines_.back().reserve(unicode_text_size - chars_);
             advance = 0;
             last_space = size_t(-1);
         }
@@ -594,7 +596,7 @@ void text::update_geometry(bool all) const
 
                     if(pixel_snap)
                     {
-                        vv.pos.x = int(vv.pos.x);
+                        vv.pos.x = float(int(vv.pos.x));
                     }
                 }
             }

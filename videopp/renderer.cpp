@@ -17,7 +17,8 @@
 
 namespace video_ctrl
 {
-
+namespace
+{
 inline GLenum to_gl_primitive(primitive_type type)
 {
     switch(type)
@@ -35,6 +36,9 @@ inline GLenum to_gl_primitive(primitive_type type)
     }
 }
 
+static constexpr float FARTHEST_Z = -1.0f;
+
+}
 /// Construct the renderer and initialize default rendering states
 ///	@param win - the window handle
 ///	@param vsync - true to enable vsync
@@ -231,12 +235,12 @@ void renderer::set_model_view(const uint32_t fbo, const rect& rect) const noexce
     if(fbo == 0)
     {
         // If we have 0 it is the back buffer
-        current_ortho_ = math::ortho<float>(0, rect.w, rect.h, 0, 0, FARTHEST_Z);
+        current_ortho_ = math::ortho<float>(0.0f, float(rect.w), float(rect.h), 0.0f, 0.0f, FARTHEST_Z);
     }
     else
     {
         // If we have > 0 the fbo must be flipped
-        current_ortho_ = math::ortho<float>(0, rect.w, 0, rect.h, 0, FARTHEST_Z);
+        current_ortho_ = math::ortho<float>(0.0f, float(rect.w), 0.0f, float(rect.h), 0.0f, FARTHEST_Z);
     }
 
     // Switch to modelview matrix and setup identity
@@ -794,17 +798,13 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         blending_mode last_blend{blending_mode::blend_none};
         set_blending_mode(last_blend);
 
-        shader* last_shader{};
-
         // Draw commands
         for (const auto& cmd : list.commands)
         {
             {
-                if(cmd.setup.program.shader && cmd.setup.program.shader != last_shader)
+                if(cmd.setup.program.shader)
                 {
                     cmd.setup.program.shader->enable();
-
-                    last_shader = cmd.setup.program.shader;
                 }
 
                 if (cmd.clip_rect)
@@ -858,14 +858,14 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
                 {
                     pop_clip();
                 }
+
+                if(cmd.setup.program.shader)
+                {
+                    cmd.setup.program.shader->disable();
+                }
             }
         }
 
-
-        if(last_shader)
-        {
-            last_shader->disable();
-        }
 
         set_blending_mode(blending_mode::blend_none);
     }

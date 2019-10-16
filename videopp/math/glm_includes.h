@@ -12,6 +12,9 @@
 #ifndef GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #endif
+#ifndef GLM_FORCE_SILENT_WARNINGS
+#define GLM_FORCE_SILENT_WARNINGS
+#endif
 
 #include <glm/ext.hpp> // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/glm.hpp>

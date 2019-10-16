@@ -56,8 +56,8 @@ inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
 
 
 template<typename Setup>
-inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertices_added, uint32_t vertices_before,
-                      primitive_type type, blending_mode deduced_blend, Setup&& setup)
+inline draw_cmd& add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertices_added, uint32_t vertices_before,
+                                  primitive_type type, blending_mode deduced_blend, Setup&& setup)
 {
     const auto indices_before = uint32_t(list.indices.size());
     uint32_t indices_added = 0;
@@ -77,15 +77,8 @@ inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertic
                 {
                     for(uint32_t i = 2; i < rect_vertices; ++i)
                     {
-                        draw_list::index_t arr[] = {index_offset, index_offset + i - 1, index_offset + i};
-                        memcpy(list.indices.data() + indices_before + indices_added, arr, sizeof (arr));
-//                        list.indices[indices_before + indices_added ]    = index_offset + 0;
-//                        list.indices[indices_before + indices_added + 1] = index_offset + i - 1;
-//                        list.indices[indices_before + indices_added + 2] = index_offset + i;
-//                        list.indices.emplace_back(index_offset + 0);
-//                        list.indices.emplace_back(index_offset + i - 1);
-//                        list.indices.emplace_back(index_offset + i);
-
+                        draw_list::index_t src_indices[] = {index_offset, index_offset + i - 1, index_offset + i};
+                        std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
                         indices_added += 3;
                     }
                     index_offset += rect_vertices;
@@ -97,10 +90,12 @@ inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertic
             {
                 if(vertices_added >= 2)
                 {
+                    list.indices.resize(indices_before + (vertices_added - 1) * 2);
+
                     for(uint32_t i = 0; i < vertices_added - 1; ++i)
                     {
-                        list.indices.emplace_back(index_offset + i);
-                        list.indices.emplace_back(index_offset + i + 1);
+                        draw_list::index_t src_indices[] = {index_offset + i, index_offset + i + 1};
+                        std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
                         indices_added += 2;
                     }
                 }
@@ -156,7 +151,7 @@ inline void add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertic
     command.indices_count += indices_added;
     command.vertices_offset = std::min(command.vertices_offset, vertices_before);
     command.vertices_count += vertices_added;
-
+    return command;
 }
 
 inline void prim_resize(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
@@ -215,35 +210,20 @@ const program_setup& get_simple_setup() noexcept
 }
 
 
-inline uint32_t add_rect_primitive(std::vector<vertex_2d>& vertices, const std::array<math::vec2, 4>& points,
-                            color col, const math::vec2& min_uv, const math::vec2& max_uv)
-{
-    vertices.emplace_back(points[0], min_uv, col);
-    vertices.emplace_back(points[1], math::vec2{max_uv.x, min_uv.y}, col);
-    vertices.emplace_back(points[2], max_uv, col);
-    vertices.emplace_back(points[3], math::vec2{min_uv.x, max_uv.y}, col);
-
-    return 4;
-}
-
-
 template<typename Setup>
-inline void add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
-                       primitive_type type, texture_view texture, Setup&& setup)
+inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
+                                   primitive_type type, texture_view texture, Setup&& setup)
 {
-    if(count == 0)
-    {
-        return;
-    }
+    assert(verts != nullptr && count > 0 && "invalid input for memcpy");
     const auto vertices_before = uint32_t(list.vertices.size());
     list.vertices.resize(vertices_before + count);
     std::memcpy(list.vertices.data() + vertices_before, verts, sizeof(vertex_2d) * count);
 
-    blending_mode blend = texture.requires_blending ? blending_mode::blend_normal : blending_mode::blend_none;
+    blending_mode blend = texture.blending;
 
     if(setup.program.shader)
     {
-        add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::forward<Setup>(setup));
+        return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::forward<Setup>(setup));
     }
     else
     {
@@ -256,26 +236,21 @@ inline void add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2
             utils::hash(hash, texture);
             program.uniforms_hash = hash;
 
-
-            add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::move(program));
-
+            auto& cmd = add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::move(program));
             // check if a new command was added
-            if(!list.commands.empty())
+            if(!cmd.setup.begin)
             {
-                auto& cmd = list.commands.back();
-                if(!cmd.setup.begin)
+                cmd.setup.begin = [texture](const gpu_context& ctx)
                 {
-                    cmd.setup.begin = [texture](const gpu_context& ctx)
-                    {
-                        ctx.program.shader->set_uniform("uTexture", texture);
-                    };
-                }
+                    ctx.program.shader->set_uniform("uTexture", texture);
+                };
             }
 
+            return cmd;
         }
         else
         {
-            add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, get_simple_setup());
+            return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, get_simple_setup());
         }
     }
 }
@@ -478,8 +453,6 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
                           const color& col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
-    constexpr auto type = primitive_type::triangles;
-    const auto vertices_before = uint32_t(vertices.size());
 
     switch (flip)
     {
@@ -497,54 +470,28 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
         break;
     }
 
-    blending_mode blend = texture.requires_blending ? blending_mode::blend_normal : blending_mode::blend_none;
+    const vertex_2d verts[] =
+    {
+        {points[0], min_uv, col},
+        {points[1], {max_uv.x, min_uv.y}, col},
+        {points[2], max_uv, col},
+        {points[3], {min_uv.x, max_uv.y}, col},
+    };
 
     if(col.a < 255)
     {
-        blend = blending_mode::blend_normal;
+        texture.blending = blending_mode::blend_normal;
     }
 
-    constexpr auto dr_type = draw_type::elements;
-    const auto vertices_added = add_rect_primitive(vertices, points, col, min_uv, max_uv);
-    if(setup.program.shader)
-    {
-        add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, setup);
-    }
-    else
-    {
-        if(texture)
-        {
-            program_setup program{};
-            program.program = multi_channel_texture_program();
-
-            uint64_t hash{0};
-            utils::hash(hash, texture);
-            program.uniforms_hash = hash;
-
-            add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, std::move(program));
-
-            if(!commands.empty())
-            {
-                auto& cmd = commands.back();
-                // if it is a new cmd
-                if(!cmd.setup.begin)
-                {
-                    cmd.setup.begin = [texture](const gpu_context& ctx)
-                    {
-                        ctx.program.shader->set_uniform("uTexture", texture);
-                    };
-                }
-            }
-        }
-        else
-        {
-            add_indices_impl(*this, dr_type, vertices_added, vertices_before, type, blend, get_simple_setup());
-        }
-    }
+    add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, setup);
 }
 
 void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, texture_view texture, const program_setup& setup)
 {
+    if(count == 0)
+    {
+        return;
+    }
     add_vertices_impl(*this, dr_type, vertices, count, type, texture, setup);
 }
 
@@ -568,7 +515,7 @@ void draw_list::add_list(const draw_list& list)
     if(vtx_offset != 0)
     {
         // offset the indices from the new list with the current
-        for(size_t i = idx_offset; i < indices.size(); ++i)
+        for(size_t i = idx_offset, sz = indices.size(); i < sz; ++i)
         {
             indices[i] += static_cast<index_t>(vtx_offset);
         }
@@ -582,7 +529,7 @@ void draw_list::add_list(const draw_list& list)
     if(idx_offset != 0)
     {
         // offset the indices from the new list with the current
-        for(size_t i = cmd_offset; i < commands.size(); ++i)
+        for(size_t i = cmd_offset, sz = commands.size(); i < sz; ++i)
         {
             commands[i].indices_offset += static_cast<uint32_t>(idx_offset);
         }
@@ -594,6 +541,12 @@ void draw_list::add_list(const draw_list& list)
 void draw_list::add_text(const text& t, const math::transformf& transform)
 {
     if(!t.is_valid())
+    {
+        return;
+    }
+
+    const auto& geometry = t.get_geometry();
+    if(geometry.empty())
     {
         return;
     }
@@ -624,18 +577,18 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     // cpu_batching is disabled for text rendering with more than X vertices
     // because there are too many vertices and their matrix multiplication
     // on the cpu dominates the batching benefits.
-    const auto& geometry = t.get_geometry();
-    bool cpu_batch = geometry.size() < (16 * 4);
+    constexpr size_t max_cpu_transformed_glyhps = 24;
+    bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
     bool has_multiplier = false;
 
-    program_setup program;
+    program_setup setup;
     auto texture = font->texture;
 
     if(sdf_spread > 0)
     {
-        program.program = distance_field_font_program();
+        setup.program = distance_field_font_program();
 
-        has_multiplier = program.program.shader->has_uniform("uDFMultiplier");
+        has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
 
         if(cpu_batch)
         {
@@ -656,7 +609,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                 utils::hash(hash, distance_field_multiplier);
             }
 
-            program.uniforms_hash = hash;
+            setup.uniforms_hash = hash;
         }
 
     }
@@ -665,11 +618,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         switch(texture->get_pix_type())
         {
             case pix_type::red:
-                program.program = single_channel_texture_program();
+                setup.program = single_channel_texture_program();
             break;
 
             default:
-                program.program = multi_channel_texture_program();
+                setup.program = multi_channel_texture_program();
             break;
         }
 
@@ -677,14 +630,12 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         {
             uint64_t hash{0};
             utils::hash(hash, texture);
-            program.uniforms_hash = hash;
+            setup.uniforms_hash = hash;
         }
     }
 
-
-
     const auto vtx_offset = uint32_t(vertices.size());
-    add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, texture, std::move(program));
+    auto& cmd = add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, texture, std::move(setup));
     if(cpu_batch)
     {
         for(size_t i = vtx_offset, sz = vertices.size(); i < sz; ++i)
@@ -700,68 +651,63 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
     // check if a new command was added
-    if(!commands.empty())
+    if(!cmd.setup.begin)
     {
-        auto& cmd = commands.back();
-        if(!cmd.setup.begin)
+        if(sdf_spread > 0)
         {
-            if(sdf_spread > 0)
+            cmd.setup.begin = [transform = transform,
+                               distance_field_multiplier,
+                               outline_width,
+                               outline_color,
+                               texture,
+                               cpu_batch,
+                               pixel_snap,
+                               has_multiplier](const gpu_context& ctx) mutable
             {
-                cmd.setup.begin = [transform = transform,
-                                   distance_field_multiplier,
-                                   outline_width,
-                                   outline_color,
-                                   texture,
-                                   cpu_batch,
-                                   pixel_snap,
-                                   has_multiplier](const gpu_context& ctx) mutable
+                if(!cpu_batch)
                 {
-                    if(!cpu_batch)
+                    if(pixel_snap)
                     {
-                        if(pixel_snap)
-                        {
-                            auto pos = transform.get_position();
-                            transform.set_position(float(int(pos.x)), pos.y, pos.z);
-                        }
+                        auto pos = transform.get_position();
+                        transform.set_position(float(int(pos.x)), pos.y, pos.z);
+                    }
 
-                        ctx.rend.push_transform(transform);
-                    }
-                    if(has_multiplier)
-                    {
-                        ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
-                    }
-                    ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
-                    ctx.program.shader->set_uniform("uOutlineColor", outline_color);
-                    ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
-                };
-            }
-            else
-            {
-                cmd.setup.begin = [transform = transform, texture, cpu_batch, pixel_snap](const gpu_context& ctx) mutable
+                    ctx.rend.push_transform(transform);
+                }
+                if(has_multiplier)
                 {
-                    if(!cpu_batch)
-                    {
-                        if(pixel_snap)
-                        {
-                            auto pos = transform.get_position();
-                            transform.set_position(float(int(pos.x)), pos.y, pos.z);
-                        }
-                        ctx.rend.push_transform(transform);
-                    }
-                    ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
-                };
-            }
-
+                    ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
+                }
+                ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
+                ctx.program.shader->set_uniform("uOutlineColor", outline_color);
+                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
+            };
         }
-
-        if(!cmd.setup.end && !cpu_batch)
+        else
         {
-            cmd.setup.end = [](const gpu_context& ctx)
+            cmd.setup.begin = [transform = transform, texture, cpu_batch, pixel_snap](const gpu_context& ctx) mutable
             {
-                ctx.rend.pop_transform();
+                if(!cpu_batch)
+                {
+                    if(pixel_snap)
+                    {
+                        auto pos = transform.get_position();
+                        transform.set_position(float(int(pos.x)), pos.y, pos.z);
+                    }
+                    ctx.rend.push_transform(transform);
+                }
+                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
             };
         }
 
+    }
+
+    if(!cmd.setup.end && !cpu_batch)
+    {
+        cmd.setup.end = [](const gpu_context& ctx)
+        {
+            ctx.rend.pop_transform();
+        };
     }
 
     if(debug_draw)
@@ -790,7 +736,12 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width,
+                                      text_height,
+                                      float(dst_rect.w),
+                                      float(dst_rect.h),
+                                      sz_fit, dim_fit);
+
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -844,7 +795,11 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width,
+                                      text_height,
+                                      float(dst_rect.w),
+                                      float(dst_rect.h),
+                                      sz_fit, dim_fit);
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -1078,7 +1033,12 @@ void draw_list::add_text_subscript(const text& whole_text,
     parent.translate(transform.get_position());
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width, text_height, float(dst_rect.w), float(dst_rect.h), sz_fit, dim_fit);
+    math::transformf local = fit_item(text_width,
+                                      text_height,
+                                      float(dst_rect.w),
+                                      float(dst_rect.h),
+                                      sz_fit, dim_fit);
+
     local.scale(transform.get_scale());
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
@@ -1815,7 +1775,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             v.pos = transform.transform_coord(v.pos);
         }
 
-        for(size_t i = 0; i < geometry.size(); i+=4)
+        for(size_t i = 0, sz = geometry.size(); i < sz; i+=4)
         {
             polyline line;
             color col = geometry[i].col;

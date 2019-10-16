@@ -221,7 +221,7 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 
 	math::transformf transform;
 	transform.set_scale(scale, scale, 1.0f);
-	transform.set_position(pos.x, pos.y, 0.0f);
+	transform.set_position(float(pos.x), float(pos.y), 0.0f);
 
 	list_.push_clip(get_clip());
 	list_.add_text(t, transform);

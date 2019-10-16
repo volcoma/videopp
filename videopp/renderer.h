@@ -90,8 +90,6 @@ private:
     friend class texture;
     friend class shader;
 
-    static constexpr int FARTHEST_Z = -1;
-
     os::window& win_;
     std::unique_ptr<context> context_;
     rect rect_;

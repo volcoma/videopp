@@ -31,6 +31,7 @@ texture_view texture_view::create(const texture_ptr& texture) noexcept
         view.width = std::uint32_t(texture->get_rect().w);
         view.height = std::uint32_t(texture->get_rect().h);
         view.id = texture->get_id();
+        view.blending = texture->get_pix_type() != pix_type::rgb ? blending_mode::blend_normal : blending_mode::blend_none;
     }
 
     return view;

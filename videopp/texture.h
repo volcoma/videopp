@@ -119,7 +119,7 @@ namespace video_ctrl
         std::uint32_t width = 0;    // texture width
         std::uint32_t height = 0;   // texture height
         std::uint32_t id = 0;       // internal VRAM texture id
-        bool requires_blending{true};
+        blending_mode blending{blending_mode::blend_normal};
     };
 }
 

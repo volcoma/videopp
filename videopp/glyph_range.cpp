@@ -64,11 +64,11 @@ const glyphs& get_thai_glyph_range()
     return range;
 }
 
-static void unpack_accumulative_offsets_into_ranges(int base_codepoint, const short* accumulative_offsets, int accumulative_offsets_count, glyph_range* out_ranges)
+static void unpack_accumulative_offsets_into_ranges(int base_codepoint, const short* accumulative_offsets, size_t accumulative_offsets_count, glyph_range* out_ranges)
 {
-    for (int n = 0; n < accumulative_offsets_count; n++, out_ranges++)
+    for (size_t n = 0; n < accumulative_offsets_count; n++, out_ranges++)
     {
-        out_ranges->first = out_ranges->second = (char_t)(base_codepoint + accumulative_offsets[n]);
+        out_ranges->first = out_ranges->second = char_t(base_codepoint + accumulative_offsets[n]);
         base_codepoint += accumulative_offsets[n];
     }
 }
