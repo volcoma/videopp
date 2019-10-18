@@ -171,7 +171,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the outline color of the text.
     //-----------------------------------------------------------------------------
-    const color& get_outline_color() const;
+    color get_outline_color() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the outline width of the text.
@@ -186,8 +186,8 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the shadow color of the text.
     //-----------------------------------------------------------------------------
-    const color& get_shadow_color_top() const;
-    const color& get_shadow_color_bot() const;
+    color get_shadow_color_top() const;
+    color get_shadow_color_bot() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the font of the text.

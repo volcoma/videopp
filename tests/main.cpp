@@ -236,20 +236,7 @@ int main()
                     transform.set_position(0, 0, 0.0f);
 
                     list.clear();
-                    video_ctrl::text text;
-                    text.set_font(use_sdf ? font : font_bitmap);
-                    text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
-                    text.set_outline_color(video_ctrl::color::black());
-                    text.set_utf8_text(display_text);
-                    text.set_alignment(align);
-                    text.set_outline_width(outline_width);
-                    text.set_kerning(use_kerning);
-                    text.set_leaning(leaning);
-                    //text.set_advance({-10.5f, 0.0f});
 
-                    auto height = text.get_height() * transform.get_scale().y;
-
-                    auto width = text.get_width() * transform.get_scale().x;
                     list.add_image(background, rend.get_rect());
 
                     list.add_image(fig1, {000, 000, 200, 200});
@@ -263,9 +250,22 @@ int main()
                         transform = {};
                         for(int i = 0; i < 5; ++i)
                         {
-
+                            float width = 0.0f;
                             for(int j = 0; j < 16; ++j)
                             {
+                                video_ctrl::text text;
+                                text.set_font(use_sdf ? font : font_bitmap);
+                                text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+                                text.set_outline_color(video_ctrl::color::black());
+                                text.set_utf8_text(display_text);
+                                text.set_alignment(align);
+                                text.set_outline_width(outline_width);
+                                text.set_kerning(use_kerning);
+                                text.set_leaning(leaning);
+                                //text.set_advance({-10.5f, 0.0f});
+                                auto height = text.get_height() * transform.get_scale().y;
+                                width = text.get_width() * transform.get_scale().x;
+
                                 list.add_text(text, transform);
                                 transform.translate(0.0f, height, 0.0f);
                             }

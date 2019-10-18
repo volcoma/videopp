@@ -10,7 +10,7 @@ namespace video_ctrl
 namespace
 {
 
-float get_alignment_miny(text::alignment alignment,
+inline float get_alignment_miny(text::alignment alignment,
         float y, float y_baseline)
 {
     switch(alignment)
@@ -24,7 +24,7 @@ float get_alignment_miny(text::alignment alignment,
     }
 }
 
-float get_alignment_maxy(text::alignment alignment,
+inline float get_alignment_maxy(text::alignment alignment,
         float y, float y_baseline)
 {
     switch(alignment)
@@ -39,11 +39,10 @@ float get_alignment_maxy(text::alignment alignment,
 }
 
 
-color get_gradient(const color& ct, const color& cb, float t, float dt)
+inline color get_gradient(color ct, color cb, float t, float dt)
 {
-    t = std::max(t, 0.0f);
-    t = std::min(t, dt);
-    const float fa = t/dt;
+    const float step = std::min(std::max(t, 0.0f), dt);
+    const float fa = step/dt;
     const float fc = (1.f-fa);
     return {
         uint8_t(float(ct.r) * fc + float(cb.r) * fa),
@@ -544,23 +543,23 @@ void text::update_geometry(bool all) const
 
             if(all)
             {
-                auto y0_offs = g.y0 + baseline;
-                auto y0_factor = 1.0f - y0_offs / baseline;
-                auto leaning0 = leaning * y0_factor;
+                const auto y0_offs = g.y0 + baseline;
+                const auto y0_factor = 1.0f - y0_offs / baseline;
+                const auto leaning0 = leaning * y0_factor;
 
-                auto y1_offs = g.y1 + baseline;
-                auto y1_factor = 1.0f - y1_offs / baseline;
-                auto leaning1 = leaning * y1_factor;
+                const auto y1_offs = g.y1 + baseline;
+                const auto y1_factor = 1.0f - y1_offs / baseline;
+                const auto leaning1 = leaning * y1_factor;
 
-                auto x0 = pen_x + g.x0;
-                auto x1 = pen_x + g.x1;
-                auto y0 = pen_y + g.y0;
-                auto y1 = pen_y + g.y1;
+                const auto x0 = pen_x + g.x0;
+                const auto x1 = pen_x + g.x1;
+                const auto y0 = pen_y + g.y0;
+                const auto y1 = pen_y + g.y1;
 
-                auto y0_h = y0 - line_info.ascent;
-                auto y1_h = y1 - line_info.ascent;
-                auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
-                auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
+                const auto y0_h = y0 - line_info.ascent;
+                const auto y1_h = y1 - line_info.ascent;
+                const auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
+                const auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
 
                 *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop};
                 *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop};
@@ -722,15 +721,14 @@ const frect& text::get_frect() const
     return rect_;
 }
 
-const color& text::get_outline_color() const
+color text::get_outline_color() const
 {
     if(outline_width_ > 0.0f)
     {
         return outline_color_;
     }
 
-    static color fallback{0, 0, 0, 0};
-    return fallback;
+    return {0, 0, 0, 0};
 }
 
 float text::get_outline_width() const
@@ -743,12 +741,12 @@ const math::vec2& text::get_shadow_offsets() const
     return shadow_offsets_;
 }
 
-const color& text::get_shadow_color_top() const
+color text::get_shadow_color_top() const
 {
     return shadow_color_top_;
 }
 
-const color& text::get_shadow_color_bot() const
+color text::get_shadow_color_bot() const
 {
     return shadow_color_bot_;
 }
