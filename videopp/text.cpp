@@ -155,24 +155,24 @@ std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
 
 text::text() noexcept
 {
-    recover<text>(geometry_);
-    recover<text>(lines_);
-    recover<text>(lines_metrics_);
-    recover<text>(unicode_text_);
-    recover<text>(utf8_text_);
+    cache<text>::get(geometry_);
+    cache<text>::get(lines_);
+    cache<text>::get(lines_metrics_);
+    cache<text>::get(unicode_text_);
+    cache<text>::get(utf8_text_);
 }
 
 text::~text()
 {
-    recycle<text>(geometry_);
+    cache<text>::add(geometry_);
     for(auto& line : lines_)
     {
-        recycle<text>(line);
+        cache<text>::add(line);
     }
-    recycle<text>(lines_);
-    recycle<text>(lines_metrics_);
-    recycle<text>(unicode_text_);
-    recycle<text>(utf8_text_);
+    cache<text>::add(lines_);
+    cache<text>::add(lines_metrics_);
+    cache<text>::add(unicode_text_);
+    cache<text>::add(utf8_text_);
 }
 
 void text::set_utf8_text(const std::string& t)
@@ -428,7 +428,7 @@ void text::update_lines() const
     lines_.resize(1);
 
     const auto unicode_text_size = unicode_text_.size();
-    recover<text>(lines_.back());
+    cache<text>::get(lines_.back());
     lines_.back().reserve(unicode_text_size);
 
     auto max_width = float(max_width_);
@@ -454,7 +454,7 @@ void text::update_lines() const
 
             i = last_space;
             lines_.resize(lines_.size() + 1);
-            recover<text>(lines_.back());
+            cache<text>::get(lines_.back());
             lines_.back().reserve(unicode_text_size - chars_);
             advance = 0;
             last_space = size_t(-1);
@@ -505,15 +505,17 @@ void text::update_geometry(bool all) const
     {
         return;
     }
+    constexpr static float max_positive = std::numeric_limits<float>::max();
+    constexpr static float min_negative = std::numeric_limits<float>::lowest();
 
     // used for alignment
-    float minx = 100000.0f;
-    float maxx = -100000.0f;
-    float maxy_descent = -100000.0f;
-    float maxy_baseline = -100000.0f;
+    float minx = max_positive;
+    float maxx = min_negative;
+    float maxy_descent = min_negative;
+    float maxy_baseline = min_negative;
 
-    float miny_ascent = 100000.0f;
-    float miny_baseline = 100000.0f;
+    float miny_ascent = max_positive;
+    float miny_baseline = max_positive;
 
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();

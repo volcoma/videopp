@@ -18,6 +18,9 @@ set_target_properties(${target_name} PROPERTIES
 include(target_warning_support)
 set_warning_level(${target_name} ultra)
 
-if(MINGW)
-	set_target_properties(${target_name} PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++ -static")
+if(NOT BUILD_SHARED_LIBS)
+	if(MINGW)
+		set_target_properties(${target_name} PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++ -static")
+	endif()
 endif()
+
