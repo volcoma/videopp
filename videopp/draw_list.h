@@ -34,7 +34,11 @@ math::transformf fit_item(float item_w, float item_h,
 struct draw_list
 {
     draw_list();
-
+    draw_list(const draw_list&) = default;
+    draw_list& operator=(const draw_list&) = default;
+    draw_list(draw_list&&) = default;
+    draw_list& operator=(draw_list&&) = default;
+    ~draw_list();
     //-----------------------------------------------------------------------------
     /// Clears the list.
     //-----------------------------------------------------------------------------

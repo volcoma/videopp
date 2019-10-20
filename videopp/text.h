@@ -58,12 +58,18 @@ public:
 //        center      = 1<<1,
 //        right       = 1<<2,
 //        // Vertical align
-//        top 		= 1<<3,
+//        top 		  = 1<<3,
 //        middle      = 1<<4,
 //        bottom      = 1<<5,
-//        baseline	= 1<<6,
+//        baseline	  = 1<<6,
 //    };
 
+    text() noexcept;
+    text(const text&) = default;
+    text& operator=(const text&) = default;
+    text(text&&) = default;
+    text& operator=(text&&) = default;
+    ~text();
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
     //-----------------------------------------------------------------------------

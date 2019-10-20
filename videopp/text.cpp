@@ -10,6 +10,8 @@ namespace video_ctrl
 namespace
 {
 
+constexpr size_t vertices_per_quad = 4;
+
 inline float get_alignment_miny(text::alignment alignment,
         float y, float y_baseline)
 {
@@ -38,20 +40,18 @@ inline float get_alignment_maxy(text::alignment alignment,
     }
 }
 
-
-inline color get_gradient(color ct, color cb, float t, float dt)
+inline color get_gradient(const math::vec4& ct, const math::vec4& cb, float t, float dt)
 {
     const float step = std::min(std::max(t, 0.0f), dt);
     const float fa = step/dt;
-    const float fc = (1.f-fa);
+    const auto c = math::lerp(ct, cb, fa);
     return {
-        uint8_t(float(ct.r) * fc + float(cb.r) * fa),
-        uint8_t(float(ct.g) * fc + float(cb.g) * fa),
-        uint8_t(float(ct.b) * fc + float(cb.b) * fa),
-        uint8_t(float(ct.a) * fc + float(cb.a) * fa)
+        uint8_t(c.r),
+        uint8_t(c.g),
+        uint8_t(c.b),
+        uint8_t(c.a)
     };
 }
-
 }
 
 std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
@@ -151,6 +151,28 @@ std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
     }
 
     return {xoffs, yoffs};
+}
+
+text::text() noexcept
+{
+    recover<text>(geometry_);
+    recover<text>(lines_);
+    recover<text>(lines_metrics_);
+    recover<text>(unicode_text_);
+    recover<text>(utf8_text_);
+}
+
+text::~text()
+{
+    recycle<text>(geometry_);
+    for(auto& line : lines_)
+    {
+        recycle<text>(line);
+    }
+    recycle<text>(lines_);
+    recycle<text>(lines_metrics_);
+    recycle<text>(unicode_text_);
+    recycle<text>(utf8_text_);
 }
 
 void text::set_utf8_text(const std::string& t)
@@ -406,6 +428,7 @@ void text::update_lines() const
     lines_.resize(1);
 
     const auto unicode_text_size = unicode_text_.size();
+    recover<text>(lines_.back());
     lines_.back().reserve(unicode_text_size);
 
     auto max_width = float(max_width_);
@@ -431,6 +454,7 @@ void text::update_lines() const
 
             i = last_space;
             lines_.resize(lines_.size() + 1);
+            recover<text>(lines_.back());
             lines_.back().reserve(unicode_text_size - chars_);
             advance = 0;
             last_space = size_t(-1);
@@ -491,29 +515,37 @@ void text::update_geometry(bool all) const
     float miny_ascent = 100000.0f;
     float miny_baseline = 100000.0f;
 
-    constexpr size_t vertices_per_quad = 4;
-
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();
     const auto& lines = get_lines();
+
+    float leaning = 0.0f;
+    bool has_leaning = false;
+    const auto pixel_snap = font_->pixel_snap;
+    const auto line_height = font_->line_height + advance_offset_y;
+    const auto ascent = font_->ascent;
+    const auto descent = font_->descent;
+    const auto height = ascent - descent;
+    const auto baseline = ascent;
 
     if(all)
     {
         lines_metrics_.reserve(lines.size());
         geometry_.resize(chars_ * vertices_per_quad);
+
+        has_leaning = math::epsilonNotEqual(leaning_, 0.0f, math::epsilon<float>());
+        if(has_leaning)
+        {
+            leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
+        }
     }
     size_t offset = 0;
     auto vptr = geometry_.data();
 
-    auto pixel_snap = font_->pixel_snap;
-    auto line_height = font_->line_height + advance_offset_y;
-    auto ascent = font_->ascent;
-    auto descent = font_->descent;
-    auto height = ascent - descent;
-    auto baseline = ascent;
+    const math::vec4 vcolor_top = color_top_;
+    const math::vec4 vcolor_bot = color_bot_;
+    const bool has_gradient = color_top_ != color_bot_;
 
-
-    auto leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
     // Set glyph positions on a (0,0) baseline.
     // (x0,y0) for a glyph is the bottom-lefts
     auto pen_x = 0.0f;
@@ -526,7 +558,6 @@ void text::update_geometry(bool all) const
         line_info.ascent = pen_y - ascent;
         line_info.baseline = pen_y;
         line_info.descent = line_info.ascent + height;
-        auto height = line_info.descent - line_info.ascent;
 
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
@@ -543,29 +574,38 @@ void text::update_geometry(bool all) const
 
             if(all)
             {
-                const auto y0_offs = g.y0 + baseline;
-                const auto y0_factor = 1.0f - y0_offs / baseline;
-                const auto leaning0 = leaning * y0_factor;
+                float leaning0 = 0.0f;
+                float leaning1 = 0.0f;
 
-                const auto y1_offs = g.y1 + baseline;
-                const auto y1_factor = 1.0f - y1_offs / baseline;
-                const auto leaning1 = leaning * y1_factor;
+                if(has_leaning)
+                {
+                    const auto y0_offs = g.y0 + baseline;
+                    const auto y0_factor = 1.0f - y0_offs / baseline;
+                    leaning0 = leaning * y0_factor;
+
+                    const auto y1_offs = g.y1 + baseline;
+                    const auto y1_factor = 1.0f - y1_offs / baseline;
+                    leaning1 = leaning * y1_factor;
+                }
 
                 const auto x0 = pen_x + g.x0;
                 const auto x1 = pen_x + g.x1;
                 const auto y0 = pen_y + g.y0;
                 const auto y1 = pen_y + g.y1;
 
-                const auto y0_h = y0 - line_info.ascent;
-                const auto y1_h = y1 - line_info.ascent;
-                const auto coltop = get_gradient(color_top_, color_bot_, y0_h, height);
-                const auto colbot = get_gradient(color_top_, color_bot_, y1_h, height);
+                const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - line_info.ascent, height) : color_top_;
+                const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - line_info.ascent, height) : color_bot_;
 
-                *vptr++ = {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop};
-                *vptr++ = {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop};
-                *vptr++ = {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot};
-                *vptr++ = {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot};
+                vertex_2d quad[vertices_per_quad] =
+                {
+                    {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop},
+                    {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop},
+                    {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot},
+                    {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot}
+                };
 
+                std::memcpy(vptr, quad, sizeof(quad));
+                vptr += vertices_per_quad;
                 vtx_count += vertices_per_quad;
             }
 

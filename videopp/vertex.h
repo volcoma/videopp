@@ -54,10 +54,6 @@ void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const s
 /// A common vertex definition
 struct vertex_2d
 {
-    vertex_2d() = default;
-    vertex_2d(math::vec2 p, math::vec2 tex_coords, color c) noexcept
-        : pos(p), uv(tex_coords), col(c)
-    {}
     math::vec2 pos{0, 0}; // 2d position
     math::vec2 uv{0, 0};  // 2d texture coordinates
     color col{0, 0, 0, 0};// 32bit RGBA color

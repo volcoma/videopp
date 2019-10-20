@@ -110,8 +110,7 @@ int main()
             bool use_sdf = true;
             bool debug = false;
             auto c = video_ctrl::color::white();
-            video_ctrl::draw_list list;
-            list.reserve_rects(4000);
+
             while(running)
             {
                 os::event e{};
@@ -228,14 +227,15 @@ int main()
 
                 for(const auto& window : windows)
                 {
-                    const auto& win = *window.window;
+                    //const auto& win = *window.window;
                     auto& rend = *window.renderer;
                     rend.clear(video_ctrl::color::white());
 
                     //auto pos = os::mouse::get_position(win);
                     transform.set_position(0, 0, 0.0f);
 
-                    list.clear();
+                    video_ctrl::draw_list list;
+                    //list.reserve_rects(4000);
 
                     list.add_image(background, rend.get_rect());
 
@@ -255,7 +255,7 @@ int main()
                             {
                                 video_ctrl::text text;
                                 text.set_font(use_sdf ? font : font_bitmap);
-                                text.set_vgradient_colors(video_ctrl::color::yellow(), video_ctrl::color::red());
+                                text.set_color(video_ctrl::color::red());
                                 text.set_outline_color(video_ctrl::color::black());
                                 text.set_utf8_text(display_text);
                                 text.set_alignment(align);
@@ -263,10 +263,11 @@ int main()
                                 text.set_kerning(use_kerning);
                                 text.set_leaning(leaning);
                                 //text.set_advance({-10.5f, 0.0f});
-                                auto height = text.get_height() * transform.get_scale().y;
-                                width = text.get_width() * transform.get_scale().x;
 
                                 list.add_text(text, transform);
+
+                                auto height = text.get_height() * transform.get_scale().y;
+                                width = text.get_width() * transform.get_scale().x;
                                 transform.translate(0.0f, height, 0.0f);
                             }
 
@@ -288,7 +289,7 @@ int main()
                 static decltype(dur) avg_dur{};
                 static int count = 0;
 
-                if(count > 100)
+                if(count > 50)
                 {
                     count = 0;
                     avg_dur = {};

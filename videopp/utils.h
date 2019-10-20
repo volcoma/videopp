@@ -1,7 +1,7 @@
 #pragma once
 #include <functional>
 #include <stdexcept>
-
+#include <vector>
 
 namespace utils
 {
@@ -26,6 +26,33 @@ inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args) noexc
 namespace video_ctrl
 {
 
+template<typename Domain, typename T>
+inline std::vector<T>& recycle_bin()
+{
+    static std::vector<T> bin;
+    return bin;
+}
+
+template<typename Domain, typename T>
+inline bool recover(T& val)
+{
+    auto& bin = recycle_bin<Domain, std::decay_t<T>>();
+    if(!bin.empty())
+    {
+        val = std::move(bin.back());
+        bin.pop_back();
+        return true;
+    }
+    return false;
+}
+
+template<typename Domain, typename T>
+inline void recycle(T& val)
+{
+    val.clear();
+    auto& bin = recycle_bin<Domain, std::decay_t<T>>();
+    bin.emplace_back(std::move(val));
+}
 
 struct exception : public std::runtime_error
 {

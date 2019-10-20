@@ -84,6 +84,7 @@ gpu_program& distance_field_font_program() noexcept;
 gpu_program& blur_program() noexcept;
 gpu_program& fxaa_program() noexcept;
 font_ptr& default_font() noexcept;
+
 }
 
 
