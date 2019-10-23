@@ -345,18 +345,14 @@ draw_list::draw_list()
 {
     constexpr size_t vertices_reserved = 128;
     constexpr size_t indices_reserved = (vertices_reserved - 2) * 3;
+    constexpr size_t commands_reserved = 64;
 
-    if(!cache<draw_list>::get(vertices))
-    {
-        vertices.reserve(vertices_reserved);
-    }
-    if(!cache<draw_list>::get(indices))
-    {
-        indices.reserve(indices_reserved);
-    }
-    cache<draw_list>::get(commands);
-    cache<draw_list>::get(clip_rects);
-    cache<draw_list>::get(blend_modes);
+    cache<draw_list>::get(vertices, vertices_reserved);
+    vertices.reserve(vertices_reserved);
+    cache<draw_list>::get(indices, indices_reserved);
+    indices.reserve(indices_reserved);
+    cache<draw_list>::get(commands, commands_reserved);
+    commands.reserve(commands_reserved);
 }
 
 draw_list::~draw_list()
@@ -364,8 +360,6 @@ draw_list::~draw_list()
     cache<draw_list>::add(vertices);
     cache<draw_list>::add(indices);
     cache<draw_list>::add(commands);
-    cache<draw_list>::add(clip_rects);
-    cache<draw_list>::add(blend_modes);
 }
 
 void draw_list::clear() noexcept

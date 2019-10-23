@@ -111,6 +111,8 @@ int main()
             bool debug = false;
             auto c = video_ctrl::color::white();
 
+            video_ctrl::draw_list list;
+            list.reserve_rects(4000);
             while(running)
             {
                 os::event e{};
@@ -233,9 +235,7 @@ int main()
 
                     //auto pos = os::mouse::get_position(win);
                     transform.set_position(0, 0, 0.0f);
-
-                    video_ctrl::draw_list list;
-                    //list.reserve_rects(4000);
+                    list.clear();
 
                     list.add_image(background, rend.get_rect());
 

@@ -25,36 +25,51 @@ inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args) noexc
 namespace video_ctrl
 {
 
+template<typename T>
+struct sparse_list
+{
+    size_t free_idx{0};
+    std::array<T, 16> block;
+};
+
 template<typename Domain>
 struct cache
 {
 template<typename T>
-inline static std::vector<T>& recycle_bin() noexcept
+inline static auto& free_list() noexcept
 {
-    static std::vector<T> bin;
-    return bin;
+    static sparse_list<T> list;
+    return list;
 }
 
 template<typename T>
-inline static bool get(T& val) noexcept
+inline static bool get(T& val, size_t capacity) noexcept
 {
-    auto& bin = recycle_bin<std::decay_t<T>>();
-    if(bin.empty())
+    auto& list = free_list<T>();
+    for(size_t i = 0, sz = list.block.size(); i < sz; ++i)
     {
-        return false;
-    }
+        auto& el = list.block[i];
 
-    val = std::move(bin.back());
-    bin.pop_back();
-    return true;
+        if(el.capacity() >= capacity)
+        {
+            val = std::move(el);
+            list.free_idx = i;
+            return true;
+        }
+    }
+    return false;
 }
+
 
 template<typename T>
 inline static void add(T& val)
 {
-    val.clear();
-    auto& bin = recycle_bin<std::decay_t<T>>();
-    bin.emplace_back(std::move(val));
+    auto& list = free_list<T>();
+    if(list.free_idx < list.block.size())
+    {
+        val.clear();
+        list.block[list.free_idx++] = std::move(val);
+    }
 }
 };
 

@@ -155,11 +155,11 @@ std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
 
 text::text() noexcept
 {
-    cache<text>::get(geometry_);
-    cache<text>::get(lines_);
-    cache<text>::get(lines_metrics_);
-    cache<text>::get(unicode_text_);
-    cache<text>::get(utf8_text_);
+//    cache<text>::get(geometry_);
+//    cache<text>::get(lines_);
+//    cache<text>::get(lines_metrics_);
+//    cache<text>::get(unicode_text_);
+//    cache<text>::get(utf8_text_);
 }
 
 text::~text()
@@ -425,10 +425,11 @@ void text::update_lines() const
     auto last_space = size_t(-1);
 
     lines_.clear();
+    cache<text>::get(lines_, 1);
     lines_.resize(1);
 
     const auto unicode_text_size = unicode_text_.size();
-    cache<text>::get(lines_.back());
+    cache<text>::get(lines_.back(), unicode_text_size);
     lines_.back().reserve(unicode_text_size);
 
     auto max_width = float(max_width_);
@@ -454,7 +455,7 @@ void text::update_lines() const
 
             i = last_space;
             lines_.resize(lines_.size() + 1);
-            cache<text>::get(lines_.back());
+            cache<text>::get(lines_.back(), unicode_text_size - chars_);
             lines_.back().reserve(unicode_text_size - chars_);
             advance = 0;
             last_space = size_t(-1);
@@ -472,6 +473,7 @@ void text::update_lines() const
 void text::regen_unicode_text()
 {
     unicode_text_.clear();
+    cache<text>::get(unicode_text_, utf8_text_.size() * 2);
     unicode_text_.reserve(utf8_text_.size() * 2); // enough for most scripts
 
     const char* beg = utf8_text_.c_str();
@@ -532,7 +534,9 @@ void text::update_geometry(bool all) const
 
     if(all)
     {
+        cache<text>::get(lines_metrics_, lines.size());
         lines_metrics_.reserve(lines.size());
+        cache<text>::get(geometry_, chars_ * vertices_per_quad);
         geometry_.resize(chars_ * vertices_per_quad);
 
         has_leaning = math::epsilonNotEqual(leaning_, 0.0f, math::epsilon<float>());
