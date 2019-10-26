@@ -9,7 +9,7 @@
 #include <string>
 #include <chrono>
 
-namespace video_ctrl
+namespace gfx
 {
     /// Predefinitions                                  
     class renderer;
@@ -126,9 +126,9 @@ namespace video_ctrl
 
 namespace std
 {
-    template<> struct hash<video_ctrl::texture_view>
+    template<> struct hash<gfx::texture_view>
     {
-        using argument_type = video_ctrl::texture_view;
+        using argument_type = gfx::texture_view;
         using result_type = std::size_t;
         result_type operator()(argument_type const& s) const noexcept
         {

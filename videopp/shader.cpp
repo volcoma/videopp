@@ -2,7 +2,7 @@
 #include "renderer.h"
 #include "detail/utils.h"
 
-namespace video_ctrl
+namespace gfx
 {
     namespace
     {

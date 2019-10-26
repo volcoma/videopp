@@ -1,6 +1,6 @@
 #include "color.h"
 
-namespace video_ctrl
+namespace gfx
 {
     const color color::black() { return {0, 0, 0, 255}; }
     const color color::blue() { return {0, 0, 255}; }

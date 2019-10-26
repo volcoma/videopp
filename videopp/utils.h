@@ -22,7 +22,7 @@ inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args) noexc
 
 }
 
-namespace video_ctrl
+namespace gfx
 {
 
 template<typename T>

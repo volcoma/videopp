@@ -4,7 +4,7 @@
 #include "text.h"
 #include "polyline.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 enum class size_fit

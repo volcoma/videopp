@@ -6,7 +6,7 @@
 #include "../logger.h"
 #include <sstream>
 
-namespace video_ctrl
+namespace gfx
 {
 #ifndef NDEBUG
 inline void gl_clear_error()

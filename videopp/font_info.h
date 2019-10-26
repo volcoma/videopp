@@ -10,7 +10,7 @@
 #include <locale>
 #include <codecvt>
 
-namespace video_ctrl
+namespace gfx
 {
 
 using char_t = fnt::font_wchar;
@@ -44,21 +44,6 @@ struct font_info
     /// name of font
     std::string face_name;
 
-    /// (point) size based on which the glyphs will be rasterized onto the texture
-    float size = 0;
-
-    /// spread of signed distance field (0 if no distance field is applied)
-    int sdf_spread = 0;
-
-    /// height of a single line
-    float line_height = 0;
-    /// ascent of letters
-    float ascent = 0;
-    /// descent of letters
-    float descent = 0;
-    /// height of x glyph.
-    float x_height = 0;
-
     /// all loaded glyphs
     std::vector<glyph> glyphs;
 
@@ -73,6 +58,20 @@ struct font_info
 
     /// rasterized font goes here
     surface_ptr surface;
+
+    /// (point) size based on which the glyphs will be rasterized onto the texture
+    /// Do not use this for line calculations - use line_height
+    float size = 0;
+    /// height of a single line
+    float line_height = 0;
+    /// ascent of letters
+    float ascent = 0;
+    /// descent of letters
+    float descent = 0;
+    /// height of x glyph.
+    float x_height = 0;
+    /// spread of signed distance field (0 if no distance field is applied)
+    uint32_t sdf_spread = 0;
 
     bool pixel_snap{};
 };

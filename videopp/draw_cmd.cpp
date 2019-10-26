@@ -1,6 +1,6 @@
 #include "draw_cmd.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 

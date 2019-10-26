@@ -1,7 +1,7 @@
 #pragma once
 #include "math/transform.hpp"
 
-namespace video_ctrl
+namespace gfx
 {
     template<typename T>
     struct point_t

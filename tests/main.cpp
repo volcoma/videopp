@@ -55,19 +55,19 @@ int main()
     struct video_window
     {
         std::unique_ptr<os::window> window{};
-        std::unique_ptr<video_ctrl::renderer> renderer{};
+        std::unique_ptr<gfx::renderer> renderer{};
     };
 
     display_text = "12345678901234";
 	os::init();
-    video_ctrl::set_extern_logger([](const std::string& msg)
+    gfx::set_extern_logger([](const std::string& msg)
     {
         std::cout << msg << std::endl;
     });
 
     {
         os::window master_win("master", os::window::centered, os::window::centered, 128, 128, os::window::hidden);
-        video_ctrl::renderer master_rend(master_win, true);
+        gfx::renderer master_rend(master_win, true);
         {
             std::vector<video_window> windows{};
 
@@ -79,16 +79,15 @@ int main()
                 auto centerd = os::window::centered;
                 auto flags = os::window::resizable;
                 win.window = std::make_unique<os::window>("win" + std::to_string(i), centerd, centerd, 1366, 768, flags);
-                win.renderer = std::make_unique<video_ctrl::renderer>(*win.window, false);
+                win.renderer = std::make_unique<gfx::renderer>(*win.window, false);
             }
-            video_ctrl::glyphs_builder builder;
-            builder.add(video_ctrl::get_latin_glyph_range());
-            builder.add(video_ctrl::get_cyrillic_glyph_range());
+            gfx::glyphs_builder builder;
+            builder.add(gfx::get_latin_glyph_range());
+            builder.add(gfx::get_cyrillic_glyph_range());
 
-            auto font_path = DATA"fonts/wds052801.ttf";
-            auto font = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
-            auto font_bitmap = master_rend.create_font(video_ctrl::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
-
+            auto font_path = "C:/WINDOWS/Fonts/PALA.TTF";//DATA"fonts/Angeline Vintage_Demo.ttf";
+            auto font = master_rend.create_font(gfx::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
+            auto font_bitmap = master_rend.create_font(gfx::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
             auto foreground = master_rend.create_texture(DATA"Background.png");
 
@@ -98,7 +97,9 @@ int main()
             auto fig3 = master_rend.create_texture(DATA"BoarDark2.png");
 
 
-            video_ctrl::text::alignment align{ video_ctrl::text::alignment::top_left};
+            gfx::align valign = gfx::align::top;
+            gfx::align halign = gfx::align::left;
+
             math::transformf transform{};
             int num = 100;
 
@@ -109,9 +110,9 @@ int main()
             float target_scale = 1.0f;
             bool use_sdf = true;
             bool debug = false;
-            auto c = video_ctrl::color::white();
+            auto c = gfx::color::white();
 
-            video_ctrl::draw_list list;
+            gfx::draw_list list;
             list.reserve_rects(4000);
             while(running)
             {
@@ -207,17 +208,43 @@ int main()
                             }
                             else if(e.key.alt)
                             {
-                                //use_sdf = !use_sdf;
-                                use_kerning = !use_kerning;
+                                use_sdf = !use_sdf;
+                                //use_kerning = !use_kerning;
                             }
                             else
                             {
-                                auto i = uint32_t(align);
-                                auto cnt = uint32_t(video_ctrl::text::alignment::count);
-                                ++i;
-                                i %= cnt;
-                                align = video_ctrl::text::alignment(i);
+                                gfx::draw_list::toggle_debug_draw();
                             }
+                        }
+
+                        if(e.key.code == os::key::f1)
+                        {
+
+                            uint32_t i = halign;
+                            i *= 2;
+                            if(i > gfx::align::right)
+                            {
+                                if((i %= gfx::align::right) == 0)
+                                {
+                                    i += gfx::align::left;
+                                }
+                            }
+                            halign = gfx::align(i);
+
+                        }
+                        if(e.key.code == os::key::f2)
+                        {
+                            uint32_t i = valign;
+                            i *= 2;
+                            if(i > gfx::align::baseline_bottom)
+                            {
+                                if((i %= gfx::align::baseline_bottom) == 0)
+                                {
+                                    i += gfx::align::top;
+                                }
+                            }
+
+                            valign = gfx::align(i);
                         }
                     }
 
@@ -229,52 +256,55 @@ int main()
 
                 for(const auto& window : windows)
                 {
-                    //const auto& win = *window.window;
+                    const auto& win = *window.window;
                     auto& rend = *window.renderer;
-                    rend.clear(video_ctrl::color::white());
-
-                    //auto pos = os::mouse::get_position(win);
+                    rend.clear(gfx::color::white());
                     transform.set_position(0, 0, 0.0f);
+
+                    auto pos = os::mouse::get_position(win);
+                    transform.set_position(pos.x, pos.y, 0.0f);
                     list.clear();
 
-                    list.add_image(background, rend.get_rect());
+//                    list.add_image(background, rend.get_rect());
 
-                    list.add_image(fig1, {000, 000, 200, 200});
-                    list.add_image(fig2, {000, 200, 200, 200});
-                    list.add_image(fig3, {000, 400, 200, 200});
-                    list.add_image(foreground, rend.get_rect(), c);
+//                    list.add_image(fig1, {000, 000, 200, 200});
+//                    list.add_image(fig2, {000, 200, 200, 200});
+//                    list.add_image(fig3, {000, 400, 200, 200});
+//                    list.add_image(foreground, rend.get_rect(), c);
 
-                    for(int k = 0; k < 500; ++k)
-                    {
+//                    for(int k = 0; k < 500; ++k)
+//                    {
 
-                        transform = {};
-                        for(int i = 0; i < 5; ++i)
-                        {
-                            float width = 0.0f;
-                            for(int j = 0; j < 16; ++j)
-                            {
-                                video_ctrl::text text;
+//                        transform = {};
+//                        for(int i = 0; i < 5; ++i)
+//                        {
+//                            float width = 0.0f;
+//                            for(int j = 0; j < 16; ++j)
+//                            {
+                                gfx::text text;
                                 text.set_font(use_sdf ? font : font_bitmap);
-                                text.set_color(video_ctrl::color::red());
-                                text.set_outline_color(video_ctrl::color::black());
+                                //text.set_color(gfx::color::red());
+                                text.set_vgradient_colors(gfx::color::yellow(), gfx::color::red());
+                                text.set_outline_color(gfx::color::black());
                                 text.set_utf8_text(display_text);
-                                text.set_alignment(align);
+                                text.set_alignment(halign | valign);
                                 text.set_outline_width(outline_width);
                                 text.set_kerning(use_kerning);
                                 text.set_leaning(leaning);
+                                text.set_shadow_offsets({4.0f, -4.0f});
                                 //text.set_advance({-10.5f, 0.0f});
 
-                                list.add_text(text, transform);
+                                list.add_text_superscript(text, text, transform);
 
-                                auto height = text.get_height() * transform.get_scale().y;
-                                width = text.get_width() * transform.get_scale().x;
-                                transform.translate(0.0f, height, 0.0f);
-                            }
+//                                auto height = text.get_height() * transform.get_scale().y;
+//                                width = text.get_width() * transform.get_scale().x;
+//                                transform.translate(0.0f, height, 0.0f);
+//                            }
 
-                            auto p = transform.get_position();
-                            transform.set_position(p.x + width, 0.0f, 0.0f);
-                        }
-                    }
+//                            auto p = transform.get_position();
+//                            transform.set_position(p.x + width, 0.0f, 0.0f);
+//                        }
+//                    }
                     rend.draw_cmd_list(list);
                     rend.present();
                 }

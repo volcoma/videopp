@@ -2,7 +2,7 @@
 
 #include "html_container.h"
 #include "uri/uri.h"
-namespace video_ctrl
+namespace gfx
 {
 
 litehtml::tstring urljoin(const litehtml::tstring& base_url, const litehtml::tstring& relative)
@@ -162,7 +162,7 @@ int html_container::text_width(const litehtml::tchar_t* text, litehtml::uint_ptr
 	auto boldness = font_data->boldness;
 	auto leaning = font_data->leaning;
 
-	video_ctrl::text t;
+	gfx::text t;
 	t.set_font(font);
 	t.set_utf8_text(text);
     t.set_kerning(true);
@@ -197,11 +197,11 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
 	auto overline = font_data->overline;
 	auto linethrough = font_data->linethrough;
 
-	video_ctrl::color col = {color.red, color.green, color.blue, color.alpha};
-	video_ctrl::text t;
+	gfx::color col = {color.red, color.green, color.blue, color.alpha};
+	gfx::text t;
 	t.set_font(font);
 	t.set_utf8_text(text);
-	t.set_alignment(text::alignment::top_left);
+	t.set_alignment(gfx::align::left | gfx::align::top);
 	t.set_color(col);
     t.set_kerning(true);
 
@@ -215,7 +215,7 @@ void html_container::draw_text(litehtml::uint_ptr, const litehtml::tchar_t* text
         t.set_leaning(leaning);
 	}
 
-	video_ctrl::color shadow_col = {shadow.color.red, shadow.color.green, shadow.color.blue, shadow.color.alpha};
+	gfx::color shadow_col = {shadow.color.red, shadow.color.green, shadow.color.blue, shadow.color.alpha};
 	t.set_shadow_offsets({shadow.h_shadow, shadow.v_shadow});
 	t.set_shadow_color(shadow_col);
 

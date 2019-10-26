@@ -5,7 +5,7 @@
 #include "math/transform.hpp"
 
 
-namespace video_ctrl
+namespace gfx
 {
 
     /// Common 32bit RGBA color structure                                               
@@ -84,9 +84,9 @@ namespace video_ctrl
 
 namespace std
 {
-    template<> struct hash<video_ctrl::color>
+    template<> struct hash<gfx::color>
     {
-        using argument_type = video_ctrl::color;
+        using argument_type = gfx::color;
         using result_type = std::size_t;
         result_type operator()(argument_type const& s) const noexcept
         {

@@ -13,7 +13,7 @@
 #include "font_ptr.h"
 #include <ospp/window.h>
 
-namespace video_ctrl
+namespace gfx
 {
 
 struct context

@@ -15,7 +15,7 @@
 
 #endif
 
-namespace video_ctrl
+namespace gfx
 {
 namespace
 {
@@ -56,7 +56,7 @@ renderer::renderer(os::window& win, bool vsync)
 
     if(!gladLoadGL())
     {
-        throw video_ctrl::exception("Cannot load glad.");
+        throw gfx::exception("Cannot load glad.");
     }
 
     //rect_.x = win_.get_position().x;
@@ -550,9 +550,9 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
 
         draw_list list;
 
-        video_ctrl::program_setup setup;
+        gfx::program_setup setup;
         setup.program = blur_program();
-        setup.begin = [=](const video_ctrl::gpu_context& ctx)
+        setup.begin = [=](const gfx::gpu_context& ctx)
         {
             ctx.program.shader->set_uniform("uTexture", input);
             ctx.program.shader->set_uniform("uTextureSize", input_size);

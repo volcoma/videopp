@@ -3,7 +3,7 @@
 #include "point.h"
 #include "utils.h"
 
-namespace video_ctrl
+namespace gfx
 {
     template<typename T>
     struct rect_t
@@ -162,9 +162,9 @@ namespace video_ctrl
 namespace std
 {
     template<typename T>
-    struct hash<video_ctrl::rect_t<T>>
+    struct hash<gfx::rect_t<T>>
     {
-        std::size_t operator()(video_ctrl::rect_t<T> const& s) const noexcept
+        std::size_t operator()(gfx::rect_t<T> const& s) const noexcept
         {
             uint64_t seed{0};
             utils::hash(seed, s.x, s.y, s.w, s.h);

@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace video_ctrl
+namespace gfx
 {
 
 namespace
@@ -69,7 +69,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
     auto sample = s->get_pixel(start_point);
     if (!is_cyan(sample))
     {
-        throw video_ctrl::exception("PNG File is not font. Cannot find start cyan pixel.");
+        throw gfx::exception("PNG File is not font. Cannot find start cyan pixel.");
     }
     s->set_pixel(start_point, {0,0,0,0});
 
@@ -99,11 +99,11 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
                 start_point = {rect.x, start_point.y + height + 1};
                 if(start_point.y >= rect.y + rect.h )
                 {
-                    throw video_ctrl::exception("We are out of bounds in the png font by the supplied rect.");
+                    throw gfx::exception("We are out of bounds in the png font by the supplied rect.");
                 }
                 if(start_point.y >= s->get_rect().h)
                 {
-                    throw video_ctrl::exception("We are out of bounds in png font.");
+                    throw gfx::exception("We are out of bounds in png font.");
                 }
             }
 
@@ -119,7 +119,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
             auto symbol_start_x = float(start_point.x);
             //Turns out we only need to offset Y, the cyan pixel can overlap actual data at the X axis
             auto symbol_start_y = float(start_point.y + offset);
-            auto width = x - symbol_start_x;
+            auto width = float(x) - symbol_start_x;
 
             g.x0 = 0.0f;
             g.y0 = -f.ascent;
@@ -128,11 +128,11 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
 
             g.advance_x = g.x1 + offset;
 
-            g.u0 = symbol_start_x / s->get_width();
-            g.v0 = symbol_start_y / s->get_height();
+            g.u0 = symbol_start_x / float(s->get_width());
+            g.v0 = symbol_start_y / float(s->get_height());
 
-            g.u1 = float(x) / s->get_width();
-            g.v1 = (symbol_start_y + float(height)) / s->get_height();
+            g.u1 = float(x) / float(s->get_width());
+            g.v1 = (symbol_start_y + float(height)) / float(s->get_height());
 
             start_point.x = x;
         }
@@ -144,7 +144,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
         f.fallback_glyph = f.glyphs.front();
 
         const auto& x_glyph = f.get_glyph('x');
-        f.x_height = x_glyph.y1 - x_glyph.y0;
+        f.x_height = -x_glyph.y0;
     }
     else
     {

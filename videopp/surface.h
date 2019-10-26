@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace video_ctrl
+namespace gfx
 {
     class texture;
 

@@ -9,7 +9,7 @@
 
 #include <litehtml.h>
 
-namespace video_ctrl
+namespace gfx
 {
 
 struct html_defaults

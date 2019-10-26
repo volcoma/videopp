@@ -10,7 +10,7 @@
 #include "renderer.h"
 #include "text.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 namespace
@@ -419,7 +419,7 @@ void draw_list::add_line(const math::vec2& start, const math::vec2& end, const c
 void draw_list::add_image(texture_view texture, const rect& src, const rect& dst,
                           const math::transformf& transform, const color& col, flip_format flip, const program_setup& setup)
 {
-    const auto rect = texture ? video_ctrl::rect{0, 0, int(texture.width), int(texture.height)} : src;
+    const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
     float right = static_cast<float>(src.x + src.w) / rect.w;
     float top = static_cast<float>(src.y) / rect.h;
@@ -433,7 +433,7 @@ void draw_list::add_image(texture_view texture, const rect& src, const rect& dst
 void draw_list::add_image(texture_view texture, const rect& src, const rect& dst, const color& col,
                           flip_format flip, const program_setup& setup)
 {
-    const auto rect = texture ? video_ctrl::rect{0, 0, int(texture.width), int(texture.height)} : src;
+    const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
     float right = static_cast<float>(src.x + src.w) / rect.w;
     float top = static_cast<float>(src.y) / rect.h;
@@ -461,8 +461,8 @@ void draw_list::add_image(texture_view texture, const point& pos, const color& c
                           math::vec2 min_uv, math::vec2 max_uv, flip_format flip,
                           const program_setup& setup)
 {
-    const auto rect = texture ? video_ctrl::rect{pos.x, pos.y, int(texture.width), int(texture.height)}
-                              : video_ctrl::rect{pos.x, pos.y, 0, 0};
+    const auto rect = texture ? gfx::rect{pos.x, pos.y, int(texture.width), int(texture.height)}
+                              : gfx::rect{pos.x, pos.y, 0, 0};
     add_image(texture, rect, col, min_uv, max_uv, flip, setup);
 }
 
@@ -585,9 +585,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
     float unit_length_in_pixels_at_font_position = 1.0f;
-    int sdf_spread = font->sdf_spread;
+    auto sdf_spread = font->sdf_spread;
     float scale = std::max(transform.get_scale().x, transform.get_scale().y);
-    float distance_field_multiplier = (2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
+    float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
     float outline_width = std::max(0.0f, t.get_outline_width());
     color outline_color = t.get_outline_color();
 
@@ -745,7 +745,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     auto offsets = text::get_alignment_offsets(align,
                                                float(dst_rect.x),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);
 
@@ -804,7 +806,9 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
     auto offsets = text::get_alignment_offsets(align,
                                                float(dst_rect.x),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);
 
@@ -859,7 +863,7 @@ void draw_list::add_text_superscript_impl(const text& whole_text, const text& sc
                                                 whole_text.get_max_baseline_height();
 
     const auto script_text_width = script_text.get_width() * script_scale;
-    const auto text_parital_height = whole_text.get_utf8_text().empty() ?
+    const auto text_partial_height = whole_text.get_utf8_text().empty() ?
                                      script_text.get_height() * (1.0f - script_scale) :
                                      whole_text.get_height() - (script_text.get_height() * script_scale);
 
@@ -870,132 +874,55 @@ void draw_list::add_text_superscript_impl(const text& whole_text, const text& sc
 
     const auto half_whole_text_width = whole_text_width * 0.5f;
     const auto half_script_text_width = script_text_width * 0.5f;
-    const auto half_text_parital_height = text_parital_height * 0.5f;
-
-    const auto whole_text_shadow_height = whole_text.get_utf8_text().empty() ?
-                                          script_text.get_shadow_offsets().y :
-                                          whole_text.get_shadow_offsets().y;
-    const auto script_text_shadow_height = script_text.get_shadow_offsets().y * script_scale;
-    const auto shadows_height_dif = whole_text_shadow_height - script_text_shadow_height;
-    const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
-
+    const auto half_text_partial_height = text_partial_height * 0.5f;
 
     math::transformf whole_transform{};
     math::transformf script_transform{};
     script_transform.scale({script_scale, script_scale, 1.0f});
-    switch(align)
+
+
+    if(align & align::top)
     {
-        case text::alignment::top_left:
-        {
-            script_transform.translate({whole_text_width, 0.0f, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top_left:
-        {
-            script_transform.translate({whole_text_width, 0.0f, 0.0f});
-            script_transform.translate(
-                {0.0f, shadows_height_dif -
-                 (whole_text_min_baseline_height - script_text_min_baseline_height), 0.0f});
-        }
-        break;
-
-        case text::alignment::top:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width,
-                                         shadows_height_dif -
-                                         (whole_text_min_baseline_height - script_text_min_baseline_height),
-                                         0.0f});
-        }
-        break;
-
-        case text::alignment::top_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate(
-                {0.0f, shadows_height_dif -
-                 (whole_text_min_baseline_height - script_text_min_baseline_height), 0.0f});
-        }
-        break;
-
-        case text::alignment::left:
-        {
-            script_transform.translate({whole_text_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
-        }
-        break;
-
-        case text::alignment::center:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, half_shadows_height_dif - half_text_parital_height, 0.0f});
-        }
-        break;
-
-        case text::alignment::right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate({0.0f, half_shadows_height_dif - half_text_parital_height, 0.0f});
-        }
-        break;
-
-        case text::alignment::bottom_left:
-        {
-            script_transform.translate({whole_text_width, shadows_height_dif - text_parital_height, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom_left:
-        {
-            script_transform.translate({whole_text_width,
-                                         shadows_height_dif -
-                                         (whole_text_max_baseline_height - script_text_max_baseline_height),
-                                         0.0f});
-        }
-        break;
-
-        case text::alignment::bottom:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, shadows_height_dif - text_parital_height, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width,
-                                         shadows_height_dif -
-                                         (whole_text_max_baseline_height - script_text_max_baseline_height),
-                                         0.0f});
-        }
-        break;
-
-        case text::alignment::bottom_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate({0.0f, shadows_height_dif - text_parital_height, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate(
-                {0.0f, shadows_height_dif -
-                 (whole_text_max_baseline_height - script_text_max_baseline_height), 0.0f});
-        }
-        break;
-        default:
-            break;
     }
+
+    if(align & align::middle)
+    {
+        script_transform.translate(0.0f, -half_text_partial_height, 0.0f);
+    }
+
+    if(align & align::bottom)
+    {
+        script_transform.translate(0.0f, -text_partial_height, 0.0f);
+    }
+
+    if(align & align::baseline_top)
+    {
+        script_transform.translate(0.0f, script_text_min_baseline_height - whole_text_min_baseline_height, 0.0f);
+    }
+
+    if(align & align::baseline_bottom)
+    {
+
+        script_transform.translate(0.0f, script_text_max_baseline_height - whole_text_max_baseline_height, 0.0f);
+    }
+
+
+    if(align & align::left)
+    {
+        script_transform.translate(whole_text_width, 0.0f, 0.0f);
+    }
+
+    if(align & align::right)
+    {
+        whole_transform.translate(-script_text_width, 0.0f, 0.0f);
+    }
+
+    if(align & align::center)
+    {
+        whole_transform.translate(-half_script_text_width, 0.0f, 0.0f);
+        script_transform.translate(half_whole_text_width, 0.0f, 0.0f);
+    }
+
     add_text(whole_text, transform * whole_transform);
     add_text(script_text, transform * script_transform);
 }
@@ -1042,7 +969,9 @@ void draw_list::add_text_subscript(const text& whole_text,
     auto offsets = text::get_alignment_offsets(align,
                                                float(dst_rect.x),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);
 
@@ -1095,137 +1024,69 @@ void draw_list::add_text_subscript_impl(const text& whole_text,
                                    script_text.get_height() :
                                    whole_text.get_height();
 
-    const auto whole_text_shadow_height = whole_text.get_utf8_text().empty() ?
-                                          script_text.get_shadow_offsets().y :
-                                          whole_text.get_shadow_offsets().y;
-
     const auto whole_text_max_baseline_height = whole_text.get_utf8_text().empty() ?
                                                 script_text.get_max_baseline_height() :
                                                 whole_text.get_max_baseline_height();
 
     const auto script_text_width = script_text.get_width() * script_scale;
-    const auto text_parital_height = script_scale * script_text.get_height();
-    const auto text_parital_height_dif = whole_text_height - text_parital_height;
-
-    const auto script_text_shadow_height = script_text.get_shadow_offsets().y * script_scale;
-    const auto shadows_height_dif = whole_text_shadow_height - script_text_shadow_height;
-    const auto half_shadows_height_dif = shadows_height_dif * 0.5f;
+    const auto text_partial_height = script_scale * script_text.get_height();
+    const auto text_partial_height_dif = whole_text_height - text_partial_height;
 
     const auto script_text_max_baseline_height =
         script_text.get_max_baseline_height() * script_scale;
 
     const auto half_whole_text_width = whole_text_width * 0.5f;
     const auto half_script_text_width = script_text_width * 0.5f;
-    const auto half_text_parital_height_dif = text_parital_height_dif * 0.5f;
+    const auto half_text_partial_height_dif = text_partial_height_dif * 0.5f;
 
-    const auto top_y_aligns_parial_offset = whole_text_max_baseline_height - script_text_max_baseline_height - shadows_height_dif;
-    const auto center_y_aligns_parial_offset = whole_text_max_baseline_height - (half_text_parital_height_dif + script_text_max_baseline_height) - half_shadows_height_dif;
-    const auto bottom_y_aligns_parial_offset = - ((whole_text_height - whole_text_max_baseline_height) -
-                                                  (text_parital_height - script_text_max_baseline_height));
+    const auto top_y_aligns_partial_offset = whole_text_max_baseline_height - script_text_max_baseline_height;
+    const auto center_y_aligns_partial_offset = whole_text_max_baseline_height - (half_text_partial_height_dif + script_text_max_baseline_height);
+    const auto bottom_y_aligns_partial_offset = - ((whole_text_height - whole_text_max_baseline_height) -
+                                                  (text_partial_height - script_text_max_baseline_height));
 
     math::transformf whole_transform{};
     math::transformf script_transform{};
     script_transform.scale({script_scale, script_scale, 1.0f});
 
-    switch(align)
+
+    if(align & align::top)
     {
-        case text::alignment::top_left:
-        {
-            script_transform.translate({whole_text_width, top_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top_left:
-        {
-            script_transform.translate({whole_text_width, 0.0f, 0.0f});
-        }
-        break;
+        script_transform.translate(0.0f, top_y_aligns_partial_offset, 0.0f);
+    }
 
-        case text::alignment::top:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, top_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
-        }
-        break;
+    if(align & align::middle)
+    {
+        script_transform.translate(0.0f, center_y_aligns_partial_offset, 0.0f);
+    }
 
-        case text::alignment::top_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate({0.0f, top_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_top_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-        }
-        break;
+    if(align & align::bottom)
+    {
+        script_transform.translate(0.0f, bottom_y_aligns_partial_offset, 0.0f);
+    }
 
-        case text::alignment::left:
-        {
-            script_transform.translate({whole_text_width,
-                                         center_y_aligns_parial_offset,
-                                         0.0f});
-        }
-        break;
+    if(align & align::baseline_top)
+    {
+    }
 
-        case text::alignment::center:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width,
-                                         center_y_aligns_parial_offset,
-                                         0.0f});
-        }
-        break;
+    if(align & align::baseline_bottom)
+    {
+    }
 
-        case text::alignment::right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate({0.0f, center_y_aligns_parial_offset, 0.0f});
-        }
-        break;
 
-        case text::alignment::bottom_left:
-        {
-            script_transform.translate({whole_text_width, bottom_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom_left:
-        {
-            script_transform.translate({whole_text_width, 0.0f, 0.0f});
-        }
-        break;
+    if(align & align::left)
+    {
+        script_transform.translate(whole_text_width, 0.0f, 0.0f);
+    }
 
-        case text::alignment::bottom:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, bottom_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom:
-        {
-            whole_transform.translate({-half_script_text_width, 0.0f, 0.0f});
-            script_transform.translate({half_whole_text_width, 0.0f, 0.0f});
-        }
-        break;
+    if(align & align::right)
+    {
+        whole_transform.translate(-script_text_width, 0.0f, 0.0f);
+    }
 
-        case text::alignment::bottom_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-            script_transform.translate({0.0f, bottom_y_aligns_parial_offset, 0.0f});
-        }
-        break;
-        case text::alignment::baseline_bottom_right:
-        {
-            whole_transform.translate({-script_text_width, 0.0f, 0.0f});
-        }
-        break;
-        default:
-            break;
+    if(align & align::center)
+    {
+        whole_transform.translate(-half_script_text_width, 0.0f, 0.0f);
+        script_transform.translate(half_whole_text_width, 0.0f, 0.0f);
     }
 
     add_text(whole_text, transform * whole_transform);
@@ -1496,10 +1357,10 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
     if (points_count < 3)
         return;
 
-    float miny = 9999999999999.0f;
+    float miny = 999999999.0f;
     float maxy = -miny;
 
-    float minx = 9999999999999.0f;
+    float minx = 999999999.0f;
     float maxx = -minx;
 
     for (size_t i = 0; i < points_count; i++)
@@ -1730,7 +1591,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
-            txt.set_alignment(text::alignment::right);
+            txt.set_alignment(align::right | align::middle);
             txt.set_utf8_text(desc);
 
             tr.set_position(v1.x, v1.y, 0.0f);
@@ -1740,11 +1601,29 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 //            std::stringstream ss;
 //            ss << " width = " << std::fixed << std::setprecision(2) << width;
 
-//            txt.set_alignment(text::alignment::left);
+//            txt.set_alignment(text::alignment::left | align::middle);
 //            txt.set_utf8_text(ss.str());
 
 //            tr.set_position(v2.x, v1.y, 0.0f);
 //            add_text(txt, tr);
+        }
+    }
+    {
+        auto col = color::red();
+        std::string desc = "median ";
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.median});
+
+            text txt;
+            txt.debug = true;
+            txt.set_color(col);
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text(desc);
+
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
         }
     }
     {
@@ -1758,7 +1637,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
-            txt.set_alignment(text::alignment::right);
+            txt.set_alignment(align::right | align::middle);
             txt.set_utf8_text(desc);
 
             tr.set_position(v1.x, v1.y, 0.0f);
@@ -1776,7 +1655,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             txt.debug = true;
             txt.set_color(col);
             txt.set_font(default_font());
-            txt.set_alignment(text::alignment::right);
+            txt.set_alignment(align::right | align::middle);
             txt.set_utf8_text(desc);
 
             tr.set_position(v1.x, v1.y, 0.0f);
@@ -1822,6 +1701,16 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         {
             auto v1 = transform.transform_coord({line.minx, line.baseline});
             auto v2 = transform.transform_coord({line.maxx, line.baseline});
+
+            add_line(v1, v2, col);
+        }
+    }
+    {
+        auto col = color::red();
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.median});
+            auto v2 = transform.transform_coord({line.maxx, line.median});
 
             add_line(v1, v2, col);
         }

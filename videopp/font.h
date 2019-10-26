@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-namespace video_ctrl
+namespace gfx
 {
     class texture;
     using texture_ptr = std::shared_ptr<texture>;

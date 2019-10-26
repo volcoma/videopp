@@ -6,12 +6,14 @@
 
 #include <vector>
 
-namespace video_ctrl
+namespace gfx
 {
 struct line_metrics
 {
     /// Ascent of the line. Relative to the aligned origin.
     float ascent{};
+    /// Median of the line(x-height). Relative to the aligned origin.
+    float median{};
     /// Baseline of the line. Relative to the aligned origin.
     float baseline{};
     /// Descent of the line. Relative to the aligned origin.
@@ -20,55 +22,46 @@ struct line_metrics
     float minx{};
     /// Max x of the line. Relative to the aligned origin.
     float maxx{};
-    /// Min y of the line. Relative to the aligned origin.
-    float miny{};
-    /// Max y of the line. Relative to the aligned origin.
-    float maxy{};
 };
+
+enum align : uint32_t
+{
+    // Horizontal align
+    left        = 1<<0,
+    center      = 1<<1,
+    right       = 1<<2,
+
+    // Vertical align
+    top 		= 1<<3,
+    middle      = 1<<4,
+    bottom      = 1<<5,
+
+    // Vertical align (text only)
+    baseline_top	= 1<<6,
+    baseline_bottom	= 1<<7,
+
+};
+
+using align_t = uint32_t;
+
+float get_alignment_x(align_t alignment,
+                      float minx,
+                      float maxx,
+                      bool pixel_snap);
+float get_alignment_y(align_t alignment,
+                      float miny, float miny_baseline,
+                      float maxy, float maxy_baseline,
+                      bool pixel_snap);
 
 class text
 {
 public:
 
-    enum class alignment : uint32_t
-    {
-        top,
-        bottom,
-        left,
-        right,
-        center,
-        top_left,
-        top_right,
-        bottom_left,
-        bottom_right,
-
-        baseline_top,
-        baseline_top_left,
-        baseline_top_right,
-        baseline_bottom,
-        baseline_bottom_left,
-        baseline_bottom_right,
-        count
-    };
-
-//    enum align : uint32_t
-//    {
-//        // Horizontal align
-//        left        = 1<<0,
-//        center      = 1<<1,
-//        right       = 1<<2,
-//        // Vertical align
-//        top 		  = 1<<3,
-//        middle      = 1<<4,
-//        bottom      = 1<<5,
-//        baseline	  = 1<<6,
-//    };
-
-    text() noexcept;
-    text(const text&) = default;
-    text& operator=(const text&) = default;
-    text(text&&) = default;
-    text& operator=(text&&) = default;
+    text();
+    text(const text&);
+    text& operator=(const text&);
+    text(text&&) noexcept;
+    text& operator=(text&&) noexcept;
     ~text();
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
@@ -119,7 +112,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Set point alignment based on position
     //-----------------------------------------------------------------------------
-    void set_alignment(alignment a);
+    void set_alignment(uint32_t a);
 
     //-----------------------------------------------------------------------------
     /// Enables/Disables kerning usage if the font provides any kerning pairs.
@@ -203,7 +196,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the alignment of the text (relative to the origin point).
     //-----------------------------------------------------------------------------
-    alignment get_alignment() const;
+    align_t get_alignment() const;
 
     //-----------------------------------------------------------------------------
     /// Generates the geometry if needed
@@ -228,10 +221,11 @@ public:
 
     bool is_valid() const;
 
-    static std::pair<float, float> get_alignment_offsets(text::alignment alignment,
-                                   float minx, float miny, float maxx, float maxy, bool pixel_snap);
+    static std::pair<float, float> get_alignment_offsets(align_t alignment,
+                                                         float minx, float miny, float miny_baseline,
+                                                         float maxx, float maxy, float maxy_baseline,
+                                                         bool pixel_snap);
 
-    bool debug = false;
 private:
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
@@ -245,17 +239,11 @@ private:
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
 
-    /// Total chars in the text.
-    mutable uint32_t chars_ = 0;
-
     /// Lines of unicode codepoints.
     mutable std::vector<std::vector<uint32_t>> lines_;
 
     /// Lines metrics
     mutable std::vector<line_metrics> lines_metrics_;
-
-    /// Rect of the text relative to the aligned origin.
-    mutable frect rect_{};
 
     /// Utf8 text
     std::string utf8_text_;
@@ -265,6 +253,18 @@ private:
 
     /// The font
     font_ptr font_;
+
+    /// Rect of the text relative to the aligned origin.
+    mutable frect rect_{};
+
+    /// Shadow offsets of the text in pixels
+    math::vec2 shadow_offsets_{0.0f, 0.0f};
+
+    /// Extra advance
+    math::vec2 advance_ = {0, 0};
+
+    /// Total chars in the text.
+    mutable uint32_t chars_ = 0;
 
     /// Color of the text
     color color_top_ = color::white();
@@ -280,14 +280,8 @@ private:
     color shadow_color_top_ = color::black();
     color shadow_color_bot_ = color::black();
 
-    /// Shadow offsets of the text in pixels
-    math::vec2 shadow_offsets_{0.0f, 0.0f};
-
     /// Origin alignment
-    alignment alignment_ = alignment::top_left;
-
-    /// Extra advance
-    math::vec2 advance_ = {0, 0};
+    align_t alignment_ = align::left | align::top;
 
     /// Leaning
     float leaning_{};
@@ -297,6 +291,9 @@ private:
 
     /// Kerning usage if the font provides any kerning pairs.
     bool kerning_enabled_ = false;
+
+public:
+    bool debug = false;
 };
 
 

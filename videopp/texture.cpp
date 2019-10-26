@@ -5,7 +5,7 @@
 #include "detail/utils.h"
 
 
-namespace video_ctrl
+namespace gfx
 {
 
     namespace
@@ -46,7 +46,7 @@ namespace video_ctrl
     {
         if (!rend_.set_current_context())
         {
-            throw video_ctrl::exception("Cannot set current context!");
+            throw gfx::exception("Cannot set current context!");
         }
         // Generate the OGL texture ID
         int32_t format{};
@@ -73,7 +73,7 @@ namespace video_ctrl
             gl_call(glBindFramebuffer(GL_FRAMEBUFFER, 0));
             if(status != GL_FRAMEBUFFER_COMPLETE)
             {
-                throw video_ctrl::exception("Cannot create FBO. GL ERROR CODE: " + std::to_string(status));
+                throw gfx::exception("Cannot create FBO. GL ERROR CODE: " + std::to_string(status));
             }
         }
 
@@ -89,7 +89,7 @@ namespace video_ctrl
     {
         if (!create_from_surface(surface))
         {
-            throw video_ctrl::exception("Cannot create texture from surface.");
+            throw gfx::exception("Cannot create texture from surface.");
         }
     }
 

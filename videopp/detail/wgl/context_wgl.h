@@ -3,7 +3,7 @@
 #include "../../renderer.h"
 #include "glad_wgl.h"
 
-namespace video_ctrl
+namespace gfx
 {
 struct context_wgl : context
 {

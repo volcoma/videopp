@@ -4,7 +4,7 @@
 
 #include "font_info.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 font_info create_font_from_cyan_sep_png(

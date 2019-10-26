@@ -1,6 +1,6 @@
 #include "logger.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 namespace detail

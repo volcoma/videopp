@@ -2,7 +2,7 @@
 #define VCTRL_LOGGER_H
 #include <string>
 #include <functional>
-namespace video_ctrl
+namespace gfx
 {
 
 void log(const std::string& msg);

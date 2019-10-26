@@ -9,7 +9,7 @@
 #include "texture.h"
 
 
-namespace video_ctrl
+namespace gfx
 {
     class renderer;
     struct texture_view;
@@ -53,7 +53,7 @@ namespace video_ctrl
         int get_uniform_location(const char* uniform_name) const;
 
         friend class renderer;
-        shader(const video_ctrl::renderer &rend, const char* fragment_code, const char* vertex_code);
+        shader(const gfx::renderer &rend, const char* fragment_code, const char* vertex_code);
 
         void unload() noexcept;
         void compile(uint32_t shader_id);
@@ -68,7 +68,7 @@ namespace video_ctrl
         uint32_t vertex_shader_id_ = 0;
         mutable int32_t max_bound_slot_ = -1;
 
-        const video_ctrl::renderer &rend_;
+        const gfx::renderer &rend_;
     };
 
     using shader_ptr = std::shared_ptr<shader>;

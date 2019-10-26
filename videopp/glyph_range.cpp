@@ -3,7 +3,7 @@
 #include <codecvt>
 #include <locale>
 
-namespace video_ctrl
+namespace gfx
 {
 const glyphs& get_default_glyph_range()
 {
@@ -289,7 +289,7 @@ glyphs parse_glyph_range(const std::string& range)
             {
                 std::string utf8_str =
                     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.to_bytes(sub_str);
-                throw video_ctrl::exception(std::string("Range [") + utf8_str + "] not okay.");
+                throw gfx::exception(std::string("Range [") + utf8_str + "] not okay.");
             }
 
             result.emplace_back(start_ch, end_ch);

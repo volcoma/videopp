@@ -1,6 +1,6 @@
 #pragma once
 
-namespace video_ctrl
+namespace gfx
 {
     enum flip_format
     {

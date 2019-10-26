@@ -4,7 +4,7 @@
 
 #include <fstream>
 #include <master.css>
-namespace video_ctrl
+namespace gfx
 {
 
 namespace detail

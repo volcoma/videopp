@@ -1,6 +1,6 @@
 #include "polyline.h"
 #include <array>
-namespace video_ctrl
+namespace gfx
 {
 
 namespace
@@ -232,7 +232,7 @@ void polyline::bezier_curve_to(const math::vec2 &p2, const math::vec2 &p3, const
         float t_step = 1.0f / float(num_segments);
         for (int i_step = 1; i_step <= num_segments; i_step++)
         {
-            float t = t_step * i_step;
+            float t = t_step * float(i_step);
             float u = 1.0f - t;
             float w1 = u*u*u;
             float w2 = 3*u*u*t;

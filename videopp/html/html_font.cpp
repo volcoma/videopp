@@ -1,6 +1,6 @@
 #include "html_font.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 

@@ -4,7 +4,7 @@
 
 #include <set>
 
-namespace video_ctrl
+namespace gfx
 {
     using glyph_range = std::pair<char_t, char_t>;
     using glyphs = std::vector<glyph_range>;

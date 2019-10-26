@@ -7,7 +7,7 @@
 #include <vector>
 
 
-namespace video_ctrl
+namespace gfx
 {
 
 

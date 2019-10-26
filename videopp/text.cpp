@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iostream>
 
-namespace video_ctrl
+namespace gfx
 {
 
 
@@ -11,34 +11,6 @@ namespace
 {
 
 constexpr size_t vertices_per_quad = 4;
-
-inline float get_alignment_miny(text::alignment alignment,
-        float y, float y_baseline)
-{
-    switch(alignment)
-    {
-        case text::alignment::baseline_top:
-        case text::alignment::baseline_top_left:
-        case text::alignment::baseline_top_right:
-            return y_baseline;
-        default:
-            return y;
-    }
-}
-
-inline float get_alignment_maxy(text::alignment alignment,
-        float y, float y_baseline)
-{
-    switch(alignment)
-    {
-        case text::alignment::baseline_bottom:
-        case text::alignment::baseline_bottom_left:
-        case text::alignment::baseline_bottom_right:
-            return y_baseline;
-        default:
-            return y;
-    }
-}
 
 inline color get_gradient(const math::vec4& ct, const math::vec4& cb, float t, float dt)
 {
@@ -54,114 +26,83 @@ inline color get_gradient(const math::vec4& ct, const math::vec4& cb, float t, f
 }
 }
 
-std::pair<float, float> text::get_alignment_offsets(text::alignment alignment,
-        float minx, float miny, float maxx, float maxy, bool pixel_snap)
+
+float get_alignment_x(align_t alignment, float minx, float maxx, bool pixel_snap)
 {
-    // offset according to m_alignment
-    enum class align
-    {
-        begin,
-        center,
-        end,
-    };
-
-    align ax = align::center;
-    align ay = align::center;
-
-    switch(alignment)
-    {
-        case text::alignment::top:
-        case text::alignment::baseline_top:
-            ax = align::center;
-            ay = align::begin;
-            break;
-        case text::alignment::bottom:
-        case text::alignment::baseline_bottom:
-            ax = align::center;
-            ay = align::end;
-            break;
-        case text::alignment::left:
-            ax = align::begin;
-            ay = align::center;
-            break;
-        case text::alignment::right:
-            ax = align::end;
-            ay = align::center;
-            break;
-        case text::alignment::center:
-            ax = align::center;
-            ay = align::center;
-            break;
-        case text::alignment::top_left:
-        case text::alignment::baseline_top_left:
-            ax = align::begin;
-            ay = align::begin;
-            break;
-        case text::alignment::top_right:
-        case text::alignment::baseline_top_right:
-            ax = align::end;
-            ay = align::begin;
-            break;
-        case text::alignment::bottom_left:
-        case text::alignment::baseline_bottom_left:
-            ax = align::begin;
-            ay = align::end;
-            break;
-        case text::alignment::bottom_right:
-        case text::alignment::baseline_bottom_right:
-            ax = align::end;
-            ay = align::end;
-            break;
-        default:
-            break;
-    }
-
     float xoffs = 0;
-    float yoffs = 0;
 
-    switch(ax)
+    if(alignment & align::left)
     {
-        case align::begin:
-            xoffs = -minx;
-            break;
-        case align::end:
-            xoffs = -maxx;
-            break;
-        case align::center:
-            xoffs = (-minx-maxx) / 2.0f;
-            break;
+        xoffs = -minx;
     }
 
-    switch(ay)
+    if(alignment & align::right)
     {
-        case align::begin:
-            yoffs = -miny;
-            break;
-        case align::end:
-            yoffs = -maxy;
-            break;
-        case align::center:
-            yoffs = (-miny -maxy) / 2.0f;
-            break;
+        xoffs = -maxx;
+    }
+
+    if(alignment & align::center)
+    {
+        xoffs = (-minx-maxx) / 2.0f;
     }
 
     if(pixel_snap)
     {
-        return {float(int(xoffs)), yoffs};
+        xoffs = float(int(xoffs));
     }
 
-    return {xoffs, yoffs};
+    return xoffs;
 }
 
-text::text() noexcept
+float get_alignment_y(align_t alignment,
+                      float miny, float miny_baseline,
+                      float maxy, float maxy_baseline, bool /*pixel_snap*/)
 {
-//    cache<text>::get(geometry_);
-//    cache<text>::get(lines_);
-//    cache<text>::get(lines_metrics_);
-//    cache<text>::get(unicode_text_);
-//    cache<text>::get(utf8_text_);
+    float yoffs = 0;
+
+    if(alignment & align::top)
+    {
+        yoffs = -miny;
+    }
+
+    if(alignment & align::baseline_top)
+    {
+        yoffs = -miny_baseline;
+    }
+
+    if(alignment & align::bottom)
+    {
+        yoffs = -maxy;
+    }
+
+    if(alignment & align::baseline_bottom)
+    {
+        yoffs = -maxy_baseline;
+    }
+
+    if(alignment & align::middle)
+    {
+        yoffs = (-miny -maxy) / 2.0f;
+    }
+
+    return yoffs;
 }
 
+std::pair<float, float> text::get_alignment_offsets(
+        align_t alignment,
+        float minx, float miny, float miny_baseline,
+        float maxx, float maxy, float maxy_baseline,
+        bool pixel_snap)
+{
+    return {get_alignment_x(alignment, minx, maxx, pixel_snap),
+            get_alignment_y(alignment, miny, miny_baseline, maxy, maxy_baseline, pixel_snap)};
+}
+
+text::text() = default;
+text::text(const text&) = default;
+text& text::operator=(const text&) = default;
+text::text(text&&) noexcept = default;
+text& text::operator=(text&&) noexcept = default;
 text::~text()
 {
     cache<text>::add(geometry_);
@@ -203,7 +144,7 @@ const font_ptr& text::get_font() const
     return font_;
 }
 
-text::alignment text::get_alignment() const
+align_t text::get_alignment() const
 {
     return alignment_;
 }
@@ -286,7 +227,7 @@ void text::set_advance(const math::vec2& advance)
 }
 
 
-void text::set_alignment(text::alignment a)
+void text::set_alignment(align_t a)
 {
     if(alignment_ == a)
     {
@@ -326,7 +267,7 @@ float text::get_advance_offset_y() const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.y + (outline_width_ * font_->sdf_spread * 2.0f);
+        return advance_.y + (outline_width_ * float(font_->sdf_spread) * 2.0f);
     }
 
     return advance_.y;
@@ -357,7 +298,7 @@ float text::get_advance_offset_x() const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.x + (outline_width_ * font_->sdf_spread * 2.0f);
+        return advance_.x + (outline_width_ * float(font_->sdf_spread) * 2.0f);
     }
 
     return advance_.x;
@@ -507,17 +448,6 @@ void text::update_geometry(bool all) const
     {
         return;
     }
-    constexpr static float max_positive = std::numeric_limits<float>::max();
-    constexpr static float min_negative = std::numeric_limits<float>::lowest();
-
-    // used for alignment
-    float minx = max_positive;
-    float maxx = min_negative;
-    float maxy_descent = min_negative;
-    float maxy_baseline = min_negative;
-
-    float miny_ascent = max_positive;
-    float miny_baseline = max_positive;
 
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();
@@ -530,7 +460,8 @@ void text::update_geometry(bool all) const
     const auto ascent = font_->ascent;
     const auto descent = font_->descent;
     const auto height = ascent - descent;
-    const auto baseline = ascent;
+    const auto line_gap = line_height - height;
+    const auto x_height = font_->x_height;
 
     if(all)
     {
@@ -552,18 +483,36 @@ void text::update_geometry(bool all) const
     const math::vec4 vcolor_bot = color_bot_;
     const bool has_gradient = color_top_ != color_bot_;
 
+    float max_h = (lines.size() * line_height) - line_gap;
+    float min_y = 0.0f;
+    float max_y = max_h;
+    float min_y_baseline = min_y + ascent;
+    float max_y_baseline = max_y + descent;
+
+    float min_x = std::numeric_limits<float>::max();
+    float max_x = std::numeric_limits<float>::lowest();
+
+    float align_y = get_alignment_y(alignment_,
+                                    min_y, min_y_baseline,
+                                    max_y, max_y_baseline,
+                                    pixel_snap);
+
+    min_y += align_y;
+    max_y += align_y;
+
     // Set glyph positions on a (0,0) baseline.
     // (x0,y0) for a glyph is the bottom-lefts
     auto pen_x = 0.0f;
-    auto pen_y = baseline;
+    auto pen_y = ascent + align_y;
 
     for(const auto& line : lines)
     {
         line_metrics line_info{};
         line_info.minx = pen_x;
         line_info.ascent = pen_y - ascent;
+        line_info.median = pen_y - x_height;
         line_info.baseline = pen_y;
-        line_info.descent = line_info.ascent + height;
+        line_info.descent = pen_y - descent;
 
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
@@ -585,12 +534,12 @@ void text::update_geometry(bool all) const
 
                 if(has_leaning)
                 {
-                    const auto y0_offs = g.y0 + baseline;
-                    const auto y0_factor = 1.0f - y0_offs / baseline;
+                    const auto y0_offs = g.y0 + ascent;
+                    const auto y0_factor = 1.0f - y0_offs / ascent;
                     leaning0 = leaning * y0_factor;
 
-                    const auto y1_offs = g.y1 + baseline;
-                    const auto y1_factor = 1.0f - y1_offs / baseline;
+                    const auto y1_offs = g.y1 + ascent;
+                    const auto y1_factor = 1.0f - y1_offs / ascent;
                     leaning1 = leaning * y1_factor;
                 }
 
@@ -602,15 +551,15 @@ void text::update_geometry(bool all) const
                 const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - line_info.ascent, height) : color_top_;
                 const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - line_info.ascent, height) : color_bot_;
 
-                vertex_2d quad[vertices_per_quad] =
-                {
+                std::array<vertex_2d, 4> quad =
+                {{
                     {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop},
                     {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop},
                     {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot},
                     {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot}
-                };
+                }};
 
-                std::memcpy(vptr, quad, sizeof(quad));
+                std::memcpy(vptr, quad.data(), quad.size() * sizeof(vertex_2d));
                 vptr += vertices_per_quad;
                 vtx_count += vertices_per_quad;
             }
@@ -621,18 +570,15 @@ void text::update_geometry(bool all) const
 
         line_info.maxx = pen_x;
 
-
-        line_info.miny = get_alignment_miny(alignment_, line_info.ascent, line_info.baseline);
-        line_info.maxy = get_alignment_maxy(alignment_, line_info.descent, line_info.baseline);
-
         if(all)
         {
-            auto align_offsets = get_alignment_offsets(alignment_, line_info.minx, line_info.miny, line_info.maxx, line_info.maxy, pixel_snap);
-            auto align_x = align_offsets.first;
+            auto align_x = get_alignment_x(alignment_,
+                                           line_info.minx,
+                                           line_info.maxx,
+                                           pixel_snap);
 
             if(math::epsilonNotEqual(align_x, 0.0f, math::epsilon<float>()) || pixel_snap)
             {
-
                 auto v = geometry_.data() + offset;
                 for(size_t i = 0; i < vtx_count; ++i)
                 {
@@ -649,21 +595,13 @@ void text::update_geometry(bool all) const
             line_info.minx += align_x;
             line_info.maxx += align_x;
 
+            lines_metrics_.emplace_back(line_info);
+
             offset += vtx_count;
         }
 
-        minx = std::min(line_info.minx, minx);
-        maxx = std::max(line_info.maxx, maxx);
-
-        maxy_descent = std::max(line_info.descent, maxy_descent);
-        miny_ascent = std::min(line_info.ascent, miny_ascent);
-
-        if(all)
-        {
-            maxy_baseline = std::max(line_info.baseline, maxy_baseline);
-            miny_baseline = std::min(line_info.baseline, miny_baseline);
-            lines_metrics_.emplace_back(line_info);
-        }
+        min_x = std::min(line_info.minx, min_x);
+        max_x = std::max(line_info.maxx, max_x);
 
         // go to next line
         pen_x = 0;
@@ -672,36 +610,12 @@ void text::update_geometry(bool all) const
 
     if(all)
     {
-        auto miny = get_alignment_miny(alignment_, miny_ascent, miny_baseline);
-        auto maxy = get_alignment_maxy(alignment_, maxy_descent, maxy_baseline);
-
-        auto align_offsets = get_alignment_offsets(alignment_, minx, miny, maxx, maxy, pixel_snap);
-        auto align_y = align_offsets.second;
-
-        if(math::epsilonNotEqual(align_y, 0.0f, math::epsilon<float>()))
-        {
-            for(auto& v : geometry_)
-            {
-                auto& pos = v.pos;
-                pos.y += align_y;
-            }
-
-            for(auto& line : lines_metrics_)
-            {
-                line.ascent += align_y;
-                line.baseline += align_y;
-                line.descent += align_y;
-                line.miny += align_y;
-                line.maxy += align_y;
-            }
-        }
-
-        rect_.x = minx;
-        rect_.y = align_y;
+        rect_.x = min_x;
+        rect_.y = min_y;
     }
 
-    rect_.h = maxy_descent - miny_ascent + shadow_offsets_.y;
-    rect_.w = maxx - minx + shadow_offsets_.x;
+    rect_.h = max_y - min_y;
+    rect_.w = max_x - min_x;
 }
 
 float text::get_width() const
@@ -738,7 +652,7 @@ float text::get_min_baseline_height() const
     }
 
     const auto& first_line = metrics.front();
-    return first_line.baseline - first_line.ascent + shadow_offsets_.y;
+    return first_line.baseline - first_line.ascent;
 }
 
 float text::get_max_baseline_height() const
@@ -752,7 +666,7 @@ float text::get_max_baseline_height() const
 
     const auto& first_line = metrics.front();
     const auto& last_line = metrics.back();
-    return last_line.baseline - first_line.ascent + shadow_offsets_.y;
+    return last_line.baseline - first_line.ascent;
 }
 
 rect text::get_rect() const
@@ -796,4 +710,5 @@ color text::get_shadow_color_bot() const
 {
     return shadow_color_bot_;
 }
+
 }

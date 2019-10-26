@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "image/stb_image.h"
 
-namespace video_ctrl
+namespace gfx
 {
     surface::~surface() = default;
 
@@ -15,7 +15,7 @@ namespace video_ctrl
         uint8_t* data = stbi_load(file_name.c_str(), &w, &h, &n, 0);
         if(!data)
         {
-            throw video_ctrl::exception("Cannot create surface from file " + file_name);
+            throw gfx::exception("Cannot create surface from file " + file_name);
 
         }
         switch(n)
@@ -31,8 +31,7 @@ namespace video_ctrl
             break;
             default:
                 stbi_image_free(data);
-                throw video_ctrl::exception("Cannot create surface from file " + file_name);
-            break;
+                throw gfx::exception("Cannot create surface from file " + file_name);
         }
         rect_= rect(0, 0, w, h);
         data_ = std::vector<uint8_t>(data, data + (w * h * n));
@@ -82,7 +81,7 @@ namespace video_ctrl
         return type_;
     }
 
-    std::pair<point, bool> surface::find_pixel(const video_ctrl::color& color, point start) const noexcept
+    std::pair<point, bool> surface::find_pixel(const gfx::color& color, point start) const noexcept
     {
         if (surface_type_ != surface_type::raw)
         {
@@ -104,7 +103,7 @@ namespace video_ctrl
         return {{}, false};
     }
 
-    bool surface::set_pixel(point pos, const video_ctrl::color& color) noexcept
+    bool surface::set_pixel(point pos, const gfx::color& color) noexcept
     {
         if (surface_type_ != surface_type::raw)
         {
@@ -205,7 +204,7 @@ namespace video_ctrl
     {
         if (surface_type_ != surface_type::raw)
         {
-            throw video_ctrl::exception("Cannot convert compressed surface.");
+            throw gfx::exception("Cannot convert compressed surface.");
         }
 
         if (type == type_)
@@ -215,7 +214,7 @@ namespace video_ctrl
 
         auto result = std::make_unique<surface>(rect_.w, rect_.h, type);
 
-        video_ctrl::point copy_point {0, 0};
+        gfx::point copy_point {0, 0};
         for (copy_point.y = 0; copy_point.y < rect_.h; copy_point.y++)
         {
             for (copy_point.x = 0; copy_point.x < rect_.w; copy_point.x++)
@@ -231,14 +230,14 @@ namespace video_ctrl
     {
         if (surface_type_ != surface_type::raw)
         {
-            throw video_ctrl::exception("Cannot copy compress surface.");
+            throw gfx::exception("Cannot copy compress surface.");
         }
 
         surface result(rct.w, rct.h, pix_type::rgba);
 
         if (!result.copy_from(*this, rct, {0, 0}))
         {
-            throw video_ctrl::exception("Cannot copy to new subsurface.");
+            throw gfx::exception("Cannot copy to new subsurface.");
         }
 
         return result;
@@ -308,7 +307,7 @@ namespace video_ctrl
                     auto col = src_surf.get_pixel(src_point);
                     if (col.a == 0)
                     {
-                        col = video_ctrl::color::black();
+                        col = gfx::color::black();
                     }
                     if (!set_pixel(dst_point, col))
                     {

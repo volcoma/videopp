@@ -1,7 +1,7 @@
 #include "html_page.h"
 #include "../logger.h"
 #include <chrono>
-namespace video_ctrl
+namespace gfx
 {
 
 struct bench

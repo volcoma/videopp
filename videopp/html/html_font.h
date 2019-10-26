@@ -4,7 +4,7 @@
 
 #include <litehtml.h>
 
-namespace video_ctrl
+namespace gfx
 {
 
 struct font_family

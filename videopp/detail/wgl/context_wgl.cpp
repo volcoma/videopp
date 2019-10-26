@@ -1,6 +1,6 @@
 ﻿#include "context_wgl.h"
 
-namespace video_ctrl
+namespace gfx
 {
 namespace
 {
@@ -12,13 +12,13 @@ context_wgl::context_wgl(void* native_handle)
     hwnd_ = reinterpret_cast<HWND>(native_handle);
     if(!hwnd_)
     {
-        throw video_ctrl::exception("Invalid native handle.");
+        throw gfx::exception("Invalid native handle.");
     }
 
 	hdc_ = GetDC(hwnd_);
     if(!hdc_)
     {
-        throw video_ctrl::exception("Could not get device context for native handle.");
+        throw gfx::exception("Could not get device context for native handle.");
     }
 
 	PIXELFORMATDESCRIPTOR pfd;
@@ -36,16 +36,16 @@ context_wgl::context_wgl(void* native_handle)
 	int pf = ChoosePixelFormat(hdc_, &pfd);
 	if(pf == 0)
 	{
-		throw video_ctrl::exception("ChoosePixelFormat failed.");
+		throw gfx::exception("ChoosePixelFormat failed.");
 	}
 	if(!DescribePixelFormat(hdc_, pf, sizeof(pfd), &pfd))
     {
-        throw video_ctrl::exception("DescribePixelFormat failed.");
+        throw gfx::exception("DescribePixelFormat failed.");
     }
 
 	if(!SetPixelFormat(hdc_, pf, &pfd))
 	{
-		throw video_ctrl::exception("SetPixelFormat failed.");
+		throw gfx::exception("SetPixelFormat failed.");
 	}
 	context_ = wglCreateContext(hdc_);
 
@@ -57,7 +57,7 @@ context_wgl::context_wgl(void* native_handle)
     {
         if(!wglShareLists(master_context->context_, context_))
         {
-            throw video_ctrl::exception("wglShareLists failed.");
+            throw gfx::exception("wglShareLists failed.");
         }
     }
 
@@ -67,7 +67,7 @@ context_wgl::context_wgl(void* native_handle)
 	// must be called after context was made current
     if(!gladLoadWGL(hdc_))
     {
-        throw video_ctrl::exception("Cannot load wgl.");
+        throw gfx::exception("Cannot load wgl.");
     }
 }
 

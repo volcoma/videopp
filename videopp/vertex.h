@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace video_ctrl
+namespace gfx
 {
 
 /// Common vertex definition attribute properties
@@ -39,17 +39,25 @@ public:
     }
 
 private:
-    uint32_t id_ = 0;
     std::vector<vertex_buffer_element> elements_;
+    uint32_t id_ = 0;
 };
 
 /// Specializations for pushing data to vertex_buffer_layout
 template <>
 void vertex_buffer_layout::add<float>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 template <>
+void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
+template <>
+void vertex_buffer_layout::add<uint16_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
+template <>
 void vertex_buffer_layout::add<uint32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 template <>
-void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
+void vertex_buffer_layout::add<int8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
+template <>
+void vertex_buffer_layout::add<int16_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
+template <>
+void vertex_buffer_layout::add<int32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized);
 
 /// A common vertex definition
 struct vertex_2d

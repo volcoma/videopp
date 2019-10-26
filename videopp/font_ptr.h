@@ -2,7 +2,7 @@
 
 #include <memory>
 
-namespace video_ctrl
+namespace gfx
 {
 struct font_info;
 struct font;

@@ -2,7 +2,7 @@
 #include "logger.h"
 #include "detail/utils.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 ////
@@ -178,6 +178,36 @@ void vertex_buffer_layout::add<float>(uint32_t count, uint32_t offset, const std
     element.location = glGetAttribLocation(id_, element.atrr.c_str());
 }
 template <>
+void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
+{
+    elements_.emplace_back();
+    auto& element = elements_.back();
+    element.atrr = attr;
+    element.count = count;
+    element.offset = offset;
+    element.size = sizeof(GLubyte) * element.count;
+    element.attr_type = GL_UNSIGNED_BYTE;
+    element.normalized = normalized;
+    element.stride = stride;
+    element.location = glGetAttribLocation(id_, element.atrr.c_str());
+}
+
+template <>
+void vertex_buffer_layout::add<uint16_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
+{
+    elements_.emplace_back();
+    auto& element = elements_.back();
+    element.atrr = attr;
+    element.count = count;
+    element.offset = offset;
+    element.size = sizeof(GLushort) * element.count;
+    element.attr_type = GL_UNSIGNED_SHORT;
+    element.normalized = normalized;
+    element.stride = stride;
+    element.location = glGetAttribLocation(id_, element.atrr.c_str());
+}
+
+template <>
 void vertex_buffer_layout::add<uint32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
 {
     elements_.emplace_back();
@@ -191,16 +221,47 @@ void vertex_buffer_layout::add<uint32_t>(uint32_t count, uint32_t offset, const 
     element.stride = stride;
     element.location = glGetAttribLocation(id_, element.atrr.c_str());
 }
+
 template <>
-void vertex_buffer_layout::add<uint8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
+void vertex_buffer_layout::add<int8_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
 {
     elements_.emplace_back();
     auto& element = elements_.back();
     element.atrr = attr;
     element.count = count;
     element.offset = offset;
-    element.size = sizeof(GLubyte) * element.count;
-    element.attr_type = GL_UNSIGNED_BYTE;
+    element.size = sizeof(GLbyte) * element.count;
+    element.attr_type = GL_BYTE;
+    element.normalized = normalized;
+    element.stride = stride;
+    element.location = glGetAttribLocation(id_, element.atrr.c_str());
+}
+
+template <>
+void vertex_buffer_layout::add<int16_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
+{
+    elements_.emplace_back();
+    auto& element = elements_.back();
+    element.atrr = attr;
+    element.count = count;
+    element.offset = offset;
+    element.size = sizeof(GLshort) * element.count;
+    element.attr_type = GL_SHORT;
+    element.normalized = normalized;
+    element.stride = stride;
+    element.location = glGetAttribLocation(id_, element.atrr.c_str());
+}
+
+template <>
+void vertex_buffer_layout::add<int32_t>(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized)
+{
+    elements_.emplace_back();
+    auto& element = elements_.back();
+    element.atrr = attr;
+    element.count = count;
+    element.offset = offset;
+    element.size = sizeof(GLint) * count;
+    element.attr_type = GL_INT;
     element.normalized = normalized;
     element.stride = stride;
     element.location = glGetAttribLocation(id_, element.atrr.c_str());

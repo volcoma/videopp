@@ -10,7 +10,7 @@
 #include <vector>
 #include <functional>
 
-namespace video_ctrl
+namespace gfx
 {
 
 /// Types of primitives to draw
@@ -32,7 +32,7 @@ enum class draw_type
 
 struct gpu_program
 {
-    video_ctrl::shader* shader{};
+    gfx::shader* shader{};
 };
 
 struct gpu_context

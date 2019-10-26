@@ -2,7 +2,7 @@
 #include "html_context.h"
 #include "html_container.h"
 
-namespace video_ctrl
+namespace gfx
 {
 
 

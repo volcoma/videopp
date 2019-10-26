@@ -3,7 +3,7 @@
 #include "html_context.h"
 
 
-namespace video_ctrl
+namespace gfx
 {
 struct html_context;
 
