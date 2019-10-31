@@ -28,8 +28,16 @@ const program_setup& empty_setup() noexcept;
 //-----------------------------------------------------------------------------
 math::transformf fit_item(float item_w, float item_h,
                           float area_w, float area_h,
-                          size_fit sz_fit,
-                          dimension_fit dim_fit);
+                          size_fit sz_fit = size_fit::shrink_to_fit,
+                          dimension_fit dim_fit = dimension_fit::uniform);
+
+math::transformf align_item(align_t align,
+                            float minx, float miny,
+                            float maxx, float maxy,
+                            bool pixel_snap);
+
+math::transformf align_item(align_t align,
+                            const rect& item);
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
 {
@@ -61,24 +69,24 @@ struct draw_list
     /// Adds a rect to the list.
     //-----------------------------------------------------------------------------
     void add_rect(const rect& r,
-                  const color& col = color::white(),
+                  color col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const rect& r,
                   const math::transformf& transform,
-                  const color& col = color::white(),
+                  color col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const frect& r,
                   const math::transformf& transform,
-                  const color& col = color::white(),
+                  color col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const std::array<math::vec2, 4>& points,
-                  const color& col = color::white(),
+                  color col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
@@ -87,7 +95,7 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_line(const math::vec2& start,
                   const math::vec2& end,
-                  const color& col = color::white(),
+                  color col = color::white(),
                   float thickness = 1.0f);
 
 
@@ -98,20 +106,20 @@ struct draw_list
                    const rect& src,
                    const rect& dst,
                    const math::transformf& transform,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
     void add_image(texture_view texture,
                    const rect& src,
                    const rect& dst,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
     void add_image(texture_view texture,
                    const rect& dst,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
@@ -120,7 +128,7 @@ struct draw_list
     void add_image(texture_view texture,
                    const rect& dst,
                    const math::transformf& transform,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
@@ -128,7 +136,7 @@ struct draw_list
 
     void add_image(texture_view texture,
                    const point& pos,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
@@ -136,7 +144,7 @@ struct draw_list
 
     void add_image(texture_view texture,
                    const std::array<math::vec2, 4>& points,
-                   const color& col = color::white(),
+                   color col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
@@ -218,14 +226,14 @@ struct draw_list
     /// Adds a polyline to the list.
     //-----------------------------------------------------------------------------
     void add_polyline(const polyline& poly,
-                      const color& col,
+                      color col,
                       bool closed,
                       float thickness = 1.0f,
                       float antialias_size = 1.0f);
 
     void add_polyline_gradient(const polyline& poly,
-                               const color& coltop,
-                               const color& colbot,
+                               color coltop,
+                               color colbot,
                                bool closed,
                                float thickness = 1.0f,
                                float antialias_size = 1.0f);
@@ -235,12 +243,12 @@ struct draw_list
     /// Will only work for convex shapes
     //-----------------------------------------------------------------------------
     void add_polyline_filled_convex(const polyline& poly,
-                                    const color& colf,
+                                    color colf,
                                     float antialias_size = 1.0f);
 
     void add_polyline_filled_convex_gradient(const polyline& poly,
-                                             const color& coltop,
-                                             const color& colbot,
+                                             color coltop,
+                                             color colbot,
                                              float antialias_size = 1.0f);
 
     //-----------------------------------------------------------------------------
@@ -248,14 +256,14 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_ellipse(const math::vec2& center,
                      const math::vec2& radii,
-                     const color& col,
+                     color col,
                      size_t num_segments = 12,
                      float thickness = 1.0f);
 
     void add_ellipse_gradient(const math::vec2& center,
                               const math::vec2& radii,
-                              const color& col1,
-                              const color& col2,
+                              color col1,
+                              color col2,
                               size_t num_segments = 12,
                               float thickness = 1.0f);
 
@@ -264,21 +272,21 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_ellipse_filled(const math::vec2& center,
                             const math::vec2& radii,
-                            const color& col,
+                            color col,
                             size_t num_segments = 12);
 
     void add_bezier_curve(const math::vec2& pos0,
                           const math::vec2& cp0,
                           const math::vec2& cp1,
                           const math::vec2& pos1,
-                          const color& col,
+                          color col,
                           float thickness = 1.0f,
                           int num_segments = 0);
 
 
     void add_curved_path_gradient(const std::vector<math::vec2>& points,
-                                  const color& c1,
-                                  const color& c2,
+                                  color c1,
+                                  color c2,
                                   float thickness = 1.0f,
                                   float antialias_size = 1.0f);
 

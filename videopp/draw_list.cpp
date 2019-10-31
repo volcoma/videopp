@@ -184,7 +184,7 @@ inline void fixnormal2f(float& vx, float& vy)
     vy *= inv_lensq;
 }
 
-color get_vertical_gradient(const color& ct,const color& cb, float dh, float h)
+color get_vertical_gradient(color ct,color cb, float dh, float h)
 {
     const float fa = dh/h;
     const float fc = (1.0f-fa);
@@ -336,6 +336,22 @@ math::transformf fit_item(float item_w, float item_h,
     return fit_trans;
 }
 
+math::transformf align_item(align_t align, const rect& item)
+{
+    return align_item(align, float(item.x), float(item.y), float(item.x + item.w), float(item.y + item.h), true);
+}
+
+math::transformf align_item(align_t align, float minx, float miny, float maxx, float maxy, bool pixel_snap)
+{
+    auto xoffs = get_alignment_x(align, minx, maxx, pixel_snap);
+    auto yoffs = get_alignment_y(align, miny, miny, maxy, maxy, pixel_snap);
+
+    math::transformf result;
+    result.translate(xoffs, yoffs, 0.0f);
+    return result;
+}
+
+
 const program_setup& empty_setup() noexcept
 {
     static program_setup setup;
@@ -372,7 +388,7 @@ void draw_list::clear() noexcept
     commands_requested = 0;
 }
 
-void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& col, bool filled,
+void draw_list::add_rect(const std::array<math::vec2, 4>& points, color col, bool filled,
                          float thickness)
 {
     polyline line;
@@ -391,24 +407,24 @@ void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& c
     }
 }
 
-void draw_list::add_rect(const rect& dst, const color& col, bool filled, float thickness)
+void draw_list::add_rect(const rect& dst, color col, bool filled, float thickness)
 {
     add_rect(transform_rect(dst), col, filled, thickness);
 }
 
-void draw_list::add_rect(const frect& dst, const math::transformf& transform, const color& col, bool filled,
+void draw_list::add_rect(const frect& dst, const math::transformf& transform, color col, bool filled,
                          float thickness)
 {
     add_rect(transform_rect(dst, transform), col, filled, thickness);
 }
 
-void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
+void draw_list::add_rect(const rect& dst, const math::transformf& transform, color col, bool filled,
                          float thickness)
 {
     add_rect(frect(float(dst.x), float(dst.y), float(dst.w), float(dst.h)), transform, col, filled, thickness);
 }
 
-void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
+void draw_list::add_line(const math::vec2& start, const math::vec2& end, color col, float thickness)
 {
     polyline line;
     line.line_to(start);
@@ -417,7 +433,7 @@ void draw_list::add_line(const math::vec2& start, const math::vec2& end, const c
 }
 
 void draw_list::add_image(texture_view texture, const rect& src, const rect& dst,
-                          const math::transformf& transform, const color& col, flip_format flip, const program_setup& setup)
+                          const math::transformf& transform, color col, flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
@@ -430,7 +446,7 @@ void draw_list::add_image(texture_view texture, const rect& src, const rect& dst
     add_image(texture, transform_rect(dst, transform), col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const rect& src, const rect& dst, const color& col,
+void draw_list::add_image(texture_view texture, const rect& src, const rect& dst, color col,
                           flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
@@ -444,20 +460,20 @@ void draw_list::add_image(texture_view texture, const rect& src, const rect& dst
     add_image(texture, dst, col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const rect& dst, const color& col,
+void draw_list::add_image(texture_view texture, const rect& dst, color col,
                           math::vec2 min_uv, math::vec2 max_uv, flip_format flip, const program_setup& setup)
 {
     add_image(texture, transform_rect(dst), col, min_uv, max_uv, flip, setup);
 }
 
 void draw_list::add_image(texture_view texture, const rect& dst, const math::transformf& transform,
-                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
+                          color col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
     add_image(texture, transform_rect(dst, transform), col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const point& pos, const color& col,
+void draw_list::add_image(texture_view texture, const point& pos, color col,
                           math::vec2 min_uv, math::vec2 max_uv, flip_format flip,
                           const program_setup& setup)
 {
@@ -467,7 +483,7 @@ void draw_list::add_image(texture_view texture, const point& pos, const color& c
 }
 
 void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>& points,
-                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
+                          color col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
 
@@ -1126,13 +1142,13 @@ void draw_list::validate_stacks() const noexcept
 
 }
 
-void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
+void draw_list::add_polyline(const polyline& poly, color col, bool closed, float thickness, float antialias_size)
 {
     add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
 }
 
 
-void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
+void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color colbot, bool closed, float thickness, float antialias_size)
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
@@ -1340,12 +1356,12 @@ void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop,
 }
 
 
-void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, float antialias_size)
+void draw_list::add_polyline_filled_convex(const polyline& poly, color col, float antialias_size)
 {
     add_polyline_filled_convex_gradient(poly, col, col, antialias_size);
 }
 
-void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
+void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color coltop, color colbot, float antialias_size)
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
@@ -1472,13 +1488,13 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const 
         }
     }
 }
-void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
+void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, color col, size_t num_segments, float thickness)
 {
     add_ellipse_gradient(center, radii, col, col, num_segments, thickness);
 
 }
 
-void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments, float thickness)
+void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, color col1, color col2, size_t num_segments, float thickness)
 {
     if ((col1.a == 0 && col2.a == 0) || num_segments <= 2)
         return;
@@ -1489,7 +1505,7 @@ void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2&
 
 }
 
-void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments)
+void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, color col, size_t num_segments)
 {
     if (col.a == 0|| num_segments <= 2)
         return;
@@ -1499,7 +1515,7 @@ void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& r
     add_polyline_filled_convex(line, col, true);
 }
 
-void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness, int num_segments)
+void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, color col, float thickness, int num_segments)
 {
     if (col.a == 0)
         return;
@@ -1510,7 +1526,7 @@ void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, 
     add_polyline(line, col, false, thickness);
 }
 
-void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, const color& col1, const color& col2, float thickness, float antialias_size)
+void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, color col1, color col2, float thickness, float antialias_size)
 {
     if((col1.a == 0 && col2.a == 0) || points.size() < 2)
         return;
@@ -1739,5 +1755,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
 }
+
 
 }

@@ -85,7 +85,7 @@ int main()
             builder.add(gfx::get_latin_glyph_range());
             builder.add(gfx::get_cyrillic_glyph_range());
 
-            auto font_path = "C:/WINDOWS/Fonts/PALA.TTF";//DATA"fonts/Angeline Vintage_Demo.ttf";
+            auto font_path = DATA"fonts/wds052801.ttf";
             auto font = master_rend.create_font(gfx::create_font_from_ttf(font_path, builder.get(), 50, 2, true));
             auto font_bitmap = master_rend.create_font(gfx::create_font_from_ttf(font_path, builder.get(), 50, 0, true));
 
@@ -250,7 +250,7 @@ int main()
 
                 }
 
-                //transform.rotate(0.0f, 0.0f, math::radians(0.01f));
+                transform.rotate(0.0f, 0.0f, math::radians(0.1f));
                 using namespace std::chrono_literals;
                 auto start = std::chrono::high_resolution_clock::now();
 
@@ -265,7 +265,11 @@ int main()
                     transform.set_position(pos.x, pos.y, 0.0f);
                     list.clear();
 
-//                    list.add_image(background, rend.get_rect());
+                    gfx::rect dst_rect{0, 0, 200, 200};
+                    auto tr = gfx::align_item(halign | valign,
+                                              dst_rect);
+                    list.add_rect(dst_rect, transform * tr, gfx::color::red(), false);
+                    list.add_image(fig3, dst_rect, transform * tr);
 
 //                    list.add_image(fig1, {000, 000, 200, 200});
 //                    list.add_image(fig2, {000, 200, 200, 200});
@@ -294,7 +298,7 @@ int main()
                                 text.set_shadow_offsets({4.0f, -4.0f});
                                 //text.set_advance({-10.5f, 0.0f});
 
-                                list.add_text_superscript(text, text, transform);
+                                //list.add_text_superscript(text, text, transform);
 
 //                                auto height = text.get_height() * transform.get_scale().y;
 //                                width = text.get_width() * transform.get_scale().x;
