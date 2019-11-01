@@ -1,6 +1,6 @@
 ﻿#include "context_glx.h"
 
-namespace video_ctrl
+namespace gfx
 {
 namespace
 {
@@ -15,7 +15,7 @@ context_glx::context_glx(void* native_handle, void* native_display)
 
     if(!gladLoadGLX(display_, 0))
     {
-        throw video_ctrl::exception("Cannot load glx.");
+        throw gfx::exception("Cannot load glx.");
     }
 
     static int visual_attribs[] = {
@@ -34,7 +34,7 @@ context_glx::context_glx(void* native_handle, void* native_display)
                                          visual_attribs, &num_fbc);
     if (!fbc)
     {
-        throw video_ctrl::exception("glXChooseFBConfig() failed");
+        throw gfx::exception("glXChooseFBConfig() failed");
     }
 
     XVisualInfo* vi = glXGetVisualFromFBConfig(display_, fbc[0]);
@@ -48,7 +48,7 @@ context_glx::context_glx(void* native_handle, void* native_display)
     }
     if (!context_)
     {
-        throw video_ctrl::exception("Failed to create OpenGL context");
+        throw gfx::exception("Failed to create OpenGL context");
     }
 
     if(!master_ctx)

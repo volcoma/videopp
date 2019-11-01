@@ -13,7 +13,7 @@
 
 #include "glad_egl.h"
 
-namespace video_ctrl
+namespace gfx
 {
 struct context_egl : context
 {
