@@ -258,7 +258,7 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 		fonts[fonts_key] = font->face;
 	}
 
-	font->scale = size / float(font->face->size);
+	font->scale = float(size) / float(font->face->size);
 
 	html_fonts[key] = font;
 
