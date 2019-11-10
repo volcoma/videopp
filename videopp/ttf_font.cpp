@@ -20,7 +20,7 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     }
 
     std::string err{};
-    if(!atlas.build(fnt::font_rasterizer::stb, err))
+    if(!atlas.build(fnt::font_rasterizer::freetype, err))
     {
         throw std::runtime_error("[" + id + "] - " + err);
     }
@@ -78,7 +78,7 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
 
     for(const auto& cp_range : codepoint_ranges)
     {
-        std::array<fnt::font_wchar, 3> range = {fnt::font_wchar(cp_range.first), fnt::font_wchar(cp_range.second), 0};
+        std::array<fnt::font_wchar, 3> range = {{fnt::font_wchar(cp_range.first), fnt::font_wchar(cp_range.second), 0}};
         builder.add_ranges(range.data());
     }
     auto ranges = builder.build_ranges();

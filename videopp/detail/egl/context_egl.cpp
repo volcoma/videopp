@@ -1,6 +1,6 @@
 ﻿#include "context_egl.h"
 
-namespace video_ctrl
+namespace gfx
 {
 namespace
 {
@@ -12,12 +12,12 @@ context_egl::context_egl(void* native_handle, void* native_display)
     display_ = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(native_display));
     if (display_ == EGL_NO_DISPLAY)
     {
-        throw video_ctrl::exception("Cannot get EGL Dsiplay.");
+        throw gfx::exception("Cannot get EGL Dsiplay.");
     }
 
     if(!gladLoadEGL())
     {
-        throw video_ctrl::exception("Cannot load glx.");
+        throw gfx::exception("Cannot load glx.");
     }
 
     int major_version {};
@@ -25,7 +25,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (!eglInitialize(display_, &major_version, &minor_version))
     {
-        throw video_ctrl::exception("Cannot get EGL Initialize.");
+        throw gfx::exception("Cannot get EGL Initialize.");
     }
 
     EGLConfig config {};
@@ -42,12 +42,12 @@ context_egl::context_egl(void* native_handle, void* native_display)
         // Choose config
         if (!eglChooseConfig(display_, attribList, &config, 1, &num_config))
         {
-            throw video_ctrl::exception("Cannot choose EGL Config.");
+            throw gfx::exception("Cannot choose EGL Config.");
         }
 
         if (num_config < 1)
         {
-            throw video_ctrl::exception("No EGL Config.");
+            throw gfx::exception("No EGL Config.");
         }
     }
 
@@ -58,7 +58,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (surface_ == EGL_NO_SURFACE)
     {
-        throw video_ctrl::exception("Cannot create EGL Surface.");
+        throw gfx::exception("Cannot create EGL Surface.");
     }
 
     EGLint context_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
@@ -73,7 +73,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (context_ == EGL_NO_CONTEXT)
     {
-        throw video_ctrl::exception("Cannot create EGL Context.");
+        throw gfx::exception("Cannot create EGL Context.");
     }
 
     if(!master_ctx)

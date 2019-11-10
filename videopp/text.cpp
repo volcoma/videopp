@@ -479,8 +479,8 @@ void text::update_geometry(bool all) const
     size_t offset = 0;
     auto vptr = geometry_.data();
 
-    const math::vec4 vcolor_top = color_top_;
-    const math::vec4 vcolor_bot = color_bot_;
+    const math::vec4 vcolor_top{color_top_.r, color_top_.g, color_top_.b, color_top_.a};
+    const math::vec4 vcolor_bot{color_bot_.r, color_bot_.g, color_bot_.b, color_bot_.a};
     const bool has_gradient = color_top_ != color_bot_;
 
     float max_h = (lines.size() * line_height) - line_gap;

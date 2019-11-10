@@ -2,8 +2,6 @@
 
 #include <cstdint>
 #include "utils.h"
-#include "math/transform.hpp"
-
 
 namespace gfx
 {
@@ -33,11 +31,6 @@ namespace gfx
         inline operator uint32_t() const noexcept
         {
             return (((uint32_t)(a)<< 24) | ((uint32_t)(b)<<16) | ((uint32_t)(g)<<8) | ((uint32_t)(r)<<0));
-        }
-
-        inline operator math::vec4() const noexcept
-        {
-            return {r, g, b, a};
         }
 
         static const color black();

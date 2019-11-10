@@ -212,47 +212,41 @@ const program_setup& get_simple_setup() noexcept
 
 template<typename Setup>
 inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
-                                   primitive_type type, texture_view texture, Setup&& setup)
+                                   primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup)
 {
     assert(verts != nullptr && count > 0 && "invalid input for memcpy");
     const auto vertices_before = uint32_t(list.vertices.size());
     list.vertices.resize(vertices_before + count);
     std::memcpy(list.vertices.data() + vertices_before, verts, sizeof(vertex_2d) * count);
 
-    blending_mode blend = texture.blending;
-
     if(setup.program.shader)
     {
         return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::forward<Setup>(setup));
     }
-    else
+
+    if(!texture)
     {
-        if(texture)
-        {
-            program_setup program{};
-            program.program = multi_channel_texture_program();
-
-            uint64_t hash{0};
-            utils::hash(hash, texture);
-            program.uniforms_hash = hash;
-
-            auto& cmd = add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::move(program));
-            // check if a new command was added
-            if(!cmd.setup.begin)
-            {
-                cmd.setup.begin = [texture](const gpu_context& ctx)
-                {
-                    ctx.program.shader->set_uniform("uTexture", texture);
-                };
-            }
-
-            return cmd;
-        }
-        else
-        {
-            return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, get_simple_setup());
-        }
+        return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, get_simple_setup());
     }
+
+    program_setup program{};
+    program.program = multi_channel_texture_program();
+
+    uint64_t hash{0};
+    utils::hash(hash, texture);
+    program.uniforms_hash = hash;
+
+    auto& cmd = add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::move(program));
+    // check if a new command was added
+    if(!cmd.setup.begin)
+    {
+        cmd.setup.begin = [texture](const gpu_context& ctx)
+        {
+            ctx.program.shader->set_uniform("uTexture", texture);
+        };
+    }
+
+    return cmd;
 }
 
 }
@@ -511,12 +505,14 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
         {points[3], {min_uv.x, max_uv.y}, col},
     };
 
+    blending_mode blend = texture.blending;
+
     if(col.a < 255)
     {
-        texture.blending = blending_mode::blend_normal;
+        blend = blending_mode::blend_normal;
     }
 
-    add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, setup);
+    add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, blend, setup);
 }
 
 void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, texture_view texture, const program_setup& setup)
@@ -525,7 +521,7 @@ void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_
     {
         return;
     }
-    add_vertices_impl(*this, dr_type, vertices, count, type, texture, setup);
+    add_vertices_impl(*this, dr_type, vertices, count, type, texture, texture.blending, setup);
 }
 
 void draw_list::add_list(const draw_list& list)
@@ -668,7 +664,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
     const auto vtx_offset = uint32_t(vertices.size());
-    auto& cmd = add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, texture, std::move(setup));
+    texture_view view = texture;
+    auto& cmd = add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, view, view.blending, std::move(setup));
     if(cpu_batch)
     {
         for(size_t i = vtx_offset, sz = vertices.size(); i < sz; ++i)
