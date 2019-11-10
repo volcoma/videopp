@@ -124,8 +124,8 @@ int main()
 				{
 					if(e.key.code == os::key::f5)
 					{
-						//page.load_from_file(DATA "html/simple_page/index.html");
-                        page.load_from_file(DATA "html/text/pull_quotes2.html");
+						page.load_from_file(DATA "html/simple_page/index.html");
+                        //page.load_from_file(DATA "html/text/pull_quotes2.html");
 
 					}
 				}
