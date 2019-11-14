@@ -29,26 +29,26 @@ auto read_stream(std::basic_istream<CharT, Traits>& in, Container& container) ->
 	if(std::streamsize(-1) == start_pos)
 	{
 		return false;
-	};
+	}
 
 	if(!in.seekg(0, std::ios_base::end))
 	{
 		return false;
-	};
+	}
 
 	auto const end_pos = in.tellg();
 
 	if(std::streamsize(-1) == end_pos)
 	{
 		return false;
-	};
+	}
 
 	auto const char_count = end_pos - start_pos;
 
 	if(!in.seekg(start_pos))
 	{
 		return false;
-	};
+	}
 
 	container.resize(static_cast<std::size_t>(char_count));
 
@@ -57,7 +57,7 @@ auto read_stream(std::basic_istream<CharT, Traits>& in, Container& container) ->
 		if(!in.read(reinterpret_cast<CharT*>(&container[0]), char_count))
 		{
 			return false;
-		};
+		}
 	}
 
 	return true;
@@ -213,13 +213,13 @@ html_font_ptr html_context::get_font(size_t page_uid, const std::string& face_na
 	font->key = key;
 	if(bold && simulate_bold)
 	{
-		float step = (weight - bold_weight) / 100.0f;
+		float step = float(weight - bold_weight) / 100.0f;
 		font->boldness = step * 0.1f;
 	}
 
 	if(italic && simulate_italic)
 	{
-		font->leaning = 3.0f;
+		font->leaning = 12.0f;
 	}
 
 	font->underline = decoration & litehtml::font_decoration_underline;

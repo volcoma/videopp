@@ -17,21 +17,6 @@ namespace
 {
 bool debug_draw = false;
 
-template<typename T>
-std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transformf& transform) noexcept
-{
-    math::vec2 lt = {r.x, r.y};
-    math::vec2 rt = {r.x + r.w, r.y};
-    math::vec2 rb = {r.x + r.w, r.y + r.h};
-    math::vec2 lb = {r.x, r.y + r.h};
-
-    auto p0 = transform.transform_coord(lt);
-    auto p1 = transform.transform_coord(rt);
-    auto p2 = transform.transform_coord(rb);
-    auto p3 = transform.transform_coord(lb);
-
-    return {{p0, p1, p2, p3}};
-}
 
 template<typename T>
 inline std::array<math::vec2, 4> transform_rect(const rect_t<T>& r) noexcept
@@ -41,6 +26,20 @@ inline std::array<math::vec2, 4> transform_rect(const rect_t<T>& r) noexcept
             math::vec2(r.x + r.w, r.y + r.h),
             math::vec2(r.x, r.y + r.h)}};
 }
+
+template<typename T>
+std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transformf& transform) noexcept
+{
+    auto points = transform_rect(r);
+
+    for(auto& p : points)
+    {
+        p = transform.transform_coord(p);
+    }
+
+    return points;
+}
+
 
 inline uint64_t simple_hash() noexcept
 {
@@ -54,57 +53,71 @@ inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
     return !list.commands.empty() && list.commands.back().hash == hash;
 }
 
-
-template<typename Setup>
-inline draw_cmd& add_indices_impl(draw_list& list, draw_type dr_type, uint32_t vertices_added, uint32_t vertices_before,
-                                  primitive_type type, blending_mode deduced_blend, Setup&& setup)
+inline void transform_vertices(draw_list& list, size_t vtx_offset, size_t vtx_count)
 {
-    const auto indices_before = uint32_t(list.indices.size());
-    uint32_t indices_added = 0;
-
-    if(dr_type == draw_type::elements)
+    if(!list.transforms.empty())
     {
-        auto index_offset = vertices_before;
-        switch(type)
+        const auto& tr = list.transforms.back();
+        for(size_t i = vtx_offset; i < vtx_offset + vtx_count; ++i)
         {
-            case primitive_type::triangles:
-            {
-                const uint32_t rect_vertices = 4;
-                const uint32_t rects = vertices_added / rect_vertices;
-                // indices added will be (rects * (rect_vertices - 2)) * 3;
-                list.indices.resize(indices_before + (rects * (rect_vertices - 2)) * 3);
-                for(uint32_t r = 0; r < rects; ++r)
-                {
-                    for(uint32_t i = 2; i < rect_vertices; ++i)
-                    {
-                        draw_list::index_t src_indices[] = {index_offset, index_offset + i - 1, index_offset + i};
-                        std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
-                        indices_added += 3;
-                    }
-                    index_offset += rect_vertices;
-                }
-            }
-            break;
-            case primitive_type::lines:
-            case primitive_type::lines_loop:
-            {
-                if(vertices_added >= 2)
-                {
-                    list.indices.resize(indices_before + (vertices_added - 1) * 2);
-
-                    for(uint32_t i = 0; i < vertices_added - 1; ++i)
-                    {
-                        draw_list::index_t src_indices[] = {index_offset + i, index_offset + i + 1};
-                        std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
-                        indices_added += 2;
-                    }
-                }
-            }
-            break;
-            default:
-                break;
+            auto& v = list.vertices[i];
+            v.pos = tr.transform_coord(v.pos);
         }
     }
+}
+
+template<typename Setup>
+inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t vertices_before, uint32_t vertices_added,
+                              uint32_t indices_before, uint32_t indices_added, primitive_type type, blending_mode deduced_blend, Setup&& setup)
+{
+    if(indices_added == 0)
+    {
+        if(dr_type == draw_type::elements)
+        {
+            auto index_offset = vertices_before;
+            switch(type)
+            {
+                case primitive_type::triangles:
+                {
+                    const uint32_t rect_vertices = 4;
+                    const uint32_t rects = vertices_added / rect_vertices;
+                    // indices added will be (rects * (rect_vertices - 2)) * 3;
+                    list.indices.resize(indices_before + (rects * (rect_vertices - 2)) * 3);
+                    for(uint32_t r = 0; r < rects; ++r)
+                    {
+                        for(uint32_t i = 2; i < rect_vertices; ++i)
+                        {
+                            draw_list::index_t src_indices[] = {index_offset, index_offset + i - 1, index_offset + i};
+                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
+                            indices_added += 3;
+                        }
+                        index_offset += rect_vertices;
+                    }
+                }
+                break;
+                case primitive_type::lines:
+                case primitive_type::lines_loop:
+                {
+                    if(vertices_added >= 2)
+                    {
+                        list.indices.resize(indices_before + (vertices_added - 1) * 2);
+
+                        for(uint32_t i = 0; i < vertices_added - 1; ++i)
+                        {
+                            draw_list::index_t src_indices[] = {index_offset + i, index_offset + i + 1};
+                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
+                            indices_added += 2;
+                        }
+                    }
+                }
+                break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    transform_vertices(list, vertices_before, vertices_added);
 
     rect clip{};
     if(!list.clip_rects.empty())
@@ -151,18 +164,16 @@ inline draw_cmd& add_indices_impl(draw_list& list, draw_type dr_type, uint32_t v
     command.indices_count += indices_added;
     command.vertices_offset = std::min(command.vertices_offset, vertices_before);
     command.vertices_count += vertices_added;
+
     return command;
 }
 
 inline void prim_resize(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
-    auto& cmd = list.commands.back();
-    cmd.indices_count += static_cast<uint32_t>(idx_count);
-
     idx_current_idx = list.indices.size();
     vtx_current_idx = list.vertices.size();
-    list.indices.resize(list.indices.size() + idx_count);
-    list.vertices.resize(list.vertices.size() + vtx_count);
+    list.indices.resize(idx_current_idx + idx_count);
+    list.vertices.resize(vtx_current_idx + vtx_count);
 }
 
 inline void normalize2f_over_zero(float& vx, float& vy)
@@ -215,18 +226,19 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
                                    primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup)
 {
     assert(verts != nullptr && count > 0 && "invalid input for memcpy");
-    const auto vertices_before = uint32_t(list.vertices.size());
-    list.vertices.resize(vertices_before + count);
-    std::memcpy(list.vertices.data() + vertices_before, verts, sizeof(vertex_2d) * count);
+    const auto vtx_offset = uint32_t(list.vertices.size());
+    const auto idx_offset = uint32_t(list.indices.size());
+    list.vertices.resize(vtx_offset + count);
+    std::memcpy(list.vertices.data() + vtx_offset, verts, sizeof(vertex_2d) * count);
 
     if(setup.program.shader)
     {
-        return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::forward<Setup>(setup));
+        return add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::forward<Setup>(setup));
     }
 
     if(!texture)
     {
-        return add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, get_simple_setup());
+        return add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, get_simple_setup());
     }
 
     program_setup program{};
@@ -236,7 +248,7 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
     utils::hash(hash, texture);
     program.uniforms_hash = hash;
 
-    auto& cmd = add_indices_impl(list, dr_type, uint32_t(count), vertices_before, type, blend, std::move(program));
+    auto& cmd = add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::move(program));
     // check if a new command was added
     if(!cmd.setup.begin)
     {
@@ -379,6 +391,7 @@ void draw_list::clear() noexcept
     commands.clear();
     clip_rects.clear();
     blend_modes.clear();
+    transforms.clear();
     commands_requested = 0;
 }
 
@@ -1136,7 +1149,7 @@ void draw_list::validate_stacks() const noexcept
 {
     assert(clip_rects.empty() && "draw_list::clip_rects stack was not popped");
     assert(blend_modes.empty() && "draw_list::blend_modes stack was not popped");
-
+    assert(transforms.empty() && "draw_list::transforms stack was not popped");
 }
 
 void draw_list::add_polyline(const polyline& poly, color col, bool closed, float thickness, float antialias_size)
@@ -1149,8 +1162,6 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
-    add_indices_impl(*this, draw_type::elements, 0, 0, primitive_type::triangles, blend, get_simple_setup());
-
     const auto& points = poly.get_points();
     auto points_count = points.size();
 
@@ -1160,6 +1171,9 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
     size_t count = points_count;
     if (!closed)
         count = points_count-1;
+
+    auto vtx_offset = vertices.size();
+    auto idx_offset = indices.size();
 
     const bool thick_line = thickness > 1.0f;
     if (antialias_size > 0.0f)
@@ -1349,7 +1363,19 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
             idx_write_ptr += 6;
             vtx_current_idx += 4;
         }
-    }
+    } 
+
+    auto vtx_count = vertices.size() - vtx_offset;
+    auto idx_count = indices.size() - idx_offset;
+    add_cmd_impl(*this,
+                 draw_type::elements,
+                 uint32_t(vtx_offset),
+                 uint32_t(vtx_count),
+                 uint32_t(idx_offset),
+                 uint32_t(idx_count),
+                 primitive_type::triangles,
+                 blend,
+                 get_simple_setup());
 }
 
 
@@ -1362,13 +1388,14 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color 
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
-    add_indices_impl(*this, draw_type::elements, 0, 0, primitive_type::triangles, blend, get_simple_setup());
-
     const auto& points = poly.get_points();
     auto points_count = points.size();
 
     if (points_count < 3)
         return;
+
+    auto vtx_offset = vertices.size();
+    auto idx_offset = indices.size();
 
     float miny = 999999999.0f;
     float maxy = -miny;
@@ -1484,6 +1511,19 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color 
             idx_write_ptr += 3;
         }
     }
+
+    auto vtx_count = vertices.size() - vtx_offset;
+    auto idx_count = indices.size() - idx_offset;
+    add_cmd_impl(*this,
+                 draw_type::elements,
+                 uint32_t(vtx_offset),
+                 uint32_t(vtx_count),
+                 uint32_t(idx_offset),
+                 uint32_t(idx_count),
+                 primitive_type::triangles,
+                 blend,
+                 get_simple_setup());
+
 }
 void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, color col, size_t num_segments, float thickness)
 {
@@ -1567,7 +1607,18 @@ void draw_list::pop_blend()
         blend_modes.pop_back();
     }
 }
+void draw_list::push_transform(const math::transformf& tr)
+{
+    transforms.emplace_back(tr);
+}
 
+void draw_list::pop_transform()
+{
+    if(!transforms.empty())
+    {
+        transforms.pop_back();
+    }
+}
 void draw_list::reserve_vertices(size_t count)
 {
     vertices.reserve(vertices.size() + count);

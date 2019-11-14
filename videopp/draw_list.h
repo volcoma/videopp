@@ -66,6 +66,12 @@ struct draw_list
     void pop_blend();
 
     //-----------------------------------------------------------------------------
+    /// Pushes/pops a global transform to be used in the following commands.
+    //-----------------------------------------------------------------------------
+    void push_transform(const math::transformf& transform);
+    void pop_transform();
+
+    //-----------------------------------------------------------------------------
     /// Adds a rect to the list.
     //-----------------------------------------------------------------------------
     void add_rect(const rect& r,
@@ -332,6 +338,8 @@ struct draw_list
     std::vector<rect> clip_rects;
     /// clip rects stack
     std::vector<blending_mode> blend_modes;
+    /// transforms stack
+    std::vector<math::transformf> transforms;
     /// total commands requested
     size_t commands_requested = 0;
 };
