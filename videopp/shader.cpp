@@ -122,12 +122,12 @@ namespace gfx
             GLenum type{};
             GLsizei len{};
             gl_call(glGetActiveUniform(program_id_, GLuint(idx), GLsizei(name_data.size()), &len, &sz, &type, name_data.data()));
-            std::string uniform_name(name_data.data(), static_cast<size_t>(len));
+            std::string uniform(name_data.data(), static_cast<size_t>(len));
 
-            auto location = glGetUniformLocation(program_id_, uniform_name.c_str());
+            auto location = glGetUniformLocation(program_id_, uniform.c_str());
             if(location >= 0)
             {
-                locations_[uniform_name] = location;
+                locations_[uniform] = location;
             }
         }
     }
@@ -147,126 +147,156 @@ namespace gfx
         clear_textures();
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::mat4_t &data) const
+    void shader::set_uniform(const char* uniform, const math::transform_t<float>::mat4_t &data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniformMatrix4fv(location, 1, false, math::value_ptr(data)));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const texture_view& tex, uint32_t slot,
-                             texture::wrap_type wrap_type, texture::interpolation_type interp_type) const
+    void shader::set_uniform(const char* uniform, const texture_view& tex, uint32_t slot) const
     {
+        assert(slot < bound_textures_.size() && "shader::set_uniform - index out of bounds");
         max_bound_slot_ = std::max(max_bound_slot_, int32_t(slot));
-        rend_.bind_texture(tex, slot, wrap_type, interp_type);
-        auto location = get_uniform_location(uniform_name);
+        rend_.bind_texture(tex, slot);
+        if( tex.custom_sampler )
+        {
+            rend_.bind_sampler(tex, slot);
+        }
+
+        bound_textures_[slot] = tex;
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform1i(location, GLint(slot)));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec2_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<2, int>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform2i(location, data.x, data.y));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec2_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<2, float>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform2f(location, data.x, data.y));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec3_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<3, int>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform3i(location, data.x, data.y, data.z));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec3_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<3, float>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform3f(location, data.x, data.y, data.z));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<int>::vec4_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<4, int>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform4i(location, data.x, data.y, data.z, data.w));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const math::transform_t<float>::vec4_t& data) const
+    void shader::set_uniform(const char* uniform, const math::vec<4, float>& data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform4f(location, data.x, data.y, data.z, data.w));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, const color& data) const
+    void shader::set_uniform(const char* uniform, const std::vector<math::vec<4, float>>& data) const
     {
-        set_uniform(uniform_name, math::vec4{data.r / 255.0f, data.g / 255.0f, data.b / 255.0f, data.a / 255.0f});
+        auto location = get_uniform_location(uniform);
+        if(location >= 0 && !data.empty())
+        {
+            gl_call(glUniform4fv(location, data.size(), math::value_ptr(data[0])));
+        }
     }
 
-    bool shader::has_uniform(const char* uniform_name) const
+    void shader::set_uniform(const char* uniform, const std::vector<rect>& data) const
     {
-        return locations_.find(uniform_name) != std::end(locations_);
+        auto location = get_uniform_location(uniform);
+        if(location >= 0 && !data.empty())
+        {
+            gl_call(glUniform4iv(location, data.size(), &data[0].x));
+        }
+    }
+
+    void shader::set_uniform(const char* uniform, const color& data) const
+    {
+        set_uniform(uniform, math::vec4{data.r / 255.0f, data.g / 255.0f, data.b / 255.0f, data.a / 255.0f});
+    }
+
+    bool shader::has_uniform(const char* uniform) const
+    {
+        return locations_.find(uniform) != std::end(locations_);
     }
 
     void shader::clear_textures() const
     {
-        for(int32_t slot = 1; slot <= max_bound_slot_; ++slot)
+        for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
         {
             rend_.unbind_texture(uint32_t(slot));
+            if ( bound_textures_[slot].custom_sampler )
+            {
+                rend_.unbind_sampler(uint32_t(slot));
+            }
+            bound_textures_[slot] = {};
         }
+        // activate just 1 texture
         rend_.unbind_texture(0);
         max_bound_slot_ = -1;
     }
 
-    int shader::get_uniform_location(const char* uniform_name) const
+    int shader::get_uniform_location(const char* uniform) const
     {
-        auto it = locations_.find(uniform_name);
+        auto it = locations_.find(uniform);
         if(it != std::end(locations_))
         {
             return it->second;
         }
 
-        log("ERROR, could not find uniform: " + std::string(uniform_name));
+        log("ERROR, could not find uniform: " + std::string(uniform));
 
         return -1;
     }
 
-    void shader::set_uniform(const char* uniform_name, float data) const
+    void shader::set_uniform(const char* uniform, float data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform1f(location, data));
         }
     }
 
-    void shader::set_uniform(const char* uniform_name, int data) const
+    void shader::set_uniform(const char* uniform, int data) const
     {
-        auto location = get_uniform_location(uniform_name);
+        auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
             gl_call(glUniform1i(location, data));

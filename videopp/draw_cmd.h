@@ -78,6 +78,7 @@ struct draw_cmd
 
 gpu_program& simple_program() noexcept;
 gpu_program& multi_channel_texture_program() noexcept;
+gpu_program& multi_channel_texture_crop_program() noexcept;
 gpu_program& multi_channel_dither_texture_program() noexcept;
 gpu_program& single_channel_texture_program() noexcept;
 gpu_program& distance_field_font_program() noexcept;

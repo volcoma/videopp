@@ -16,6 +16,12 @@ gpu_program& multi_channel_texture_program() noexcept
     return program;
 }
 
+gpu_program& multi_channel_texture_crop_program() noexcept
+{
+    static gpu_program program;
+    return program;
+}
+
 gpu_program& multi_channel_dither_texture_program() noexcept
 {
     static gpu_program program;

@@ -241,21 +241,70 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
         return add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, get_simple_setup());
     }
 
-    program_setup program{};
-    program.program = multi_channel_texture_program();
+
+    program_setup prog_setup{};
+
+    auto has_crop = !list.crop_areas.empty();
+
+    if(!list.programs.empty())
+    {
+        prog_setup.program = list.programs.back();
+    }
+    else
+    {
+        if(!has_crop)
+        {
+            prog_setup.program = multi_channel_texture_program();
+        }
+        else
+        {
+            blend = blending_mode::blend_normal;
+            prog_setup.program = multi_channel_texture_crop_program();
+        }
+    }
 
     uint64_t hash{0};
     utils::hash(hash, texture);
-    program.uniforms_hash = hash;
+    if(has_crop)
+    {
+        const auto& crop_areas = list.crop_areas.back();
+        for(const auto& area : crop_areas)
+        {
+            utils::hash(hash, area);
+        }
+    }
 
-    auto& cmd = add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::move(program));
+    prog_setup.uniforms_hash = hash;
+
+    auto& cmd = add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::move(prog_setup));
     // check if a new command was added
     if(!cmd.setup.begin)
     {
-        cmd.setup.begin = [texture](const gpu_context& ctx)
+        if(list.crop_areas.empty())
         {
-            ctx.program.shader->set_uniform("uTexture", texture);
-        };
+            cmd.setup.begin = [texture](const gpu_context& ctx)
+            {
+                ctx.program.shader->set_uniform("uTexture", texture);
+            };
+        }
+        else
+        {
+            cmd.setup.begin = [texture, rects = list.crop_areas.back()](const gpu_context& ctx) mutable
+            {
+                if (!ctx.rend.is_with_fbo())
+                {
+                    for (auto& area : rects)
+                    {
+                        area.y = ctx.rend.get_rect().h - (area.y + area.h);
+                    }
+                }
+
+                ctx.program.shader->set_uniform("uTexture", texture);
+                ctx.program.shader->set_uniform("uRects[0]", rects);
+                ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
+            };
+        }
+
     }
 
     return cmd;
@@ -392,6 +441,7 @@ void draw_list::clear() noexcept
     clip_rects.clear();
     blend_modes.clear();
     transforms.clear();
+    programs.clear();
     commands_requested = 0;
 }
 
@@ -723,7 +773,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                 }
                 ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
                 ctx.program.shader->set_uniform("uOutlineColor", outline_color);
-                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
+                ctx.program.shader->set_uniform("uTexture", texture);
             };
         }
         else
@@ -739,7 +789,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                     }
                     ctx.rend.push_transform(transform);
                 }
-                ctx.program.shader->set_uniform("uTexture", texture, 0, texture::wrap_type::clamp);
+                ctx.program.shader->set_uniform("uTexture", texture);
             };
         }
 
@@ -1148,8 +1198,11 @@ std::string draw_list::to_string() const
 void draw_list::validate_stacks() const noexcept
 {
     assert(clip_rects.empty() && "draw_list::clip_rects stack was not popped");
+    assert(crop_areas.empty() && "draw_list::crop_areas stack was not popped");
     assert(blend_modes.empty() && "draw_list::blend_modes stack was not popped");
     assert(transforms.empty() && "draw_list::transforms stack was not popped");
+    assert(programs.empty() && "draw_list::programs stack was not popped");
+
 }
 
 void draw_list::add_polyline(const polyline& poly, color col, bool closed, float thickness, float antialias_size)
@@ -1415,7 +1468,6 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color 
     }
 
     float height = maxy-miny;
-    //float width = maxx-minx;
 
     if (antialias_size > 0.0f)
     {
@@ -1595,6 +1647,19 @@ void draw_list::pop_clip()
     }
 }
 
+void draw_list::push_crop(const crop_area_t& crop)
+{
+    crop_areas.emplace_back(crop);
+}
+
+void draw_list::pop_crop()
+{
+    if(!crop_areas.empty())
+    {
+        crop_areas.pop_back();
+    }
+}
+
 void draw_list::push_blend(blending_mode blend)
 {
     blend_modes.emplace_back(blend);
@@ -1619,6 +1684,20 @@ void draw_list::pop_transform()
         transforms.pop_back();
     }
 }
+
+void draw_list::push_program(const gpu_program& program)
+{
+    programs.emplace_back(program);
+}
+
+void draw_list::pop_program()
+{
+    if(!programs.empty())
+    {
+        programs.pop_back();
+    }
+}
+
 void draw_list::reserve_vertices(size_t count)
 {
     vertices.reserve(vertices.size() + count);
