@@ -46,7 +46,7 @@ int main()
 		gfx::html_defaults options;
 		options.default_font = "serif";
 		options.default_font_size = 16;
-		options.default_font_options = gfx::font_flags::use_kerning /*| gfx::font_flags::simulate_all*/;
+		options.default_font_options = gfx::font_flags::use_kerning | gfx::font_flags::simulate_all;
 		options.default_font_families = {
 			{
 				"monospace",
@@ -98,8 +98,17 @@ int main()
 		gfx::html_context html_ctx(rend, std::move(options));
 		gfx::html_page page(html_ctx);
 		page.load_from_utf8(html, DATA);
-		bool running = true;
 
+        gfx::glyphs_builder builder;
+        builder.add(gfx::get_default_glyph_range());
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 30, 2);
+        auto font = rend.create_font(std::move(info));
+
+		bool running = true;
+        math::transformf tr;
+
+        std::string text = "1234";
+        auto valign = gfx::align::top;
 		while(running)
 		{
 			os::event e{};
@@ -128,11 +137,72 @@ int main()
                         //page.load_from_file(DATA "html/text/pull_quotes2.html");
 
 					}
+                    if(e.key.code == os::key::backspace)
+					{
+						if(!text.empty())
+                        {
+                            text.pop_back();
+                        }
+					}
+                    if(e.key.code == os::key::enter)
+					{
+                        if(e.key.shift)
+                        {
+                            text += "\n";
+                        }
+                        else if(e.key.ctrl)
+                        {
+                            gfx::draw_list::toggle_debug_draw();
+                        }
+                        else
+                        {
+                            if(valign == gfx::align::baseline_bottom)
+                            {
+                                valign = gfx::align::left;
+                            }
+                            else
+                            {
+                                uint32_t va = valign;
+                                va *= 2;
+                                valign = gfx::align(va);
+                            }
+                        }
+					}
 				}
+
+                if(e.type == os::events::mouse_wheel)
+				{
+                    tr.scale(1.0f + float(e.wheel.y) * 0.1f, 1.0f + float(e.wheel.y) * 0.1f, 0.0f);
+				}
+                if(e.type == os::events::text_input)
+                {
+                    text += e.text.text;
+                }
 			}
 
-			rend.clear(gfx::color::white());
-			page.draw(0, 0, rend.get_rect().w);
+            auto pos = os::mouse::get_position(win);
+			rend.clear(gfx::color::gray());
+			//page.draw(0, 0, rend.get_rect().w);
+
+            gfx::draw_list list;
+
+            tr.set_position(pos.x, pos.y, 0);
+            //tr.rotate(0, 0, math::radians(1.0f));
+            gfx::text t;
+            t.set_font(font);
+            t.set_utf8_text(text);
+            t.set_alignment(valign);
+            t.set_advance({20, 20});
+            gfx::polyline line;
+            //line.line_to({0, 0});
+            //line.bezier_curve_to({200, 300}, {400, 0}, {1000, 300});
+            line.ellipse({0, 0}, {200, 100}, 64);
+            t.set_line_path(line);
+            t.set_shadow_offsets({0, 20});
+            list.add_text(t, tr);
+            rend.draw_cmd_list(list);
+
+
 			rend.present();
 		}
 	}

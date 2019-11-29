@@ -1642,90 +1642,90 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
     const auto& lines = t.get_lines_metrics();
 
-    math::transformf tr = transform;
-    {
-        auto col = color::cyan();
-        std::string desc = "ascent ";
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.ascent});
-            //auto v2 = transform.transform_coord({line.maxx, line.ascent});
+//    math::transformf tr = transform;
+//    {
+//        auto col = color::cyan();
+//        std::string desc = "ascent ";
+//        for(const auto& line : lines)
+//        {
+//            auto v1 = transform.transform_coord({line.minx, line.ascent});
+//            //auto v2 = transform.transform_coord({line.maxx, line.ascent});
 
-            text txt;
-            txt.debug = true;
-            txt.set_color(col);
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text(desc);
+//            text txt;
+//            txt.debug = true;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(align::right | align::middle);
+//            txt.set_utf8_text(desc);
 
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-
-//            auto width = line.maxx - line.minx;
-//            std::stringstream ss;
-//            ss << " width = " << std::fixed << std::setprecision(2) << width;
-
-//            txt.set_alignment(text::alignment::left | align::middle);
-//            txt.set_utf8_text(ss.str());
-
-//            tr.set_position(v2.x, v1.y, 0.0f);
+//            tr.set_position(v1.x, v1.y, 0.0f);
 //            add_text(txt, tr);
-        }
-    }
-    {
-        auto col = color::red();
-        std::string desc = "median ";
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.median});
 
-            text txt;
-            txt.debug = true;
-            txt.set_color(col);
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text(desc);
+////            auto width = line.maxx - line.minx;
+////            std::stringstream ss;
+////            ss << " width = " << std::fixed << std::setprecision(2) << width;
 
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        auto col = color::magenta();
-        std::string desc = "baseline ";
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.baseline});
+////            txt.set_alignment(text::alignment::left | align::middle);
+////            txt.set_utf8_text(ss.str());
 
-            text txt;
-            txt.debug = true;
-            txt.set_color(col);
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text(desc);
+////            tr.set_position(v2.x, v1.y, 0.0f);
+////            add_text(txt, tr);
+//        }
+//    }
+//    {
+//        auto col = color::red();
+//        std::string desc = "median ";
+//        for(const auto& line : lines)
+//        {
+//            auto v1 = transform.transform_coord({line.minx, line.median});
 
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        auto col = color::blue();
-        std::string desc = "descent ";
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.descent});
+//            text txt;
+//            txt.debug = true;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(align::right | align::middle);
+//            txt.set_utf8_text(desc);
 
-            text txt;
-            txt.debug = true;
-            txt.set_color(col);
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text(desc);
+//            tr.set_position(v1.x, v1.y, 0.0f);
+//            add_text(txt, tr);
+//        }
+//    }
+//    {
+//        auto col = color::magenta();
+//        std::string desc = "baseline ";
+//        for(const auto& line : lines)
+//        {
+//            auto v1 = transform.transform_coord({line.minx, line.baseline});
 
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
+//            text txt;
+//            txt.debug = true;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(align::right | align::middle);
+//            txt.set_utf8_text(desc);
+
+//            tr.set_position(v1.x, v1.y, 0.0f);
+//            add_text(txt, tr);
+//        }
+//    }
+//    {
+//        auto col = color::blue();
+//        std::string desc = "descent ";
+//        for(const auto& line : lines)
+//        {
+//            auto v1 = transform.transform_coord({line.minx, line.descent});
+
+//            text txt;
+//            txt.debug = true;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(align::right | align::middle);
+//            txt.set_utf8_text(desc);
+
+//            tr.set_position(v1.x, v1.y, 0.0f);
+//            add_text(txt, tr);
+//        }
+//    }
 
 
     {
@@ -1747,61 +1747,74 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
         }
     }
 
+    const auto& line_path = t.get_line_path();
     const auto& rect = t.get_frect();
-    add_rect(rect, transform, color::red(), false, 1.0f);
-    {
-        auto col = color::cyan();
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.ascent});
-            auto v2 = transform.transform_coord({line.maxx, line.ascent});
+    push_transform(transform);
 
-            add_line(v1, v2, col);
+    if(!line_path.empty())
+    {
+        add_polyline(line_path, color::yellow(), false);
+    }
+    else
+    {
+        add_rect(rect, {}, color::red(), false, 1.0f);
+
+        {
+            auto col = color::cyan();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.ascent};
+                math::vec2 v2{line.maxx, line.ascent};
+
+                add_line(v1, v2, col);
+            }
+        }
+        {
+            auto col = color::magenta();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.baseline};
+                math::vec2 v2{line.maxx, line.baseline};
+
+                add_line(v1, v2, col);
+            }
+        }
+        {
+            auto col = color::red();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.median};
+                math::vec2 v2{line.maxx, line.median};
+
+                add_line(v1, v2, col);
+            }
+        }
+        {
+            auto col = color::blue();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.descent};
+                math::vec2 v2{line.maxx, line.descent};
+
+                add_line(v1, v2, col, 1.0f);
+            }
+        }
+
+        {
+            auto col = color::green();
+            for(const auto& line : lines)
+            {
+                auto line_height = t.get_font()->line_height;
+                math::vec2 v1{line.maxx, line.ascent};
+                math::vec2 v2{line.maxx, line.ascent + line_height};
+
+                add_line(v1, v2, col);
+
+            }
         }
     }
-    {
-        auto col = color::magenta();
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.baseline});
-            auto v2 = transform.transform_coord({line.maxx, line.baseline});
 
-            add_line(v1, v2, col);
-        }
-    }
-    {
-        auto col = color::red();
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.median});
-            auto v2 = transform.transform_coord({line.maxx, line.median});
-
-            add_line(v1, v2, col);
-        }
-    }
-    {
-        auto col = color::blue();
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.descent});
-            auto v2 = transform.transform_coord({line.maxx, line.descent});
-
-            add_line(v1, v2, col, 1.0f);
-        }
-    }
-
-    {
-        auto col = color::green();
-        for(const auto& line : lines)
-        {
-            auto line_height = t.get_font()->line_height;
-            auto v1 = transform.transform_coord({line.maxx, line.ascent});
-            auto v2 = transform.transform_coord({line.maxx, line.ascent + line_height});
-
-            add_line(v1, v2, col);
-
-        }
-    }
+    pop_transform();
 }
 
 

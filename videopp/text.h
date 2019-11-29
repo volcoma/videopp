@@ -3,6 +3,7 @@
 #include "font_ptr.h"
 #include "vertex.h"
 #include "rect.h"
+#include "polyline.h"
 
 #include <vector>
 
@@ -67,6 +68,7 @@ public:
     /// Set the utf8 text.
     //-----------------------------------------------------------------------------
     void set_utf8_text(const std::string& t);
+	void set_utf8_text(std::string&& t);
 
     //-----------------------------------------------------------------------------
     /// Set the font to be used.
@@ -130,6 +132,17 @@ public:
     /// Sets the max with for wrapping
     //-----------------------------------------------------------------------------
     void set_max_width(float max_width);
+
+	//-----------------------------------------------------------------------------
+    /// Sets the path of the line
+    //-----------------------------------------------------------------------------
+	void set_line_path(const polyline& line);
+	void set_line_path(polyline&& line);
+
+	//-----------------------------------------------------------------------------
+    /// Gets the line_path of the text relative to the origin point
+    //-----------------------------------------------------------------------------
+	const polyline& get_line_path() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the width of the text. This takes into consideration any applied
@@ -251,6 +264,9 @@ private:
     /// Unicode text
     std::vector<uint32_t> unicode_text_;
 
+	/// Custom line path
+	polyline line_path_;
+
     /// The font
     font_ptr font_;
 
@@ -281,7 +297,7 @@ private:
     color shadow_color_bot_ = color::black();
 
     /// Origin alignment
-    align_t alignment_ = align::left | align::top;
+    align_t alignment_ = align::left | align::baseline_top;
 
     /// Leaning
     float leaning_{};

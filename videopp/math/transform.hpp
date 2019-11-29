@@ -126,6 +126,15 @@ private:
         mat4_t m = matrix_;
         m[3][3] = 1;
 
+
+        for(size_t i = 0; i < 3; ++i)
+        {
+            if(epsilonEqual(m[i][i], 0.0f, epsilon<float>()))
+            {
+                m[i][i] = 0.1f;
+            }
+        }
+
         fixed_decompose(m, scale_, rotation_, position_, skew, perspective);
     }
 

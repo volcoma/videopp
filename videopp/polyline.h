@@ -63,6 +63,11 @@ public:
     void path(const std::vector<math::vec2>& points, float corner_radius);
 
     const std::vector<math::vec2>& get_points() const { return points_; }
+
+    float get_length() const;
+    int get_closest_point(float len, float& dist) const;
+
+    bool empty() const { return points_.empty(); }
 private:
     std::vector<math::vec2> points_;
 };

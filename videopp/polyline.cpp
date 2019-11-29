@@ -313,4 +313,38 @@ void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
 
 }
 
+float polyline::get_length() const
+{
+    float length = 0;
+    for (size_t i = 1; i < points_.size(); ++i)
+    {
+        length += math::distance(points_[i - 1], points_[i]);
+    }
+
+    return length;
+}
+
+int polyline::get_closest_point(float len, float& dist) const
+{
+    int point_idx = -1;
+    dist = 0;
+    for (size_t j = 0; j < points_.size() - 1; j++)
+    {
+       auto next_dist = math::distance(points_[j], points_[j + 1]);
+       if (dist + next_dist >= len)
+       {
+           point_idx = j;
+           break;
+       }
+       dist += next_dist;
+    }
+
+    if(point_idx == 10)
+    {
+        int a =0;
+        a++;
+    }
+    return point_idx;
+}
+
 }

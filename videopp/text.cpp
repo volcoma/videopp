@@ -1,5 +1,7 @@
 #include "text.h"
 #include "font.h"
+#include "polyline.h"
+
 #include <algorithm>
 #include <iostream>
 
@@ -23,6 +25,78 @@ inline color get_gradient(const math::vec4& ct, const math::vec4& cb, float t, f
         uint8_t(c.b),
         uint8_t(c.a)
     };
+}
+
+bool apply_line_path(std::array<vertex_2d, 4>& quad,
+                     const polyline& line_path,
+                     float minx,
+                     float curr_dist,
+                     float leaning0,
+                     float leaning1)
+{
+    minx = std::min(minx, 0.0f);
+    if(line_path.empty())
+    {
+        quad[0].pos.x += leaning0;
+        quad[1].pos.x += leaning0;
+        quad[2].pos.x += leaning1;
+        quad[3].pos.x += leaning1;
+
+        return true;
+    }
+
+    const auto& path_points = line_path.get_points();
+    float point_dist = 0;
+    int point_idx = line_path.get_closest_point(curr_dist, point_dist);
+    if(point_idx < 0)
+    {
+        return false;
+    }
+
+    const auto closest_point = path_points[size_t(point_idx)];
+    const auto next_point = path_points[size_t(point_idx) + 1];
+    const auto segment_direction = math::normalize(next_point - closest_point);
+
+    const math::vec3 z_axis{0.0f, 0.0f, 1.0f};
+    const math::vec3 y_axis{0.0f, 1.0f, 0.0f};
+    const math::vec3 normal = math::normalize(math::cross(z_axis, math::vec3(segment_direction, 0.0f)));
+    auto angle = std::atan2(y_axis.x * normal.y - y_axis.y * normal.x, y_axis.x * normal.x + y_axis.y * normal.y);
+
+    const float offset = math::abs(curr_dist - point_dist);
+    const auto pos_on_line = closest_point + (segment_direction * offset);
+
+    const auto w = (quad[1].pos.x - quad[0].pos.x);
+
+    math::transformf rotation;
+    rotation.rotate_local({0, 0, angle});
+    math::transformf translation;
+    translation.translate(pos_on_line.x, pos_on_line.y, 0.0f);
+    const auto transformation = translation * rotation * math::inverse(translation);
+
+    for(size_t i = 0; i < quad.size(); ++i)
+    {
+        auto& p = quad[i];
+        p.pos.x = pos_on_line.x + minx;
+        p.pos.y += pos_on_line.y;
+
+        if(i == 1 || i == 2)
+        {
+            p.pos.x += w;
+        }
+
+        if(i < 2)
+        {
+            p.pos.x += leaning0;
+        }
+        else
+        {
+            p.pos.x += leaning1;
+        }
+
+        p.pos = transformation.transform_coord(p.pos);
+    }
+
+    return true;
 }
 }
 
@@ -123,6 +197,18 @@ void text::set_utf8_text(const std::string& t)
         return;
     }
     utf8_text_ = t;
+    regen_unicode_text();
+    clear_lines();
+    clear_geometry();
+}
+
+void text::set_utf8_text(std::string&& t)
+{
+    if(t == utf8_text_)
+    {
+        return;
+    }
+    utf8_text_ = std::move(t);
     regen_unicode_text();
     clear_lines();
     clear_geometry();
@@ -315,6 +401,23 @@ void text::set_max_width(float max_width)
     clear_geometry();
 }
 
+void text::set_line_path(const polyline& line)
+{
+    line_path_ = line;
+    clear_geometry();
+}
+
+void text::set_line_path(polyline&& line)
+{
+    line_path_ = std::move(line);
+    clear_geometry();
+}
+
+const polyline& text::get_line_path() const
+{
+    return line_path_;
+}
+
 const std::string& text::get_utf8_text() const
 {
     return utf8_text_;
@@ -476,6 +579,7 @@ void text::update_geometry(bool all) const
             leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
         }
     }
+
     size_t offset = 0;
     auto vptr = geometry_.data();
 
@@ -516,6 +620,7 @@ void text::update_geometry(bool all) const
 
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
+
         for(auto c : line)
         {
             const auto& g = font_->get_glyph(c);
@@ -543,6 +648,7 @@ void text::update_geometry(bool all) const
                     leaning1 = leaning * y1_factor;
                 }
 
+
                 const auto x0 = pen_x + g.x0;
                 const auto x1 = pen_x + g.x1;
                 const auto y0 = pen_y + g.y0;
@@ -553,19 +659,22 @@ void text::update_geometry(bool all) const
 
                 std::array<vertex_2d, 4> quad =
                 {{
-                    {{x0 + leaning0, y0}, {g.u0, g.v0}, coltop},
-                    {{x1 + leaning0, y0}, {g.u1, g.v0}, coltop},
-                    {{x1 + leaning1, y1}, {g.u1, g.v1}, colbot},
-                    {{x0 + leaning1, y1}, {g.u0, g.v1}, colbot}
+                    {{x0, y0}, {g.u0, g.v0}, coltop},
+                    {{x1, y0}, {g.u1, g.v0}, coltop},
+                    {{x1, y1}, {g.u1, g.v1}, colbot},
+                    {{x0, y1}, {g.u0, g.v1}, colbot}
                 }};
 
+                if(!apply_line_path(quad, line_path_, x0, pen_x, leaning0, leaning1))
+                {
+                    break;
+                }
                 std::memcpy(vptr, quad.data(), quad.size() * sizeof(vertex_2d));
                 vptr += vertices_per_quad;
                 vtx_count += vertices_per_quad;
             }
 
             pen_x += g.advance_x + advance_offset_x;
-
         }
 
         line_info.maxx = pen_x;
@@ -577,7 +686,7 @@ void text::update_geometry(bool all) const
                                            line_info.maxx,
                                            pixel_snap);
 
-            if(math::epsilonNotEqual(align_x, 0.0f, math::epsilon<float>()) || pixel_snap)
+            if(line_path_.empty() && (math::epsilonNotEqual(align_x, 0.0f, math::epsilon<float>()) || pixel_snap))
             {
                 auto v = geometry_.data() + offset;
                 for(size_t i = 0; i < vtx_count; ++i)
