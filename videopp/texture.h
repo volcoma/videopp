@@ -32,14 +32,16 @@ namespace gfx
         {
             clamp,         // Clamp texture to edges, avoiding color bleeding or repetition
             repeat,        // You can repeat the texture infinitely
-            mirror         // Each repeat of texture will be mirrored
+            mirror,         // Each repeat of texture will be mirrored
+            count
         };
 
         /// Texture interpolation styles                
         enum class interpolation_type
         {   
             nearest,   // A point filter, no interpolation whatsoever
-            linear  // Linear interpolation
+            linear,  // Linear interpolation
+            count
         };
 
         ~texture();
@@ -64,6 +66,10 @@ namespace gfx
         inline const rect& get_rect() const { return rect_; }
         inline uint32_t get_id() const { return texture_; }
         inline pix_type get_pix_type() const { return pixel_type_; }
+        inline wrap_type get_wrap_type() const { return wrap_type_; }
+        inline interpolation_type get_interp_type() const { return interp_type_; }
+        inline blending_mode get_default_blending_mode() const { return blending_; }
+
     private:
         friend class renderer;
         const renderer &rend_;
@@ -74,6 +80,9 @@ namespace gfx
 
         pix_type pixel_type_ = pix_type::rgb;
         format_type format_type_ = format_type::target;
+        wrap_type wrap_type_ = wrap_type::clamp;
+        interpolation_type interp_type_ = interpolation_type::linear;
+        blending_mode blending_ = blending_mode::blend_normal;
 
         rect rect_ {};
         bool generated_mipmap_ = false;
@@ -85,8 +94,9 @@ namespace gfx
         bool load_from_file(const std::string &path) noexcept;
         bool create_from_surface(const surface &surface) noexcept;
         bool check_for_error(const std::string &function_name) const noexcept;
+        bool setup_texparameters() const;
 
-        inline uint32_t get_FBO() const { return fbo_; }
+        inline uint32_t get_fbo() const { return fbo_; }
     };
 
     using texture_ptr = std::shared_ptr<texture>;
@@ -97,11 +107,12 @@ namespace gfx
     {
         texture_view() = default;
         texture_view(const texture_ptr& texture) noexcept;
+        texture_view(const texture_ptr& texture, texture::wrap_type wrap, texture::interpolation_type interp) noexcept;
         texture_view(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
         /// Check if texture representation is valid
         inline bool is_valid() const noexcept
         {
-            return id != 0 && width != 0 && height != 0;
+            return id != 0;
         }
         inline operator bool() const
         {
@@ -116,10 +127,16 @@ namespace gfx
         static texture_view create(const texture_ptr& texture) noexcept;
         static texture_view create(std::uint32_t tex_id, std::uint32_t tex_width = 0, std::uint32_t tex_height = 0) noexcept;
 
+
         std::uint32_t width = 0;    // texture width
         std::uint32_t height = 0;   // texture height
         std::uint32_t id = 0;       // internal VRAM texture id
-        blending_mode blending{blending_mode::blend_normal};
+        texture::wrap_type wrap_type = texture::wrap_type::clamp;
+        texture::interpolation_type interp_type = texture::interpolation_type::linear;
+        blending_mode blending = blending_mode::blend_normal;
+
+        // reserved
+        bool custom_sampler{false};
     };
 }
 

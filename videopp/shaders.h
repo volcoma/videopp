@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 namespace gfx
 {
@@ -51,6 +51,39 @@ static constexpr const char* fs_multi_channel =
 
                     void main()
                     {
+                        gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
+                    })";
+
+static constexpr const char* fs_multi_channel_crop =
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
+                    "#version 130"
+                #elif defined(EGL_CONTEXT)
+                    "#version 100"
+                #endif
+                R"(
+                    precision mediump float;
+                    varying vec2 vTexCoord;
+                    varying vec4 vColor;
+
+                    uniform sampler2D uTexture;
+                    uniform vec4 rects[6];
+                    uniform int num;
+
+                    void main()
+                    {
+                        for( int i = 0; i < num; ++i)
+                        {
+                            vec4 rect = rects[i];
+                            if(gl_FragCoord.x > rect.x &&
+                               gl_FragCoord.x < (rect.x + rect.z) &&
+                               gl_FragCoord.y > rect.y &&
+                               gl_FragCoord.y < (rect.y + rect.w) )
+                            {
+                                gl_FragColor = vec4(0.0,0.0,0.0,0.0);
+                                return;
+                            }
+                        }
+
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
                     })";
 

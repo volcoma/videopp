@@ -1,4 +1,4 @@
-﻿#include "renderer.h"
+#include "renderer.h"
 #include "font.h"
 #include "ttf_font.h"
 #include "texture.h"
@@ -99,6 +99,8 @@ renderer::renderer(os::window& win, bool vsync)
     reset_transform();
     set_model_view(0, rect_);
 
+    constexpr auto stride = sizeof(vertex_2d);
+
     {
         auto& program = simple_program();
         if(!program.shader)
@@ -107,8 +109,8 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
 
@@ -120,12 +122,24 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
-
+    {
+        auto& program = multi_channel_texture_crop_program();
+        if(!program.shader)
+        {
+            auto shader = create_shader(fs_multi_channel_crop, vs_simple);
+            embedded_shaders_.emplace_back(shader);
+            program.shader = shader.get();
+            auto& layout = program.shader->get_layout();
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
+        }
+    }
     {
         auto& program = multi_channel_dither_texture_program();
         if(!program.shader)
@@ -134,9 +148,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
 
@@ -148,9 +162,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
 
@@ -162,9 +176,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
 
@@ -177,9 +191,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
 
@@ -191,9 +205,9 @@ renderer::renderer(os::window& win, bool vsync)
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
             auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", sizeof(vertex_2d));
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", sizeof(vertex_2d));
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", sizeof(vertex_2d), true);
+            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
     }
     if(!default_font())
@@ -201,7 +215,50 @@ renderer::renderer(os::window& win, bool vsync)
         default_font() = create_font(create_default_font(13, 2));
         embedded_fonts_.emplace_back(default_font());
     }
+
+    setup_sampler(texture::wrap_type::clamp, texture::interpolation_type::linear);
+    setup_sampler(texture::wrap_type::repeat, texture::interpolation_type::linear);
+    setup_sampler(texture::wrap_type::mirror, texture::interpolation_type::linear);
+    setup_sampler(texture::wrap_type::clamp, texture::interpolation_type::nearest);
+    setup_sampler(texture::wrap_type::repeat, texture::interpolation_type::nearest);
+    setup_sampler(texture::wrap_type::mirror, texture::interpolation_type::nearest);
+
     clear(color::black());
+}
+
+void renderer::setup_sampler(texture::wrap_type wrap, texture::interpolation_type interp) noexcept
+{
+    uint32_t sampler_state = 0;
+    gl_call(glGenSamplers(1, &sampler_state));
+    switch (wrap) {
+    case texture::wrap_type::mirror:
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT));
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT));
+        break;
+    case texture::wrap_type::repeat:
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_S, GL_REPEAT));
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_T, GL_REPEAT));
+        break;
+    case texture::wrap_type::clamp:
+    default:
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+        break;
+    }
+
+    switch (interp) {
+    case texture::interpolation_type::nearest:
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+        break;
+    case texture::interpolation_type::linear:
+    default:
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        gl_call(glSamplerParameteri(sampler_state, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+        break;
+    }
+
+    samplers_[size_t(wrap)][size_t(interp)] = sampler_state;
 }
 
 renderer::~renderer()
@@ -274,7 +331,7 @@ void renderer::set_old_framebuffer() const noexcept
     }
 
     const auto& top_texture = fbo_stack_.top();
-    gl_call(glBindFramebuffer(GL_FRAMEBUFFER, top_texture->get_FBO()));
+    gl_call(glBindFramebuffer(GL_FRAMEBUFFER, top_texture->get_fbo()));
 }
 
 /// Resize the dirty rectangle
@@ -475,7 +532,7 @@ bool renderer::set_blending_mode(blending_mode mode) const noexcept
 ///     @param id - texture unit id (for the shader)
 ///     @param wrap_type - wrapping type
 ///     @param interp_type - interpolation type
-bool renderer::bind_texture(texture_view texture, uint32_t id, texture::wrap_type wtype, texture::interpolation_type itype) const noexcept
+bool renderer::bind_texture(texture_view texture, uint32_t id) const noexcept
 {
     // Activate texture for shader
     gl_call(glActiveTexture(GL_TEXTURE0 + id));
@@ -483,39 +540,27 @@ bool renderer::bind_texture(texture_view texture, uint32_t id, texture::wrap_typ
     // Bind texture to the pipeline, and the currently active texture
     gl_call(glBindTexture(GL_TEXTURE_2D, texture.id));
 
-    // Pick the wrap mode for rendering
-    GLint wmode = GL_REPEAT;
-    switch(wtype)
-    {
-        case texture::wrap_type::clamp:
-            wmode = GL_CLAMP_TO_EDGE;
-            break;
-        case texture::wrap_type::mirror:
-            wmode = GL_MIRRORED_REPEAT;
-            break;
-        default:
-            wmode = GL_REPEAT;
-            break;
-    }
-    gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wmode));
-    gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wmode));
-
-    // Pick the interpolation mode for rendering
-    GLint imode = GL_LINEAR;
-    switch(itype)
-    {
-        case texture::interpolation_type::nearest:
-            imode = GL_NEAREST;
-            break;
-        case texture::interpolation_type::linear:
-            imode = GL_LINEAR;
-            break;
-    }
-    gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, imode));
-    gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, imode));
-
     // Check errors and return
     return true;
+}
+
+void renderer::bind_sampler(texture_view texture, uint32_t id) const noexcept
+{
+    auto sampler = samplers_[size_t(texture.wrap_type)][size_t(texture.interp_type)];
+    if(sampler != 0)
+    {
+        gl_call(glBindSampler(id, sampler));
+    }
+    else
+    {
+        log("ERROR: Undefined sampler used! If it's legit - add it on initialization phase"); //auto add?
+    }
+}
+
+void renderer::unbind_sampler(uint32_t id) const noexcept
+{
+    // Unbind active sampler
+    gl_call(glBindSampler(id, 0));
 }
 
 /// Reset a texture slot
@@ -663,7 +708,7 @@ bool renderer::push_fbo(const texture_ptr& texture)
     fbo_stack_.push(texture);
 
     auto& top_texture = fbo_stack_.top();
-    set_model_view(top_texture->get_FBO(), top_texture->get_rect());
+    set_model_view(top_texture->get_fbo(), top_texture->get_rect());
     return true;
 }
 
@@ -690,7 +735,7 @@ bool renderer::pop_fbo()
     }
 
     auto& top_texture = fbo_stack_.top();
-    set_model_view(top_texture->get_FBO(), top_texture->get_rect());
+    set_model_view(top_texture->get_fbo(), top_texture->get_rect());
     return true;
 }
 
@@ -705,6 +750,11 @@ bool renderer::reset_fbo()
 
     set_model_view(0, rect_);
     return true;
+}
+
+bool renderer::is_with_fbo() const
+{
+    return !fbo_stack_.empty();
 }
 
 /// Swap buffers

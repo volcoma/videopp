@@ -47,11 +47,12 @@ public:
     font_ptr create_font(font_info&& info) const noexcept;
 
     // Bind textures
-    bool bind_texture(texture_view texture, uint32_t id = 0,
-                      texture::wrap_type wrap_type = texture::wrap_type::repeat,
-                      texture::interpolation_type interp_type = texture::interpolation_type::linear) const noexcept;
+    bool bind_texture(texture_view texture, uint32_t id = 0) const noexcept;
     void unbind_texture(uint32_t id = 0) const noexcept;
-    
+
+    void bind_sampler(texture_view texture, uint32_t id) const noexcept;
+    void unbind_sampler(uint32_t id) const noexcept;
+
     texture_ptr blur(const texture_ptr& texture, uint32_t passes = 2);
 
     // Transformation
@@ -62,6 +63,7 @@ public:
     bool push_fbo(const texture_ptr& texture);
     bool pop_fbo();
     bool reset_fbo();
+    bool is_with_fbo() const;
 
     void present() noexcept;
     void clear(const color& color = {}) const noexcept;
@@ -82,6 +84,7 @@ private:
     void set_old_framebuffer() const noexcept;
     void resize(uint32_t new_width, uint32_t new_height) noexcept;
     bool set_current_context() const noexcept;
+    void setup_sampler(texture::wrap_type wrap, texture::interpolation_type interp) noexcept;
 
     bool set_blending_mode(blending_mode mode) const noexcept;
     bool push_clip(const rect& rect) const noexcept;
@@ -102,6 +105,12 @@ private:
     mutable math::mat4x4 current_ortho_;
     mutable std::stack<math::mat4x4> transforms_;
     std::stack<texture_ptr> fbo_stack_;
+
+    constexpr static auto wrap_count{size_t(texture::wrap_type::count)};
+    constexpr static auto interp_count{size_t(texture::interpolation_type::count)};
+
+    std::array<std::array<uint32_t, interp_count>, wrap_count> samplers_{{}};
+
 
     std::vector<shader_ptr> embedded_shaders_;
     std::vector<font_ptr> embedded_fonts_;

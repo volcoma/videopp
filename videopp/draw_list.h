@@ -41,6 +41,9 @@ math::transformf align_item(align_t align,
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
 {
+    using index_t = uint32_t;
+    using crop_area_t = std::vector<rect>;
+
     draw_list();
     draw_list(const draw_list&) = default;
     draw_list& operator=(const draw_list&) = default;
@@ -59,6 +62,11 @@ struct draw_list
     void pop_clip();
 
     //-----------------------------------------------------------------------------
+    /// Pushes/pops crop rects to be used in the following commands
+    //-----------------------------------------------------------------------------
+    void push_crop(const crop_area_t& crop);
+    void pop_crop();
+    //-----------------------------------------------------------------------------
     /// Pushes/pops a blending to be used in the following commands, otherwise
     /// it will automatically try to detect it based on the texture format.
     //-----------------------------------------------------------------------------
@@ -70,6 +78,13 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void push_transform(const math::transformf& transform);
     void pop_transform();
+
+    //-----------------------------------------------------------------------------
+    /// Pushes/pops a program to be used in the following commands if they do not
+    /// specify one.
+    //-----------------------------------------------------------------------------
+    void push_program(const gpu_program& program);
+    void pop_program();
 
     //-----------------------------------------------------------------------------
     /// Adds a rect to the list.
@@ -327,7 +342,6 @@ struct draw_list
     //-----------------------------------------------------------------------------
     /// Data members
     //-----------------------------------------------------------------------------
-    using index_t = uint32_t;
     /// vertices to draw
     std::vector<vertex_2d> vertices;
     /// indices to draw
@@ -336,10 +350,14 @@ struct draw_list
     std::vector<draw_cmd> commands;
     /// clip rects stack
     std::vector<rect> clip_rects;
+    /// crop rects stack
+    std::vector<crop_area_t> crop_areas;
     /// clip rects stack
     std::vector<blending_mode> blend_modes;
     /// transforms stack
     std::vector<math::transformf> transforms;
+    /// programs stack
+    std::vector<gpu_program> programs;
     /// total commands requested
     size_t commands_requested = 0;
 };

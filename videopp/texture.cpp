@@ -48,6 +48,12 @@ namespace gfx
         {
             throw gfx::exception("Cannot set current context!");
         }
+
+        if(pixel_type == pix_type::rgb)
+        {
+            blending_ = blending_mode::blend_none;
+        }
+
         // Generate the OGL texture ID
         int32_t format{};
         int32_t internal_format{};
@@ -76,6 +82,8 @@ namespace gfx
                 throw gfx::exception("Cannot create FBO. GL ERROR CODE: " + std::to_string(status));
             }
         }
+
+        setup_texparameters();
 
         gl_call(glBindTexture(GL_TEXTURE_2D, 0));
     }
@@ -108,6 +116,44 @@ namespace gfx
             gl_call(glDeleteTextures(1, &texture_));
             texture_ = 0;
         }
+    }
+
+    bool texture::setup_texparameters() const
+    {
+        // Pick the wrap mode for rendering
+        GLint wmode = GL_REPEAT;
+        switch(wrap_type_)
+        {
+        case wrap_type::mirror:
+            wmode = GL_MIRRORED_REPEAT;
+            break;
+        case wrap_type::repeat:
+            wmode = GL_REPEAT;
+            break;
+        case wrap_type::clamp:
+        default:
+            wmode = GL_CLAMP_TO_EDGE;
+            break;
+        }
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wmode));
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wmode));
+
+        // Pick the interpolation mode for rendering
+        GLint imode = GL_LINEAR;
+        switch(interp_type_)
+        {
+        case interpolation_type::nearest:
+            imode = GL_NEAREST;
+            break;
+        case interpolation_type::linear:
+        default:
+            imode = GL_LINEAR;
+            break;
+        }
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, imode));
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, imode));
+
+        return true;
     }
 
     /// Clear the texture. Works only for FBO textures
@@ -170,10 +216,22 @@ namespace gfx
             int32_t internal_format{};
             std::tie(format, internal_format) = get_opengl_pixel_format(surface.get_type());
 
+            if(pixel_type_ == pix_type::rgb)
+            {
+                blending_ = blending_mode::blend_none;
+            }
+
+
             gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
             gl_call(glTexStorage2D(GL_TEXTURE_2D, 1, GLenum(internal_format), surface.get_width(), surface.get_height()));
             gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface.get_width(), surface.get_height(),
                             static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
+
+            if( !setup_texparameters() )
+            {
+                return false;
+            }
+
             gl_call(glBindTexture(GL_TEXTURE_2D, 0));
 
             format_type_ = format_type::immutable;
@@ -264,6 +322,21 @@ namespace gfx
         *this = create(texture);
     }
 
+    texture_view::texture_view(const texture_ptr &texture, texture::wrap_type wrap, texture::interpolation_type interp) noexcept
+    {
+        *this = create(texture);
+
+        if(texture)
+        {
+            if( texture->get_wrap_type() != wrap || texture->get_interp_type() != interp )
+            {
+                custom_sampler = true;
+                wrap_type = wrap;
+                interp_type = interp;
+            }
+        }
+    }
+
     texture_view::texture_view(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height) noexcept
     {
         *this = create(tex_id, tex_width, tex_height);
@@ -284,10 +357,10 @@ namespace gfx
         texture_view view{};
         if(texture)
         {
+            view.blending = texture->get_default_blending_mode();
             view.width = std::uint32_t(texture->get_rect().w);
             view.height = std::uint32_t(texture->get_rect().h);
             view.id = texture->get_id();
-            view.blending = texture->get_pix_type() != pix_type::rgb ? blending_mode::blend_normal : blending_mode::blend_none;
         }
 
         return view;
@@ -295,10 +368,11 @@ namespace gfx
 
     texture_view texture_view::create(uint32_t tex_id, uint32_t tex_width, uint32_t tex_height) noexcept
     {
-        texture_view view;
+        texture_view view{};
         view.id = tex_id;
         view.width = tex_width;
         view.height = tex_height;
+        view.custom_sampler = true;
         return view;
     }
 }
