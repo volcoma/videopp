@@ -339,11 +339,6 @@ int polyline::get_closest_point(float len, float& dist) const
        dist += next_dist;
     }
 
-    if(point_idx == 10)
-    {
-        int a =0;
-        a++;
-    }
     return point_idx;
 }
 

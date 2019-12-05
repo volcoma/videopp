@@ -76,15 +76,11 @@ struct draw_cmd
     uint64_t hash{0};
 };
 
-gpu_program& simple_program() noexcept;
-gpu_program& multi_channel_texture_program() noexcept;
-gpu_program& multi_channel_texture_crop_program() noexcept;
-gpu_program& multi_channel_dither_texture_program() noexcept;
-gpu_program& single_channel_texture_program() noexcept;
-gpu_program& distance_field_font_program() noexcept;
-gpu_program& blur_program() noexcept;
-gpu_program& fxaa_program() noexcept;
-font_ptr& default_font() noexcept;
+inline font_ptr& default_font() noexcept
+{
+    static font_ptr font;
+    return font;
+}
 
 }
 

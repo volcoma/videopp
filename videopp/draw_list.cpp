@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "renderer.h"
 #include "text.h"
+#include "shaders.h"
 
 namespace gfx
 {
@@ -212,7 +213,7 @@ const program_setup& get_simple_setup() noexcept
 {
     static auto setup = []() {
         program_setup setup;
-        setup.program = simple_program();
+        setup.program = get_program<programs::simple>();
         setup.uniforms_hash = simple_hash();
         return setup;
     }();
@@ -252,14 +253,23 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
     }
     else
     {
-        if(!has_crop)
+        switch(texture.format)
         {
-            prog_setup.program = multi_channel_texture_program();
-        }
-        else
-        {
-            blend = blending_mode::blend_normal;
-            prog_setup.program = multi_channel_texture_crop_program();
+        case pix_type::red:
+            prog_setup.program = get_program<programs::single_channel>();
+            break;
+
+        default:
+            if(!has_crop)
+            {
+                prog_setup.program = get_program<programs::multi_channel>();
+            }
+            else
+            {
+                blend = blending_mode::blend_normal;
+                prog_setup.program = get_program<programs::multi_channel_crop>();
+            }
+            break;
         }
     }
 
@@ -678,7 +688,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 
     if(sdf_spread > 0)
     {
-        setup.program = distance_field_font_program();
+        setup.program = get_program<programs::distance_field>();
 
         has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
 
@@ -710,11 +720,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         switch(texture->get_pix_type())
         {
             case pix_type::red:
-                setup.program = single_channel_texture_program();
+                setup.program = get_program<programs::single_channel>();
             break;
 
             default:
-                setup.program = multi_channel_texture_program();
+                setup.program = get_program<programs::multi_channel>();
             break;
         }
 

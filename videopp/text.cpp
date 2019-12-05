@@ -1,6 +1,5 @@
 #include "text.h"
 #include "font.h"
-#include "polyline.h"
 
 #include <algorithm>
 #include <iostream>
@@ -353,7 +352,7 @@ float text::get_advance_offset_y() const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.y + (outline_width_ * float(font_->sdf_spread) * 2.0f);
+        return advance_.y + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
     }
 
     return advance_.y;
@@ -384,7 +383,7 @@ float text::get_advance_offset_x() const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.x + (outline_width_ * float(font_->sdf_spread) * 2.0f);
+        return advance_.x + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
     }
 
     return advance_.x;

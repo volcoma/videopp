@@ -358,6 +358,7 @@ namespace gfx
         if(texture)
         {
             view.blending = texture->get_default_blending_mode();
+            view.format = texture->get_pix_type();
             view.width = std::uint32_t(texture->get_rect().w);
             view.height = std::uint32_t(texture->get_rect().h);
             view.id = texture->get_id();

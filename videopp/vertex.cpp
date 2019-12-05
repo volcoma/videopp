@@ -271,6 +271,10 @@ void vertex_buffer_layout::bind() const noexcept
 {
     for(const auto& element : elements_)
     {
+        if(element.location < 0)
+        {
+            continue;
+        }
         gl_call(glEnableVertexAttribArray(GLuint(element.location)));
 
         gl_call(glVertexAttribPointer(GLuint(element.location),
@@ -289,9 +293,13 @@ void vertex_buffer_layout::set_program_id(uint32_t id) noexcept
 
 void vertex_buffer_layout::unbind() const noexcept
 {
-    for(const auto& el : elements_)
+    for(const auto& element : elements_)
     {
-        gl_call(glDisableVertexAttribArray(GLuint(el.location)));
+        if(element.location < 0)
+        {
+            continue;
+        }
+        gl_call(glDisableVertexAttribArray(GLuint(element.location)));
     }
 }
 }

@@ -134,6 +134,7 @@ namespace gfx
         texture::wrap_type wrap_type = texture::wrap_type::clamp;
         texture::interpolation_type interp_type = texture::interpolation_type::linear;
         blending_mode blending = blending_mode::blend_normal;
+        pix_type format = pix_type::rgba;
 
         // reserved
         bool custom_sampler{false};

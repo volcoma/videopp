@@ -101,115 +101,29 @@ renderer::renderer(os::window& win, bool vsync)
 
     constexpr auto stride = sizeof(vertex_2d);
 
+    auto create_program = [&](auto& program, auto fs, auto vs)
     {
-        auto& program = simple_program();
         if(!program.shader)
         {
-            auto shader = create_shader(fs_simple, vs_simple);
+            auto shader = create_shader(fs, vs);
             embedded_shaders_.emplace_back(shader);
             program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
+            auto& layout = shader->get_layout();
+            constexpr auto stride = sizeof(vertex_2d);
+            layout.template add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
+            layout.template add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
+            layout.template add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
         }
-    }
+    };
 
-    {
-        auto& program = multi_channel_texture_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_multi_channel, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-    {
-        auto& program = multi_channel_texture_crop_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_multi_channel_crop, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-    {
-        auto& program = multi_channel_dither_texture_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_multi_channel_dither, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-
-    {
-        auto& program = single_channel_texture_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_single_channel, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-
-    {
-        auto& program = distance_field_font_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_distance_field, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-
-
-    {
-        auto& program = blur_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_blur, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
-
-    {
-        auto& program = fxaa_program();
-        if(!program.shader)
-        {
-            auto shader = create_shader(fs_fxaa, vs_simple);
-            embedded_shaders_.emplace_back(shader);
-            program.shader = shader.get();
-            auto& layout = program.shader->get_layout();
-            layout.add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
-            layout.add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
-        }
-    }
+    create_program(get_program<programs::simple>(), fs_simple, vs_simple);
+    create_program(get_program<programs::multi_channel>(), fs_multi_channel, vs_simple);
+    create_program(get_program<programs::multi_channel_crop>(), fs_multi_channel_crop, vs_simple);
+    create_program(get_program<programs::multi_channel_dither>(), fs_multi_channel_dither, vs_simple);
+    create_program(get_program<programs::single_channel>(), fs_single_channel, vs_simple);
+    create_program(get_program<programs::distance_field>(), fs_distance_field, vs_simple);
+    create_program(get_program<programs::blur>(), fs_blur, vs_simple);
+    create_program(get_program<programs::fxaa>(), fs_fxaa, vs_simple);
     if(!default_font())
     {
         default_font() = create_font(create_default_font(13, 2));
@@ -596,7 +510,7 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
         draw_list list;
 
         gfx::program_setup setup;
-        setup.program = blur_program();
+        setup.program = get_program<programs::blur>();
         setup.begin = [=](const gfx::gpu_context& ctx)
         {
             ctx.program.shader->set_uniform("uTexture", input);

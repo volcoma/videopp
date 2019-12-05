@@ -1,9 +1,27 @@
 #pragma once
+#include "draw_cmd.h"
 
 namespace gfx
 {
 
+enum programs : uint32_t
+{
+    simple,
+    multi_channel,
+    multi_channel_crop,
+    multi_channel_dither,
+    single_channel,
+    distance_field,
+    blur,
+    fxaa
+};
 
+template<size_t T>
+inline gpu_program& get_program() noexcept
+{
+    static gpu_program program;
+    return program;
+}
 
 
 static constexpr const char* vs_simple = R"(
@@ -66,14 +84,14 @@ static constexpr const char* fs_multi_channel_crop =
                     varying vec4 vColor;
 
                     uniform sampler2D uTexture;
-                    uniform vec4 rects[6];
-                    uniform int num;
+                    uniform ivec4 uRects[10];
+                    uniform int uRectsCount;
 
                     void main()
                     {
-                        for( int i = 0; i < num; ++i)
+                        for( int i = 0; i < uRectsCount; ++i)
                         {
-                            vec4 rect = rects[i];
+                            vec4 rect = uRects[i];
                             if(gl_FragCoord.x > rect.x &&
                                gl_FragCoord.x < (rect.x + rect.z) &&
                                gl_FragCoord.y > rect.y &&
