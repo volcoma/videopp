@@ -108,7 +108,8 @@ int main()
         math::transformf tr;
 
         std::string text = "1234";
-        auto valign = gfx::align::top;
+        auto valign = gfx::align::top | gfx::align::right;
+        float leaning = 0.0f;
 		while(running)
 		{
 			os::event e{};
@@ -172,6 +173,7 @@ int main()
 
                 if(e.type == os::events::mouse_wheel)
 				{
+                    //leaning += float(e.wheel.y);
                     tr.scale(1.0f + float(e.wheel.y) * 0.1f, 1.0f + float(e.wheel.y) * 0.1f, 0.0f);
 				}
                 if(e.type == os::events::text_input)
@@ -192,14 +194,43 @@ int main()
             t.set_font(font);
             t.set_utf8_text(text);
             t.set_alignment(valign);
-            t.set_advance({20, 20});
-            gfx::polyline line;
+            t.set_leaning(leaning);
+
+            gfx::script_range range{};
+            range.begin = 1;
+            range.end = range.begin + 2;
+            range.type = gfx::script_type::super;
+            range.scale = 0.4f;
+            t.add_script_range(range);
+
+            range.begin = 6;
+            range.end = range.begin + 2;
+            range.type = gfx::script_type::normal;
+            range.scale = 0.4f;
+            t.add_script_range(range);
+
+            range.begin = 10;
+            range.end = range.begin + 2;
+            range.type = gfx::script_type::sub;
+            range.scale = 0.4f;
+            t.add_script_range(range);
+
+            //t.set_advance({20, 20});
+            //gfx::polyline line;
             //line.line_to({0, 0});
             //line.bezier_curve_to({200, 300}, {400, 0}, {1000, 300});
-            line.ellipse({0, 0}, {200, 100}, 64);
-            t.set_line_path(line);
-            t.set_shadow_offsets({0, 20});
+            //line.ellipse({0, 0}, {200, 100}, 64);
+            //t.set_line_path(line);
+            //t.set_shadow_offsets({0, 20});
             list.add_text(t, tr);
+
+//            tr.translate(0, t.get_height() * 3, 0);
+//            gfx::text t2;
+//            t2.set_font(font);
+//            t2.set_utf8_text("12");
+//            t2.set_alignment(valign);
+//            list.add_text_superscript(t2, t2, tr);
+
             rend.draw_cmd_list(list);
 
 

@@ -54,6 +54,21 @@ float get_alignment_y(align_t alignment,
                       float maxy, float maxy_baseline,
                       bool pixel_snap);
 
+enum class script_type : uint8_t
+{
+	super,
+	sub,
+	normal
+};
+
+struct script_range
+{
+	size_t begin{};
+	size_t end{};
+	float scale{1.0f};
+	script_type type{script_type::normal};
+};
+
 class text
 {
 public:
@@ -139,6 +154,7 @@ public:
 	void set_line_path(const polyline& line);
 	void set_line_path(polyline&& line);
 
+	void add_script_range(const script_range& range);
 	//-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
     //-----------------------------------------------------------------------------
@@ -240,6 +256,7 @@ public:
                                                          bool pixel_snap);
 
 private:
+
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
 
@@ -248,6 +265,7 @@ private:
     void update_lines() const;
     void update_geometry(bool all) const;
     void regen_unicode_text();
+	const script_range& get_script_range(size_t i) const;
 
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
@@ -272,6 +290,8 @@ private:
 
     /// Rect of the text relative to the aligned origin.
     mutable frect rect_{};
+
+	std::vector<script_range> script_ranges_{};
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets_{0.0f, 0.0f};

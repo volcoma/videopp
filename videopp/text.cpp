@@ -412,6 +412,13 @@ void text::set_line_path(polyline&& line)
     clear_geometry();
 }
 
+void text::add_script_range(const script_range &range)
+{
+    script_ranges_.emplace_back(range);
+
+    clear_geometry();
+}
+
 const polyline& text::get_line_path() const
 {
     return line_path_;
@@ -534,6 +541,20 @@ void text::regen_unicode_text()
     }
 }
 
+const script_range& text::get_script_range(size_t i) const
+{
+    for(const auto& range : script_ranges_)
+    {
+        if(i >= range.begin && i < range.end)
+        {
+            return range;
+        }
+    }
+
+    static script_range empty{};
+    return empty;
+}
+
 void text::update_geometry(bool all) const
 {
     if(!font_)
@@ -608,6 +629,7 @@ void text::update_geometry(bool all) const
     auto pen_x = 0.0f;
     auto pen_y = ascent + align_y;
 
+    size_t i = 0;
     for(const auto& line : lines)
     {
         line_metrics line_info{};
@@ -631,6 +653,28 @@ void text::update_geometry(bool all) const
                 last_codepoint = g.codepoint;
             }
 
+
+            const auto& script_range = get_script_range(i);
+
+            auto pen_y_superscript = pen_y - ascent * (1.0f - script_range.scale);
+            auto pen_y_subscript = pen_y - descent;
+            auto pen_y_mod = pen_y;
+
+            switch(script_range.type)
+            {
+                case script_type::super:
+                    pen_y_mod = pen_y_superscript;
+                break;
+
+                case script_type::sub:
+                    pen_y_mod = pen_y_subscript;
+                break;
+
+                default:
+                break;
+            }
+
+
             if(all)
             {
                 float leaning0 = 0.0f;
@@ -638,20 +682,20 @@ void text::update_geometry(bool all) const
 
                 if(has_leaning)
                 {
-                    const auto y0_offs = g.y0 + ascent;
+                    const auto y0_offs = g.y0 * script_range.scale + ascent;
                     const auto y0_factor = 1.0f - y0_offs / ascent;
                     leaning0 = leaning * y0_factor;
 
-                    const auto y1_offs = g.y1 + ascent;
+                    const auto y1_offs = g.y1 * script_range.scale + ascent;
                     const auto y1_factor = 1.0f - y1_offs / ascent;
                     leaning1 = leaning * y1_factor;
                 }
 
 
-                const auto x0 = pen_x + g.x0;
-                const auto x1 = pen_x + g.x1;
-                const auto y0 = pen_y + g.y0;
-                const auto y1 = pen_y + g.y1;
+                auto x0 = pen_x + g.x0 * script_range.scale;
+                auto x1 = pen_x + g.x1 * script_range.scale;
+                auto y0 = pen_y_mod + g.y0 * script_range.scale;
+                auto y1 = pen_y_mod + g.y1 * script_range.scale;
 
                 const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - line_info.ascent, height) : color_top_;
                 const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - line_info.ascent, height) : color_bot_;
@@ -673,7 +717,9 @@ void text::update_geometry(bool all) const
                 vtx_count += vertices_per_quad;
             }
 
-            pen_x += g.advance_x + advance_offset_x;
+            pen_x += advance_offset_x + g.advance_x * script_range.scale;
+
+            i++;
         }
 
         line_info.maxx = pen_x;

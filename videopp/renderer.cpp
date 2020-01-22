@@ -38,6 +38,118 @@ inline GLenum to_gl_primitive(primitive_type type)
 
 static constexpr float FARTHEST_Z = -1.0f;
 
+// Callback function for printing debug statements
+void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
+                            GLenum severity, GLsizei /*length*/,
+                            const GLchar *msg, const void */*data*/)
+{
+    std::string source_str;
+    std::string type_str;
+    std::string severity_str;
+
+    switch (source) {
+        case GL_DEBUG_SOURCE_API:
+        source_str = "api";
+        break;
+
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        source_str = "window system";
+        break;
+
+        case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        source_str = "shader compiler";
+        break;
+
+        case GL_DEBUG_SOURCE_THIRD_PARTY:
+        source_str = "THIRD PARTY";
+        break;
+
+        case GL_DEBUG_SOURCE_APPLICATION:
+        source_str = "application";
+        break;
+
+        case GL_DEBUG_SOURCE_OTHER:
+        source_str = "unknown";
+        break;
+
+        default:
+        source_str = "unknown";
+        break;
+    }
+
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR:
+        type_str = "error";
+        break;
+
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        type_str = "deprecated behavior";
+        break;
+
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        type_str = "undefined behavior";
+        break;
+
+        case GL_DEBUG_TYPE_PORTABILITY:
+        type_str = "portability";
+        break;
+
+        case GL_DEBUG_TYPE_PERFORMANCE:
+        type_str = "performance";
+        break;
+
+        case GL_DEBUG_TYPE_OTHER:
+        type_str = "other";
+        break;
+
+        case GL_DEBUG_TYPE_MARKER:
+        type_str = "unknown";
+        break;
+
+        default:
+        type_str = "unknown";
+        break;
+    }
+
+    switch (severity) {
+        case GL_DEBUG_SEVERITY_HIGH:
+        severity_str = "high";
+        break;
+
+        case GL_DEBUG_SEVERITY_MEDIUM:
+        severity_str = "medium";
+        break;
+
+        case GL_DEBUG_SEVERITY_LOW:
+        severity_str = "low";
+        break;
+
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+        severity_str = "info";
+        break;
+
+        default:
+        severity_str = "unknown";
+        break;
+    }
+
+    std::stringstream ss;
+    ss << "--[OPENGL CALLBACK]--\n"
+       << "   source   : " << source_str << "\n"
+       << "   type     : " << type_str << "\n"
+       << "   severity : " << severity_str << "\n"
+       << "   id       : " << id << "\n"
+       << "   message  : " << msg << "\n";
+
+    log(ss.str());
+
+//    fprintf(stderr, "%d: %s of %s severity, raised from %s: %s\n",
+//            id, _type.c_str(), _severity.c_str(), _source.c_str(), msg);
+
+    assert(type != GL_DEBUG_TYPE_ERROR);
+}
+
+
 }
 /// Construct the renderer and initialize default rendering states
 ///	@param win - the window handle
@@ -58,6 +170,12 @@ renderer::renderer(os::window& win, bool vsync)
     {
         throw gfx::exception("Cannot load glad.");
     }
+
+
+    // During init, enable debug output
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(MessageCallback, nullptr);
 
     //rect_.x = win_.get_position().x;
     //rect_.y = win_.get_position().y;
@@ -98,8 +216,6 @@ renderer::renderer(os::window& win, bool vsync)
 
     reset_transform();
     set_model_view(0, rect_);
-
-    constexpr auto stride = sizeof(vertex_2d);
 
     auto create_program = [&](auto& program, auto fs, auto vs)
     {
