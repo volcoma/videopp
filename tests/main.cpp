@@ -101,7 +101,7 @@ int main()
 
         gfx::glyphs_builder builder;
         builder.add(gfx::get_default_glyph_range());
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 30, 2);
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans.ttf", builder.get(), 30, 2);
         auto font = rend.create_font(std::move(info));
 
 		bool running = true;
@@ -196,25 +196,37 @@ int main()
             t.set_alignment(valign);
             t.set_leaning(leaning);
 
+            float scale = 0.3f;
             gfx::script_range range{};
             range.begin = 1;
-            range.end = range.begin + 2;
-            range.type = gfx::script_type::super;
-            range.scale = 0.4f;
+            range.end = range.begin + 1;
+            range.type = gfx::script_type::super_ascent;
+            range.scale = scale;
             t.add_script_range(range);
 
-            range.begin = 6;
-            range.end = range.begin + 2;
-            range.type = gfx::script_type::normal;
-            range.scale = 0.4f;
+            range.begin = 2;
+            range.end = range.begin + 1;
+            range.type = gfx::script_type::super_original;
+            range.scale = scale;
             t.add_script_range(range);
 
-            range.begin = 10;
-            range.end = range.begin + 2;
-            range.type = gfx::script_type::sub;
-            range.scale = 0.4f;
+            range.begin = 3;
+            range.end = range.begin + 1;
+            range.type = gfx::script_type::base;
+            range.scale = scale;
             t.add_script_range(range);
 
+            range.begin = 4;
+            range.end = range.begin + 1;
+            range.type = gfx::script_type::sub_original;
+            range.scale = scale;
+            t.add_script_range(range);
+
+            range.begin = 5;
+            range.end = range.begin + 1;
+            range.type = gfx::script_type::sub_descent;
+            range.scale = scale;
+            t.add_script_range(range);
             //t.set_advance({20, 20});
             //gfx::polyline line;
             //line.line_to({0, 0});

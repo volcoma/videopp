@@ -56,9 +56,11 @@ float get_alignment_y(align_t alignment,
 
 enum class script_type : uint8_t
 {
-	super,
-	sub,
-	normal
+	super_ascent,
+    super_original,
+	base,
+    sub_original,
+    sub_descent
 };
 
 struct script_range
@@ -66,7 +68,7 @@ struct script_range
 	size_t begin{};
 	size_t end{};
 	float scale{1.0f};
-	script_type type{script_type::normal};
+	script_type type{script_type::base};
 };
 
 class text

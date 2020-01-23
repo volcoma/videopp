@@ -656,21 +656,28 @@ void text::update_geometry(bool all) const
 
             const auto& script_range = get_script_range(i);
 
-            auto pen_y_superscript = pen_y - ascent * (1.0f - script_range.scale);
-            auto pen_y_subscript = pen_y - descent;
-            auto pen_y_mod = pen_y;
+            auto pen_y_mod = 0.0f;
 
             switch(script_range.type)
             {
-                case script_type::super:
-                    pen_y_mod = pen_y_superscript;
+                case script_type::super_ascent:
+                    pen_y_mod = line_info.ascent + ascent * script_range.scale;
                 break;
 
-                case script_type::sub:
-                    pen_y_mod = pen_y_subscript;
+                case script_type::super_original:
+                    pen_y_mod = pen_y - font_->ysuperscript_offset + font_->ysuperscript_offset * script_range.scale;
+                break;
+
+                case script_type::sub_original:
+                    pen_y_mod = pen_y + font_->ysubscript_offset;
+                break;
+
+                case script_type::sub_descent:
+                    pen_y_mod = line_info.descent;
                 break;
 
                 default:
+                    pen_y_mod = pen_y;
                 break;
             }
 
