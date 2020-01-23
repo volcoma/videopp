@@ -52,14 +52,17 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     f.ascent = font->ascent;
     f.descent = font->descent;
     f.x_height = font->x_height;
+    f.cap_height = font->cap_height;
     f.line_height = font->line_height;
     f.kernings = std::move(font->kernings);
     f.size = font->font_size;
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::red);
     f.sdf_spread = atlas.sdf_spread;
     f.face_name = id;
-    f.ysuperscript_offset = font->ysuperscript_offset;
-    f.ysubscript_offset = font->ysubscript_offset;
+    f.superscript_size = font->ysuperscript_size;
+    f.superscript_offset = font->ysuperscript_offset;
+    f.subscript_size = font->ysubscript_size;
+    f.subscript_offset = font->ysubscript_offset;
     return f;
 }
 }

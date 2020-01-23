@@ -15,6 +15,12 @@ struct line_metrics
     float ascent{};
     /// Median of the line(x-height). Relative to the aligned origin.
     float median{};
+    /// Cap height of the line (H-height) is the height of a capital letter above the baseline
+    float cap{};
+
+    float superscript{};
+
+    float subscript{};
     /// Baseline of the line. Relative to the aligned origin.
     float baseline{};
     /// Descent of the line. Relative to the aligned origin.
@@ -58,9 +64,11 @@ enum class script_type : uint8_t
 {
 	super_ascent,
     super_original,
+    super_cap,
 	base,
     sub_original,
-    sub_descent
+    sub_descent,
+    count
 };
 
 struct script_range

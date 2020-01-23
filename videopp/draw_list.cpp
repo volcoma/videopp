@@ -1838,7 +1838,8 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
     const auto& line_path = t.get_line_path();
     const auto& rect = t.get_frect();
-    push_transform(transform);
+
+    //push_transform(transform);
 
     if(!line_path.empty())
     {
@@ -1846,7 +1847,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     }
     else
     {
-        add_rect(rect, {}, color::red(), false, 1.0f);
+        add_rect(rect, transform, color::red(), false, 1.0f);
 
         {
             auto col = color::cyan();
@@ -1855,17 +1856,29 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
                 math::vec2 v1{line.minx, line.ascent};
                 math::vec2 v2{line.maxx, line.ascent};
 
-                add_line(v1, v2, col);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
+
         {
-            auto col = color::magenta();
+            auto col = color(252, 152, 3);
             for(const auto& line : lines)
             {
-                math::vec2 v1{line.minx, line.baseline};
-                math::vec2 v2{line.maxx, line.baseline};
+                math::vec2 v1{line.minx, line.superscript};
+                math::vec2 v2{line.maxx, line.superscript};
 
-                add_line(v1, v2, col);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            }
+        }
+
+        {
+            auto col = color::green();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.cap};
+                math::vec2 v2{line.maxx, line.cap};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
         {
@@ -1875,7 +1888,29 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
                 math::vec2 v1{line.minx, line.median};
                 math::vec2 v2{line.maxx, line.median};
 
-                add_line(v1, v2, col);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            }
+        }
+
+        {
+            auto col = color::magenta();
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.baseline};
+                math::vec2 v2{line.maxx, line.baseline};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            }
+        }
+
+        {
+            auto col = color(96, 81, 102);
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.subscript};
+                math::vec2 v2{line.maxx, line.subscript};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col, 1.0f);
             }
         }
         {
@@ -1885,7 +1920,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
                 math::vec2 v1{line.minx, line.descent};
                 math::vec2 v2{line.maxx, line.descent};
 
-                add_line(v1, v2, col, 1.0f);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col, 1.0f);
             }
         }
 
@@ -1897,13 +1932,13 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
                 math::vec2 v1{line.maxx, line.ascent};
                 math::vec2 v2{line.maxx, line.ascent + line_height};
 
-                add_line(v1, v2, col);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
 
             }
         }
     }
 
-    pop_transform();
+    //pop_transform();
 }
 
 

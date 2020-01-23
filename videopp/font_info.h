@@ -70,8 +70,11 @@ struct font_info
     float descent = 0;
     /// height of x glyph.
     float x_height = 0;
-    float ysuperscript_offset{};
-    float ysubscript_offset{};
+    float cap_height = 0;
+    float superscript_size = 0;
+    float superscript_offset = 0;
+    float subscript_size = 0;
+    float subscript_offset = 0;
     /// spread of signed distance field (0 if no distance field is applied)
     uint32_t sdf_spread = 0;
 

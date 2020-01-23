@@ -116,6 +116,7 @@ public:
     }
 
 private:
+
     inline void update_components() noexcept
     {
         vec3_t skew;
@@ -254,7 +255,7 @@ inline const typename transform_t<T, Q>::quat_t& transform_t<T, Q>::get_rotation
 template <typename T, precision Q>
 inline void transform_t<T, Q>::set_rotation(const typename transform_t::quat_t& rotation) noexcept
 {
-    rotation_ = rotation;
+    rotation_ = glm::normalize(rotation);
     make_dirty();
 }
 
@@ -511,8 +512,7 @@ inline const transform_t<T, Q>& transform_t<T, Q>::identity() noexcept
 template <typename T, precision Q>
 inline transform_t<T, Q> transform_t<T, Q>::operator*(const transform_t& t) const noexcept
 {
-    transform_t result(get_matrix() * t.get_matrix());
-    return result;
+    return transform_t(get_matrix() * t.get_matrix());
 }
 
 template <typename T, precision Q>

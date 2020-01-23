@@ -583,8 +583,12 @@ void text::update_geometry(bool all) const
     const auto ascent = font_->ascent;
     const auto descent = font_->descent;
     const auto height = ascent - descent;
+    const auto superscript = font_->superscript_offset;
+    const auto subscript = font_->subscript_offset;
+
     const auto line_gap = line_height - height;
     const auto x_height = font_->x_height;
+    const auto cap_height = font_->cap_height;
 
     if(all)
     {
@@ -635,8 +639,11 @@ void text::update_geometry(bool all) const
         line_metrics line_info{};
         line_info.minx = pen_x;
         line_info.ascent = pen_y - ascent;
+        line_info.cap = pen_y - cap_height;
+        line_info.superscript = pen_y - superscript;
         line_info.median = pen_y - x_height;
         line_info.baseline = pen_y;
+        line_info.subscript = pen_y + subscript;
         line_info.descent = pen_y - descent;
 
         size_t vtx_count{};
@@ -655,21 +662,25 @@ void text::update_geometry(bool all) const
 
 
             const auto& script_range = get_script_range(i);
-
+            auto scale = script_range.scale;
             auto pen_y_mod = 0.0f;
 
             switch(script_range.type)
             {
                 case script_type::super_ascent:
-                    pen_y_mod = line_info.ascent + ascent * script_range.scale;
+                    pen_y_mod = line_info.ascent + ascent * scale;
                 break;
-
+                case script_type::super_cap:
+                    pen_y_mod = pen_y - cap_height + cap_height * scale;
+                break;
                 case script_type::super_original:
-                    pen_y_mod = pen_y - font_->ysuperscript_offset + font_->ysuperscript_offset * script_range.scale;
+                    scale = font_->superscript_size / font_->size;
+                    pen_y_mod = line_info.superscript;
                 break;
 
                 case script_type::sub_original:
-                    pen_y_mod = pen_y + font_->ysubscript_offset;
+                    scale = font_->subscript_size / font_->size;
+                    pen_y_mod = line_info.subscript;
                 break;
 
                 case script_type::sub_descent:
@@ -689,20 +700,20 @@ void text::update_geometry(bool all) const
 
                 if(has_leaning)
                 {
-                    const auto y0_offs = g.y0 * script_range.scale + ascent;
+                    const auto y0_offs = g.y0 * scale + ascent;
                     const auto y0_factor = 1.0f - y0_offs / ascent;
                     leaning0 = leaning * y0_factor;
 
-                    const auto y1_offs = g.y1 * script_range.scale + ascent;
+                    const auto y1_offs = g.y1 * scale + ascent;
                     const auto y1_factor = 1.0f - y1_offs / ascent;
                     leaning1 = leaning * y1_factor;
                 }
 
 
-                auto x0 = pen_x + g.x0 * script_range.scale;
-                auto x1 = pen_x + g.x1 * script_range.scale;
-                auto y0 = pen_y_mod + g.y0 * script_range.scale;
-                auto y1 = pen_y_mod + g.y1 * script_range.scale;
+                auto x0 = pen_x + g.x0 * scale;
+                auto x1 = pen_x + g.x1 * scale;
+                auto y0 = pen_y_mod + g.y0 * scale;
+                auto y1 = pen_y_mod + g.y1 * scale;
 
                 const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - line_info.ascent, height) : color_top_;
                 const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - line_info.ascent, height) : color_bot_;
@@ -724,7 +735,7 @@ void text::update_geometry(bool all) const
                 vtx_count += vertices_per_quad;
             }
 
-            pen_x += advance_offset_x + g.advance_x * script_range.scale;
+            pen_x += advance_offset_x + g.advance_x * scale;
 
             i++;
         }

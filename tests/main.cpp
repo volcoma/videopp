@@ -101,15 +101,18 @@ int main()
 
         gfx::glyphs_builder builder;
         builder.add(gfx::get_default_glyph_range());
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans.ttf", builder.get(), 30, 2);
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono.ttf", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 
+        auto image = rend.create_texture(DATA"wheel.png");
 		bool running = true;
         math::transformf tr;
 
         std::string text = "1234";
-        auto valign = gfx::align::top | gfx::align::right;
+        auto valign = gfx::align::top;
+        auto halign = gfx::align::left;
         float leaning = 0.0f;
+        float scale = 0.5f;
 		while(running)
 		{
 			os::event e{};
@@ -159,7 +162,7 @@ int main()
                         {
                             if(valign == gfx::align::baseline_bottom)
                             {
-                                valign = gfx::align::left;
+                                valign = gfx::align::top;
                             }
                             else
                             {
@@ -169,6 +172,40 @@ int main()
                             }
                         }
 					}
+                    if(e.key.code == os::key::f3)
+                    {
+                        if(valign == gfx::align::baseline_bottom)
+                        {
+                            valign = gfx::align::top;
+                        }
+                        else
+                        {
+                            uint32_t va = valign;
+                            va *= 2;
+                            valign = gfx::align(va);
+                        }
+                    }
+                    if(e.key.code == os::key::f4)
+                    {
+                        if(halign == gfx::align::top)
+                        {
+                            halign = gfx::align::left;
+                        }
+                        else
+                        {
+                            uint32_t va = halign;
+                            va *= 2;
+                            halign = gfx::align(va);
+                        }
+                    }
+                    if(e.key.code == os::key::f1)
+                    {
+                        scale += 0.01f;
+                    }
+                    if(e.key.code == os::key::f2)
+                    {
+                        scale -= 0.01f;
+                    }
 				}
 
                 if(e.type == os::events::mouse_wheel)
@@ -188,45 +225,60 @@ int main()
 
             gfx::draw_list list;
 
-            tr.set_position(pos.x, pos.y, 0);
-            //tr.rotate(0, 0, math::radians(1.0f));
-            gfx::text t;
-            t.set_font(font);
-            t.set_utf8_text(text);
-            t.set_alignment(valign);
-            t.set_leaning(leaning);
+            //tr.set_position(pos.x, pos.y, 0);
+            tr.set_position(rend.get_rect().w/2, rend.get_rect().h/2, 0.0f);
 
-            float scale = 0.3f;
-            gfx::script_range range{};
-            range.begin = 1;
-            range.end = range.begin + 1;
-            range.type = gfx::script_type::super_ascent;
-            range.scale = scale;
-            t.add_script_range(range);
+//            for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
+//            {
+//                gfx::text t;
+//                t.set_font(font);
+//                t.set_utf8_text(text);
+//                t.set_alignment(valign | halign);
+//                t.set_leaning(leaning);
 
-            range.begin = 2;
-            range.end = range.begin + 1;
-            range.type = gfx::script_type::super_original;
-            range.scale = scale;
-            t.add_script_range(range);
+//                gfx::script_range range{};
+//                range.begin = 2;
+//                range.end = range.begin + 2;
+//                range.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
+//                range.scale = scale;
+//                t.add_script_range(range);
+//                list.add_text(t, tr);
 
-            range.begin = 3;
-            range.end = range.begin + 1;
-            range.type = gfx::script_type::base;
-            range.scale = scale;
-            t.add_script_range(range);
+//                tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
+//            }
+            tr.rotate(0, 0, math::radians(1.0f));
 
-            range.begin = 4;
-            range.end = range.begin + 1;
-            range.type = gfx::script_type::sub_original;
-            range.scale = scale;
-            t.add_script_range(range);
+            auto pivot = gfx::align_item(gfx::align::middle | gfx::align::center, image->get_rect());
 
-            range.begin = 5;
-            range.end = range.begin + 1;
-            range.type = gfx::script_type::sub_descent;
-            range.scale = scale;
-            t.add_script_range(range);
+            auto world = tr * pivot;
+            const auto& scale = world.get_scale();
+            std::cout << "x = " << scale.x << ", y = " << scale.y << ", z = " << scale.z << std::endl;
+            list.add_image(image, image->get_rect(), world);
+
+
+//            range.begin = 2;
+//            range.end = range.begin + 1;
+//            range.type = gfx::script_type::super_original;
+//            range.scale = scale;
+//            t.add_script_range(range);
+
+//            range.begin = 3;
+//            range.end = range.begin + 1;
+//            range.type = gfx::script_type::base;
+//            range.scale = scale;
+//            t.add_script_range(range);
+
+//            range.begin = 4;
+//            range.end = range.begin + 1;
+//            range.type = gfx::script_type::sub_original;
+//            range.scale = scale;
+//            t.add_script_range(range);
+
+//            range.begin = 5;
+//            range.end = range.begin + 1;
+//            range.type = gfx::script_type::sub_descent;
+//            range.scale = scale;
+//            t.add_script_range(range);
             //t.set_advance({20, 20});
             //gfx::polyline line;
             //line.line_to({0, 0});
@@ -234,7 +286,7 @@ int main()
             //line.ellipse({0, 0}, {200, 100}, 64);
             //t.set_line_path(line);
             //t.set_shadow_offsets({0, 20});
-            list.add_text(t, tr);
+//            list.add_text(t, tr);
 
 //            tr.translate(0, t.get_height() * 3, 0);
 //            gfx::text t2;
