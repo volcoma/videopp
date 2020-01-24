@@ -232,14 +232,32 @@ renderer::renderer(os::window& win, bool vsync)
         }
     };
 
-    create_program(get_program<programs::simple>(), fs_simple, vs_simple);
-    create_program(get_program<programs::multi_channel>(), fs_multi_channel, vs_simple);
-    create_program(get_program<programs::multi_channel_crop>(), fs_multi_channel_crop, vs_simple);
-    create_program(get_program<programs::multi_channel_dither>(), fs_multi_channel_dither, vs_simple);
-    create_program(get_program<programs::single_channel>(), fs_single_channel, vs_simple);
-    create_program(get_program<programs::distance_field>(), fs_distance_field, vs_simple);
-    create_program(get_program<programs::blur>(), fs_blur, vs_simple);
-    create_program(get_program<programs::fxaa>(), fs_fxaa, vs_simple);
+
+
+    create_program(get_program<programs::simple>(),
+                   std::string(fs_begin).append(fs_simple).c_str(), vs_simple);
+
+    create_program(get_program<programs::multi_channel>(),
+                   std::string(fs_begin).append(fs_multi_channel).c_str(), vs_simple);
+    create_program(get_program<programs::multi_channel_crop>(),
+                   std::string(fs_begin).append(crop_defines).append(fs_multi_channel).c_str(), vs_simple);
+
+    create_program(get_program<programs::single_channel>(),
+                   std::string(fs_begin).append(fs_single_channel).c_str(), vs_simple);
+    create_program(get_program<programs::single_channel_crop>(),
+                   std::string(fs_begin).append(crop_defines).append(fs_single_channel).c_str(), vs_simple);
+
+    create_program(get_program<programs::distance_field>(),
+                   std::string(fs_begin).append(fs_distance_field).c_str(), vs_simple);
+    create_program(get_program<programs::distance_field_crop>(),
+                   std::string(fs_begin).append(crop_defines).append(fs_distance_field).c_str(), vs_simple);
+
+    create_program(get_program<programs::multi_channel_dither>(),
+                    std::string(fs_begin).append(fs_multi_channel_dither).c_str(), vs_simple);
+    create_program(get_program<programs::blur>(),
+                   std::string(fs_begin).append(fs_blur).c_str(), vs_simple);
+    create_program(get_program<programs::fxaa>(),
+                   std::string(fs_begin).append(fs_fxaa).c_str(), vs_simple);
     if(!default_font())
     {
         default_font() = create_font(create_default_font(13, 2));

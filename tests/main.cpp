@@ -97,11 +97,12 @@ int main()
 
 		gfx::html_context html_ctx(rend, std::move(options));
 		gfx::html_page page(html_ctx);
-		page.load_from_utf8(html, DATA);
+//		page.load_from_utf8(html, DATA);
 
         gfx::glyphs_builder builder;
         builder.add(gfx::get_default_glyph_range());
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono.ttf", builder.get(), 80, 2);
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono-Bold.ttf", builder.get(), 80, 2);
+        //auto info = gfx::create_font_from_ttf("C:/WINDOWS/Fonts/ARIAL.TTF", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 
         auto image = rend.create_texture(DATA"wheel.png");
@@ -158,19 +159,6 @@ int main()
                         {
                             gfx::draw_list::toggle_debug_draw();
                         }
-                        else
-                        {
-                            if(valign == gfx::align::baseline_bottom)
-                            {
-                                valign = gfx::align::top;
-                            }
-                            else
-                            {
-                                uint32_t va = valign;
-                                va *= 2;
-                                valign = gfx::align(va);
-                            }
-                        }
 					}
                     if(e.key.code == os::key::f3)
                     {
@@ -225,75 +213,48 @@ int main()
 
             gfx::draw_list list;
 
-            //tr.set_position(pos.x, pos.y, 0);
-            tr.set_position(rend.get_rect().w/2, rend.get_rect().h/2, 0.0f);
+            tr.set_position(pos.x, pos.y, 0);
 
-//            for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
-//            {
-//                gfx::text t;
-//                t.set_font(font);
-//                t.set_utf8_text(text);
-//                t.set_alignment(valign | halign);
-//                t.set_leaning(leaning);
+            for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
+            {
+                gfx::text t;
+                t.set_font(font);
+                t.set_utf8_text(text);
+                t.set_alignment(valign | halign);
+                t.set_leaning(leaning);
+                t.set_shadow_offsets({2, 2});
 
-//                gfx::script_range range{};
-//                range.begin = 2;
-//                range.end = range.begin + 2;
-//                range.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
-//                range.scale = scale;
-//                t.add_script_range(range);
-//                list.add_text(t, tr);
+                gfx::text_decorator decorator{};
+                decorator.begin = 2;
+                decorator.end = decorator.begin + 2;
+                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
+                decorator.scale = scale;
+                t.add_decorator(decorator);
 
-//                tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
-//            }
-            tr.rotate(0, 0, math::radians(1.0f));
+                decorator.begin = 7;
+                decorator.end = decorator.begin + 2;
+                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
+                decorator.scale = scale;
+                t.add_decorator(decorator);
+                list.add_text(t, tr);
 
-            auto pivot = gfx::align_item(gfx::align::middle | gfx::align::center, image->get_rect());
+                tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
+            }
+//            tr.set_position(rend.get_rect().w/2, rend.get_rect().h/2, 0.0f);
+//            tr.rotate(0, 0, math::radians(1.0f));
 
-            auto world = tr * pivot;
-            const auto& scale = world.get_scale();
-            std::cout << "x = " << scale.x << ", y = " << scale.y << ", z = " << scale.z << std::endl;
-            list.add_image(image, image->get_rect(), world);
+//            auto pivot = gfx::align_item(gfx::align::middle | gfx::align::center, image->get_rect());
+
+//            auto world = tr * pivot;
+//            const auto& scale = world.get_scale();
+//            std::cout << "x = " << scale.x << ", y = " << scale.y << ", z = " << scale.z << std::endl;
+//            list.add_image(image, image->get_rect(), world);
 
 
-//            range.begin = 2;
-//            range.end = range.begin + 1;
-//            range.type = gfx::script_type::super_original;
-//            range.scale = scale;
-//            t.add_script_range(range);
-
-//            range.begin = 3;
-//            range.end = range.begin + 1;
-//            range.type = gfx::script_type::base;
-//            range.scale = scale;
-//            t.add_script_range(range);
-
-//            range.begin = 4;
-//            range.end = range.begin + 1;
-//            range.type = gfx::script_type::sub_original;
-//            range.scale = scale;
-//            t.add_script_range(range);
-
-//            range.begin = 5;
-//            range.end = range.begin + 1;
-//            range.type = gfx::script_type::sub_descent;
-//            range.scale = scale;
-//            t.add_script_range(range);
-            //t.set_advance({20, 20});
             //gfx::polyline line;
-            //line.line_to({0, 0});
             //line.bezier_curve_to({200, 300}, {400, 0}, {1000, 300});
             //line.ellipse({0, 0}, {200, 100}, 64);
             //t.set_line_path(line);
-            //t.set_shadow_offsets({0, 20});
-//            list.add_text(t, tr);
-
-//            tr.translate(0, t.get_height() * 3, 0);
-//            gfx::text t2;
-//            t2.set_font(font);
-//            t2.set_utf8_text("12");
-//            t2.set_alignment(valign);
-//            list.add_text_superscript(t2, t2, tr);
 
             rend.draw_cmd_list(list);
 

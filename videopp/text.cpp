@@ -412,9 +412,9 @@ void text::set_line_path(polyline&& line)
     clear_geometry();
 }
 
-void text::add_script_range(const script_range &range)
+void text::add_decorator(const text_decorator& decorator)
 {
-    script_ranges_.emplace_back(range);
+    decorators_.emplace_back(decorator);
 
     clear_geometry();
 }
@@ -541,17 +541,17 @@ void text::regen_unicode_text()
     }
 }
 
-const script_range& text::get_script_range(size_t i) const
+const text_decorator& text::get_next_decorator(size_t i) const
 {
-    for(const auto& range : script_ranges_)
+    for(const auto& decorator : decorators_)
     {
-        if(i >= range.begin && i < range.end)
+        if(i <= decorator.begin)
         {
-            return range;
+            return decorator;
         }
     }
 
-    static script_range empty{};
+    static text_decorator empty{};
     return empty;
 }
 
@@ -585,6 +585,8 @@ void text::update_geometry(bool all) const
     const auto height = ascent - descent;
     const auto superscript = font_->superscript_offset;
     const auto subscript = font_->subscript_offset;
+    const auto superscript_scale = font_->superscript_size / font_->size;
+    const auto subscript_scale = font_->subscript_size / font_->size;
 
     const auto line_gap = line_height - height;
     const auto x_height = font_->x_height;
@@ -607,9 +609,9 @@ void text::update_geometry(bool all) const
     size_t offset = 0;
     auto vptr = geometry_.data();
 
-    const math::vec4 vcolor_top{color_top_.r, color_top_.g, color_top_.b, color_top_.a};
-    const math::vec4 vcolor_bot{color_bot_.r, color_bot_.g, color_bot_.b, color_bot_.a};
-    const bool has_gradient = color_top_ != color_bot_;
+    math::vec4 vcolor_top{color_top_.r, color_top_.g, color_top_.b, color_top_.a};
+    math::vec4 vcolor_bot{color_bot_.r, color_bot_.g, color_bot_.b, color_bot_.a};
+    bool has_gradient = color_top_ != color_bot_;
 
     float max_h = (lines.size() * line_height) - line_gap;
     float min_y = 0.0f;
@@ -634,6 +636,7 @@ void text::update_geometry(bool all) const
     auto pen_y = ascent + align_y;
 
     size_t i = 0;
+    text_decorator decorator{};
     for(const auto& line : lines)
     {
         line_metrics line_info{};
@@ -653,43 +656,58 @@ void text::update_geometry(bool all) const
         {
             const auto& g = font_->get_glyph(c);
 
-            if(kerning_enabled_)
+            if(i >= decorator.end)
             {
-                // modify the pen advance with the kerning from the previous character
-                pen_x += font_->get_kerning(last_codepoint, g.codepoint);
-                last_codepoint = g.codepoint;
+                decorator = get_next_decorator(i);
+            }
+
+            auto pen_y_mod = pen_y;
+            auto scale = 1.0f;
+
+            if(i >= decorator.begin && i < decorator.end)
+            {
+                scale = decorator.scale;
+
+                switch(decorator.type)
+                {
+                    case script_type::super_ascent:
+                        pen_y_mod = line_info.ascent + ascent * scale;
+                    break;
+                    case script_type::super_cap:
+                        pen_y_mod = line_info.cap + cap_height * scale;
+                    break;
+                    case script_type::super_original:
+                        if(superscript > 0.0f)
+                        {
+                            scale = superscript_scale;
+                            pen_y_mod = line_info.superscript;
+                        }
+                        else
+                        {
+                            pen_y_mod = line_info.cap + cap_height * scale;
+                        }
+                    break;
+                    case script_type::sub_original:
+                        if(subscript > 0.0f)
+                        {
+                            scale = subscript_scale;
+                            pen_y_mod = line_info.subscript;
+                        }
+                    break;
+                    case script_type::sub_descent:
+                        pen_y_mod = line_info.descent;
+                    break;
+                    default:
+                    break;
+                }
             }
 
 
-            const auto& script_range = get_script_range(i);
-            auto scale = script_range.scale;
-            auto pen_y_mod = 0.0f;
-
-            switch(script_range.type)
+            if(kerning_enabled_)
             {
-                case script_type::super_ascent:
-                    pen_y_mod = line_info.ascent + ascent * scale;
-                break;
-                case script_type::super_cap:
-                    pen_y_mod = pen_y - cap_height + cap_height * scale;
-                break;
-                case script_type::super_original:
-                    scale = font_->superscript_size / font_->size;
-                    pen_y_mod = line_info.superscript;
-                break;
-
-                case script_type::sub_original:
-                    scale = font_->subscript_size / font_->size;
-                    pen_y_mod = line_info.subscript;
-                break;
-
-                case script_type::sub_descent:
-                    pen_y_mod = line_info.descent;
-                break;
-
-                default:
-                    pen_y_mod = pen_y;
-                break;
+                // modify the pen advance with the kerning from the previous character
+                pen_x += font_->get_kerning(last_codepoint, g.codepoint) * scale;
+                last_codepoint = g.codepoint;
             }
 
 

@@ -224,7 +224,7 @@ const program_setup& get_simple_setup() noexcept
 
 template<typename Setup>
 inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
-                                   primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup)
+                                   primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup, bool cpu_batch = true)
 {
     assert(verts != nullptr && count > 0 && "invalid input for memcpy");
     const auto vtx_offset = uint32_t(list.vertices.size());
@@ -256,7 +256,15 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
         switch(texture.format)
         {
         case pix_type::red:
-            prog_setup.program = get_program<programs::single_channel>();
+            if(!has_crop)
+            {
+                prog_setup.program = get_program<programs::single_channel>();
+            }
+            else
+            {
+                blend = blending_mode::blend_normal;
+                prog_setup.program = get_program<programs::single_channel_crop>();
+            }
             break;
 
         default:
@@ -273,18 +281,18 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
         }
     }
 
-    uint64_t hash{0};
-    utils::hash(hash, texture);
-    if(has_crop)
+    if(cpu_batch)
     {
-        const auto& crop_areas = list.crop_areas.back();
-        for(const auto& area : crop_areas)
+        utils::hash(prog_setup.uniforms_hash, texture);
+        if(has_crop)
         {
-            utils::hash(hash, area);
+            const auto& crop_areas = list.crop_areas.back();
+            for(const auto& area : crop_areas)
+            {
+                utils::hash(prog_setup.uniforms_hash, area);
+            }
         }
     }
-
-    prog_setup.uniforms_hash = hash;
 
     auto& cmd = add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::move(prog_setup));
     // check if a new command was added
@@ -680,6 +688,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     // because there are too many vertices and their matrix multiplication
     // on the cpu dominates the batching benefits.
     constexpr size_t max_cpu_transformed_glyhps = 24;
+//    auto has_crop = !crop_areas.empty();
     bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
     bool has_multiplier = false;
 
@@ -734,11 +743,44 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
             utils::hash(hash, texture);
             setup.uniforms_hash = hash;
         }
+
+//        switch(texture->get_pix_type())
+//        {
+//        case pix_type::red:
+//            if(!has_crop)
+//            {
+//                setup.program = get_program<programs::single_channel>();
+//            }
+//            else
+//            {
+//                blend = blending_mode::blend_normal;
+//                setup.program = get_program<programs::single_channel_crop>();
+//            }
+//            break;
+
+//        default:
+//            if(!has_crop)
+//            {
+//                setup.program = get_program<programs::multi_channel>();
+//            }
+//            else
+//            {
+//                blend = blending_mode::blend_normal;
+//                setup.program = get_program<programs::multi_channel_crop>();
+//            }
+//            break;
+//        }
     }
 
     const auto vtx_offset = uint32_t(vertices.size());
     texture_view view = texture;
-    auto& cmd = add_vertices_impl(*this, draw_type::elements, geometry.data(), geometry.size(), primitive_type::triangles, view, view.blending, std::move(setup));
+    auto& cmd = add_vertices_impl(*this,
+                                  draw_type::elements,
+                                  geometry.data(), geometry.size(),
+                                  primitive_type::triangles,
+                                  view, view.blending,
+                                  std::move(setup),
+                                  cpu_batch);
     if(cpu_batch)
     {
         for(size_t i = vtx_offset, sz = vertices.size(); i < sz; ++i)
@@ -1738,7 +1780,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 //        for(const auto& line : lines)
 //        {
 //            auto v1 = transform.transform_coord({line.minx, line.ascent});
-//            //auto v2 = transform.transform_coord({line.maxx, line.ascent});
+//            auto v2 = transform.transform_coord({line.maxx, line.ascent});
 
 //            text txt;
 //            txt.debug = true;
@@ -1750,15 +1792,33 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 //            tr.set_position(v1.x, v1.y, 0.0f);
 //            add_text(txt, tr);
 
-////            auto width = line.maxx - line.minx;
-////            std::stringstream ss;
-////            ss << " width = " << std::fixed << std::setprecision(2) << width;
+//            auto width = line.maxx - line.minx;
+//            std::stringstream ss;
+//            ss << " width = " << std::fixed << std::setprecision(2) << width;
 
-////            txt.set_alignment(text::alignment::left | align::middle);
-////            txt.set_utf8_text(ss.str());
+//            txt.set_alignment(align::left | align::middle);
+//            txt.set_utf8_text(ss.str());
 
-////            tr.set_position(v2.x, v1.y, 0.0f);
-////            add_text(txt, tr);
+//            tr.set_position(v2.x, v1.y, 0.0f);
+//            add_text(txt, tr);
+//        }
+//    }
+//    {
+//        auto col = color::red();
+//        std::string desc = "cap_height ";
+//        for(const auto& line : lines)
+//        {
+//            auto v1 = transform.transform_coord({line.minx, line.cap});
+
+//            text txt;
+//            txt.debug = true;
+//            txt.set_color(col);
+//            txt.set_font(default_font());
+//            txt.set_alignment(align::right | align::middle);
+//            txt.set_utf8_text(desc);
+
+//            tr.set_position(v1.x, v1.y, 0.0f);
+//            add_text(txt, tr);
 //        }
 //    }
 //    {
@@ -1839,8 +1899,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     const auto& line_path = t.get_line_path();
     const auto& rect = t.get_frect();
 
-    //push_transform(transform);
-
     if(!line_path.empty())
     {
         add_polyline(line_path, color::yellow(), false);
@@ -1849,96 +1907,71 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     {
         add_rect(rect, transform, color::red(), false, 1.0f);
 
+        for(const auto& line : lines)
         {
-            auto col = color::cyan();
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.ascent};
-                math::vec2 v2{line.maxx, line.ascent};
+            math::vec2 v1{line.minx, line.ascent};
+            math::vec2 v2{line.maxx, line.ascent};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
-            }
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::cyan());
         }
 
+        for(const auto& line : lines)
         {
-            auto col = color(252, 152, 3);
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.superscript};
-                math::vec2 v2{line.maxx, line.superscript};
+            math::vec2 v1{line.minx, line.superscript};
+            math::vec2 v2{line.maxx, line.superscript};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
-            }
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color(252, 152, 3));
         }
 
+        for(const auto& line : lines)
         {
-            auto col = color::green();
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.cap};
-                math::vec2 v2{line.maxx, line.cap};
+            math::vec2 v1{line.minx, line.cap};
+            math::vec2 v2{line.maxx, line.cap};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
-            }
-        }
-        {
-            auto col = color::red();
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.median};
-                math::vec2 v2{line.maxx, line.median};
-
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
-            }
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2),  color::green());
         }
 
+        for(const auto& line : lines)
         {
-            auto col = color::magenta();
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.baseline};
-                math::vec2 v2{line.maxx, line.baseline};
+            math::vec2 v1{line.minx, line.median};
+            math::vec2 v2{line.maxx, line.median};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
-            }
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::red());
         }
 
+        for(const auto& line : lines)
         {
-            auto col = color(96, 81, 102);
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.subscript};
-                math::vec2 v2{line.maxx, line.subscript};
+            math::vec2 v1{line.minx, line.baseline};
+            math::vec2 v2{line.maxx, line.baseline};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col, 1.0f);
-            }
-        }
-        {
-            auto col = color::blue();
-            for(const auto& line : lines)
-            {
-                math::vec2 v1{line.minx, line.descent};
-                math::vec2 v2{line.maxx, line.descent};
-
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col, 1.0f);
-            }
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
         }
 
+        for(const auto& line : lines)
         {
-            auto col = color::green();
-            for(const auto& line : lines)
-            {
-                auto line_height = t.get_font()->line_height;
-                math::vec2 v1{line.maxx, line.ascent};
-                math::vec2 v2{line.maxx, line.ascent + line_height};
+            math::vec2 v1{line.minx, line.subscript};
+            math::vec2 v2{line.maxx, line.subscript};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color(96, 81, 102));
+        }
 
-            }
+        for(const auto& line : lines)
+        {
+            math::vec2 v1{line.minx, line.descent};
+            math::vec2 v2{line.maxx, line.descent};
+
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
+        }
+
+        for(const auto& line : lines)
+        {
+            auto line_height = t.get_font()->line_height;
+            math::vec2 v1{line.maxx, line.ascent};
+            math::vec2 v2{line.maxx, line.ascent + line_height};
+
+            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
         }
     }
-
-    //pop_transform();
 }
 
 

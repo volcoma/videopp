@@ -11,23 +11,23 @@ namespace gfx
 {
 struct line_metrics
 {
-    /// Ascent of the line. Relative to the aligned origin.
+    /// Ascent of the line.
     float ascent{};
-    /// Median of the line(x-height). Relative to the aligned origin.
+    /// Median of the line(x-height).
     float median{};
-    /// Cap height of the line (H-height) is the height of a capital letter above the baseline
+    /// Cap height of the line (H-height) is the height of a capital letter above the baseline.
     float cap{};
-
+    /// Superscript height of the line.
     float superscript{};
-
+    /// Subscript height of the line.
     float subscript{};
-    /// Baseline of the line. Relative to the aligned origin.
+    /// Baseline of the line.
     float baseline{};
-    /// Descent of the line. Relative to the aligned origin.
+    /// Descent of the line.
     float descent{};
-    /// Min x of the line.. Relative to the aligned origin.
+    /// Min x of the line.
     float minx{};
-    /// Max x of the line. Relative to the aligned origin.
+    /// Max x of the line.
     float maxx{};
 };
 
@@ -44,9 +44,9 @@ enum align : uint32_t
     bottom      = 1<<5,
 
     // Vertical align (text only)
-    baseline_top	= 1<<6,
-    baseline_bottom	= 1<<7,
-
+    baseline_top	= 1<<6,  // baseline of first line
+    baseline_bottom	= 1<<7,  // baseline of last line
+    baseline = baseline_top
 };
 
 using align_t = uint32_t;
@@ -62,21 +62,40 @@ float get_alignment_y(align_t alignment,
 
 enum class script_type : uint8_t
 {
+    // Superscript aligned on the ascender line.
 	super_ascent,
+
+    // Superscript aligned on the font's defined line. Scaled with font's defined scale as well.
     super_original,
+
+    // Superscript aligned on the cap height line.
     super_cap,
-	base,
+
+    // Subscript aligned on the baseline.
+	sub_base,
+
+    // Subscript aligned on the font's defined line. Scaled with font's defined scale as well.
     sub_original,
+
+    // Subscript aligned on the descender line.
     sub_descent,
+
     count
 };
 
-struct script_range
+struct text_decorator
 {
+    /// Begin glyph (inclusive).
 	size_t begin{};
+
+    /// End glyph (exclusive).
 	size_t end{};
+
+    /// Scale to be used.
 	float scale{1.0f};
-	script_type type{script_type::base};
+
+    /// Type of the scripting to be applied.
+	script_type type{script_type::sub_base};
 };
 
 class text
@@ -164,7 +183,7 @@ public:
 	void set_line_path(const polyline& line);
 	void set_line_path(polyline&& line);
 
-	void add_script_range(const script_range& range);
+	void add_decorator(const text_decorator& decorator);
 	//-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
     //-----------------------------------------------------------------------------
@@ -275,7 +294,7 @@ private:
     void update_lines() const;
     void update_geometry(bool all) const;
     void regen_unicode_text();
-	const script_range& get_script_range(size_t i) const;
+	const text_decorator& get_next_decorator(size_t i) const;
 
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
@@ -301,7 +320,7 @@ private:
     /// Rect of the text relative to the aligned origin.
     mutable frect rect_{};
 
-	std::vector<script_range> script_ranges_{};
+	std::vector<text_decorator> decorators_{};
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets_{0.0f, 0.0f};

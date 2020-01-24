@@ -11,7 +11,9 @@ enum programs : uint32_t
     multi_channel_crop,
     multi_channel_dither,
     single_channel,
+    single_channel_crop,
     distance_field,
+    distance_field_crop,
     blur,
     fxaa
 };
@@ -23,6 +25,18 @@ inline gpu_program& get_program() noexcept
     return program;
 }
 
+
+static constexpr const char* fs_begin =
+                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
+                    "#version 130\n"
+                #elif defined(EGL_CONTEXT)
+                    "#version 100\n"
+                #endif
+                    "precision mediump float;\n";
+
+static constexpr const char* crop_defines = R"(
+                    #define CHECK_RECTS 1;
+                    )";
 
 static constexpr const char* vs_simple = R"(
                     attribute vec2 aPosition;
@@ -41,13 +55,7 @@ static constexpr const char* vs_simple = R"(
                     })";
 
 static constexpr const char* fs_simple =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
                 R"(
-                    precision mediump float;
                     varying vec4 vColor;
 
                     void main() {
@@ -55,40 +63,18 @@ static constexpr const char* fs_simple =
                     })";
 
 static constexpr const char* fs_multi_channel =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
                 R"(
-                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
-
                     uniform sampler2D uTexture;
-
-                    void main()
-                    {
-                        gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
-                    })";
-
-static constexpr const char* fs_multi_channel_crop =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
-                R"(
-                    precision mediump float;
-                    varying vec2 vTexCoord;
-                    varying vec4 vColor;
-
-                    uniform sampler2D uTexture;
+                #ifdef CHECK_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
+                #endif
 
                     void main()
                     {
+                #ifdef CHECK_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             vec4 rect = uRects[i];
@@ -101,18 +87,222 @@ static constexpr const char* fs_multi_channel_crop =
                                 return;
                             }
                         }
+                #endif
 
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
                     })";
 
-static constexpr const char* fs_multi_channel_dither =
+
+static constexpr const char* fs_single_channel =
+                R"(
+                    varying vec2 vTexCoord;
+                    varying vec4 vColor;
+
+                    uniform sampler2D uTexture;
+                #ifdef CHECK_RECTS
+                    uniform ivec4 uRects[10];
+                    uniform int uRectsCount;
+                #endif
+
+                    void main()
+                    {
+
+                    #ifdef CHECK_RECTS
+                        for( int i = 0; i < uRectsCount; ++i)
+                        {
+                            vec4 rect = uRects[i];
+                            if(gl_FragCoord.x > rect.x &&
+                               gl_FragCoord.x < (rect.x + rect.z) &&
+                               gl_FragCoord.y > rect.y &&
+                               gl_FragCoord.y < (rect.y + rect.w) )
+                            {
+                                gl_FragColor = vec4(0.0,0.0,0.0,0.0);
+                                return;
+                            }
+                        }
+                    #endif
+
+                        float alpha = texture2D(uTexture, vTexCoord.xy).r;
+                        gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
+                    })";
+
+
+static constexpr const char* fs_distance_field =
                 #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
+                R"(
+                    #define HAS_DERIVATIVES
+                )"
                 #elif defined(EGL_CONTEXT)
-                    "#version 100"
+                R"(
+                    #ifdef GL_OES_standard_derivatives
+                        #define HAS_DERIVATIVES
+                        #extension GL_OES_standard_derivatives : enable
+                    #endif
+                )"
                 #endif
                 R"(
-                    precision mediump float;
+                    varying vec2 vTexCoord;
+                    varying vec4 vColor;
+
+                    uniform float uOutlineWidth;
+                    uniform vec4 uOutlineColor;
+                    uniform sampler2D uTexture;
+
+                #ifdef CHECK_RECTS
+                    uniform ivec4 uRects[10];
+                    uniform int uRectsCount;
+                #endif
+
+                    #ifndef HAS_DERIVATIVES
+                        uniform float uDFMultiplier;
+                #else
+                    float contour( in float d, in float w )
+                    {
+                        return smoothstep(0.5 - w, 0.5 + w, d);
+                    }
+
+                    float supersample( in float alpha, in vec4 box_samples, in float width)
+                    {
+                         float asum = contour( box_samples.x, width )
+                                    + contour( box_samples.y, width )
+                                    + contour( box_samples.z, width )
+                                    + contour( box_samples.w, width );
+
+                         float weight = 0.5;  // scale value to apply to neighbours
+                         // weighted average, with 4 extra points
+                         return (alpha + weight * asum) / (1.0 + 4.0 * weight);
+                    }
+
+                    float aastep(in float dist, in vec4 box_samples)
+                    {
+                        // fwidth helps keep outlines a constant width irrespective of scaling
+                        // Stefan Gustavson's fwidth
+                        float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
+                        float alpha = contour( dist, width );
+                        alpha = supersample(alpha, box_samples, width);
+                        return alpha;
+                    }
+                #endif
+
+                    void main()
+                    {
+
+                    #ifdef CHECK_RECTS
+                        for( int i = 0; i < uRectsCount; ++i)
+                        {
+                            vec4 rect = uRects[i];
+                            if(gl_FragCoord.x > rect.x &&
+                               gl_FragCoord.x < (rect.x + rect.z) &&
+                               gl_FragCoord.y > rect.y &&
+                               gl_FragCoord.y < (rect.y + rect.w) )
+                            {
+                                gl_FragColor = vec4(0.0,0.0,0.0,0.0);
+                                return;
+                            }
+                        }
+                    #endif
+
+                        vec4 master_color = vColor;
+                        float master_alpha = master_color.a;
+                        vec4 outline_color = uOutlineColor;
+                        float outline_width = uOutlineWidth;
+                        vec2 uv = vTexCoord.xy;
+                        float dist = texture2D(uTexture, uv).r;
+
+                    #ifdef HAS_DERIVATIVES
+
+                        // Supersample, 4 extra points
+                        float dscale = 0.354; // half of 1/sqrt2; you can play with this
+                        vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
+                        vec4 box = vec4(uv-duv, uv+duv);
+                        vec4 box_distances = vec4(
+                            texture2D(uTexture, box.xy).r,
+                            texture2D(uTexture, box.zw).r,
+                            texture2D(uTexture, box.xw).r,
+                            texture2D(uTexture, box.zy).r
+                        );
+                        float alpha = aastep(dist, box_distances);
+                        vec4 color = vec4(master_color.rgb, alpha);
+
+                        vec4 obox_distances = box_distances + outline_width;
+                        float odist = dist + outline_width;
+                        float oalpha = aastep(odist, obox_distances);
+                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
+                    #else
+                        float multiplier = uDFMultiplier;
+                        float alpha = (dist - 0.5) * multiplier + 0.5;
+                        vec4 color = vec4(master_color.rgb, alpha);
+                        float odist = dist + outline_width;
+                        float oalpha = (odist - 0.5) * multiplier + 0.5;
+                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
+                    #endif
+                        // Alpha blend foreground.
+                        vec4 rcolor = mix(
+                            color,
+                            ocolor,
+                            clamp(1.0 - alpha, 0.0, 1.0) * outline_color.a
+                        );
+
+                        // Master alpha.
+                        rcolor.a = clamp(rcolor.a, 0.0, 1.0) * master_color.a;
+
+                        // Done!
+                        gl_FragColor = rcolor;
+
+                    }
+                    )";
+
+static constexpr const char* fs_blur =
+                R"(
+                    varying vec2 vTexCoord;
+                    varying vec4 vColor;
+
+                    uniform sampler2D uTexture;
+                    uniform vec2 uTextureSize;
+                    uniform vec2 uDirection;
+
+                    vec4 blur5(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                        vec4 color = vec4(0.0);
+                        vec2 off1 = vec2(1.3333333333333333) * direction;
+                        color += texture2D(image, uv) * 0.29411764705882354;
+                        color += texture2D(image, uv + (off1 / resolution)) * 0.35294117647058826;
+                        color += texture2D(image, uv - (off1 / resolution)) * 0.35294117647058826;
+                        return color;
+                    }
+
+                    vec4 blur9(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                        vec4 color = vec4(0.0);
+                        vec2 off1 = vec2(1.3846153846) * direction;
+                        vec2 off2 = vec2(3.2307692308) * direction;
+                        color += texture2D(image, uv) * 0.2270270270;
+                        color += texture2D(image, uv + (off1 / resolution)) * 0.3162162162;
+                        color += texture2D(image, uv - (off1 / resolution)) * 0.3162162162;
+                        color += texture2D(image, uv + (off2 / resolution)) * 0.0702702703;
+                        color += texture2D(image, uv - (off2 / resolution)) * 0.0702702703;
+                        return color;
+                    }
+
+                    vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                        vec4 color = vec4(0.0);
+                        vec2 off1 = vec2(1.411764705882353) * direction;
+                        vec2 off2 = vec2(3.2941176470588234) * direction;
+                        vec2 off3 = vec2(5.176470588235294) * direction;
+                        color += texture2D(image, uv) * 0.1964825501511404;
+                        color += texture2D(image, uv + (off1 / resolution)) * 0.2969069646728344;
+                        color += texture2D(image, uv - (off1 / resolution)) * 0.2969069646728344;
+                        color += texture2D(image, uv + (off2 / resolution)) * 0.09447039785044732;
+                        color += texture2D(image, uv - (off2 / resolution)) * 0.09447039785044732;
+                        color += texture2D(image, uv + (off3 / resolution)) * 0.010381362401148057;
+                        color += texture2D(image, uv - (off3 / resolution)) * 0.010381362401148057;
+                        return color;
+                    }
+                    void main() {
+                        gl_FragColor = blur5(uTexture, vTexCoord, uTextureSize, uDirection) * vColor;
+                    })";
+
+
+static constexpr const char* fs_multi_channel_dither =
+                R"(
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
@@ -200,193 +390,8 @@ static constexpr const char* fs_multi_channel_dither =
                         gl_FragColor = color;
                     })";
 
-static constexpr const char* fs_single_channel =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
-                R"(
-                    precision mediump float;
-                    varying vec2 vTexCoord;
-                    varying vec4 vColor;
-
-                    uniform sampler2D uTexture;
-
-                    void main() {
-                        float alpha = texture2D(uTexture, vTexCoord.xy).r;
-                        gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
-                    })";
-
-static constexpr const char* fs_distance_field =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                R"(
-                    #version 130
-                    #define HAS_DERIVATIVES
-                )"
-                #elif defined(EGL_CONTEXT)
-                R"(
-                    #version 100
-                    #ifdef GL_OES_standard_derivatives
-                        #define HAS_DERIVATIVES
-                        #extension GL_OES_standard_derivatives : enable
-                    #endif
-                )"
-                #endif
-                R"(
-                    precision mediump float;
-                    varying vec2 vTexCoord;
-                    varying vec4 vColor;
-
-                    uniform float uOutlineWidth;
-                    uniform vec4 uOutlineColor;
-                    uniform sampler2D uTexture;
-
-                    #ifndef HAS_DERIVATIVES
-                        uniform float uDFMultiplier;
-                    #else
-                        float contour( in float d, in float w )
-                        {
-                            return smoothstep(0.5 - w, 0.5 + w, d);
-                        }
-
-                        float supersample( in float alpha, in vec4 box_samples, in float width)
-                        {
-                             float asum = contour( box_samples.x, width )
-                                        + contour( box_samples.y, width )
-                                        + contour( box_samples.z, width )
-                                        + contour( box_samples.w, width );
-
-                             float weight = 0.5;  // scale value to apply to neighbours
-                             // weighted average, with 4 extra points
-                             return (alpha + weight * asum) / (1.0 + 4.0 * weight);
-                        }
-
-                        float aastep(in float dist, in vec4 box_samples)
-                        {
-                            // fwidth helps keep outlines a constant width irrespective of scaling
-                            // Stefan Gustavson's fwidth
-                            float width = 0.7 * length(vec2(dFdx(dist), dFdy(dist)));
-                            float alpha = contour( dist, width );
-                            alpha = supersample(alpha, box_samples, width);
-                            return alpha;
-                        }
-                    #endif
-
-                    void main()
-                    {
-                        vec4 master_color = vColor;
-                        float master_alpha = master_color.a;
-                        vec4 outline_color = uOutlineColor;
-                        float outline_width = uOutlineWidth;
-                        vec2 uv = vTexCoord.xy;
-                        float dist = texture2D(uTexture, uv).r;
-
-                    #ifdef HAS_DERIVATIVES
-
-                        // Supersample, 4 extra points
-                        float dscale = 0.354; // half of 1/sqrt2; you can play with this
-                        vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
-                        vec4 box = vec4(uv-duv, uv+duv);
-                        vec4 box_distances = vec4(
-                            texture2D(uTexture, box.xy).r,
-                            texture2D(uTexture, box.zw).r,
-                            texture2D(uTexture, box.xw).r,
-                            texture2D(uTexture, box.zy).r
-                        );
-                        float alpha = aastep(dist, box_distances);
-                        vec4 color = vec4(master_color.rgb, alpha);
-
-                        vec4 obox_distances = box_distances + outline_width;
-                        float odist = dist + outline_width;
-                        float oalpha = aastep(odist, obox_distances);
-                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
-                    #else
-                        float multiplier = uDFMultiplier;
-                        float alpha = (dist - 0.5) * multiplier + 0.5;
-                        vec4 color = vec4(master_color.rgb, alpha);
-                        float odist = dist + outline_width;
-                        float oalpha = (odist - 0.5) * multiplier + 0.5;
-                        vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
-                    #endif
-                        // Alpha blend foreground.
-                        vec4 rcolor = mix(
-                            color,
-                            ocolor,
-                            clamp(1.0 - alpha, 0.0, 1.0) * outline_color.a
-                        );
-
-                        // Master alpha.
-                        rcolor.a = clamp(rcolor.a, 0.0, 1.0) * master_color.a;
-
-                        // Done!
-                        gl_FragColor = rcolor;
-
-                    }
-                    )";
-
-static constexpr const char* fs_blur =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
-                R"(
-                    precision mediump float;
-                    varying vec2 vTexCoord;
-                    varying vec4 vColor;
-
-                    uniform sampler2D uTexture;
-                    uniform vec2 uTextureSize;
-                    uniform vec2 uDirection;
-
-                    vec4 blur5(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
-                        vec4 color = vec4(0.0);
-                        vec2 off1 = vec2(1.3333333333333333) * direction;
-                        color += texture2D(image, uv) * 0.29411764705882354;
-                        color += texture2D(image, uv + (off1 / resolution)) * 0.35294117647058826;
-                        color += texture2D(image, uv - (off1 / resolution)) * 0.35294117647058826;
-                        return color;
-                    }
-
-                    vec4 blur9(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
-                        vec4 color = vec4(0.0);
-                        vec2 off1 = vec2(1.3846153846) * direction;
-                        vec2 off2 = vec2(3.2307692308) * direction;
-                        color += texture2D(image, uv) * 0.2270270270;
-                        color += texture2D(image, uv + (off1 / resolution)) * 0.3162162162;
-                        color += texture2D(image, uv - (off1 / resolution)) * 0.3162162162;
-                        color += texture2D(image, uv + (off2 / resolution)) * 0.0702702703;
-                        color += texture2D(image, uv - (off2 / resolution)) * 0.0702702703;
-                        return color;
-                    }
-
-                    vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
-                        vec4 color = vec4(0.0);
-                        vec2 off1 = vec2(1.411764705882353) * direction;
-                        vec2 off2 = vec2(3.2941176470588234) * direction;
-                        vec2 off3 = vec2(5.176470588235294) * direction;
-                        color += texture2D(image, uv) * 0.1964825501511404;
-                        color += texture2D(image, uv + (off1 / resolution)) * 0.2969069646728344;
-                        color += texture2D(image, uv - (off1 / resolution)) * 0.2969069646728344;
-                        color += texture2D(image, uv + (off2 / resolution)) * 0.09447039785044732;
-                        color += texture2D(image, uv - (off2 / resolution)) * 0.09447039785044732;
-                        color += texture2D(image, uv + (off3 / resolution)) * 0.010381362401148057;
-                        color += texture2D(image, uv - (off3 / resolution)) * 0.010381362401148057;
-                        return color;
-                    }
-                    void main() {
-                        gl_FragColor = blur5(uTexture, vTexCoord, uTextureSize, uDirection) * vColor;
-                    })";
-
 static constexpr const char* fs_fxaa =
-                #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
-                    "#version 130"
-                #elif defined(EGL_CONTEXT)
-                    "#version 100"
-                #endif
                 R"(
-                    precision mediump float;
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
