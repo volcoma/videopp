@@ -1,4 +1,4 @@
-﻿#include "context_egl.h"
+#include "context_egl.h"
 
 namespace gfx
 {

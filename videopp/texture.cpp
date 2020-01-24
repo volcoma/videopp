@@ -223,10 +223,11 @@ namespace gfx
 
 
             gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
-            gl_call(glTexStorage2D(GL_TEXTURE_2D, 1, GLenum(internal_format), surface.get_width(), surface.get_height()));
-            gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface.get_width(), surface.get_height(),
+//            gl_call(glTexStorage2D(GL_TEXTURE_2D, 1, GLenum(internal_format), surface.get_width(), surface.get_height()));
+//            gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface.get_width(), surface.get_height(),
+//                            static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
+            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, GLenum(internal_format), surface.get_width(), surface.get_height(), 0,
                             static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
-
             if( !setup_texparameters() )
             {
                 return false;

@@ -13,6 +13,20 @@
 namespace gfx
 {
 
+enum programs : uint32_t
+{
+    simple,
+    multi_channel,
+    multi_channel_crop,
+    single_channel,
+    single_channel_crop,
+    distance_field,
+    distance_field_crop,
+    blur,
+    fxaa
+};
+
+
 /// Types of primitives to draw
 enum class primitive_type
 {
@@ -34,6 +48,13 @@ struct gpu_program
 {
     gfx::shader* shader{};
 };
+
+template<size_t T>
+inline gpu_program& get_program() noexcept
+{
+    static gpu_program program;
+    return program;
+}
 
 struct gpu_context
 {

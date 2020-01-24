@@ -141,14 +141,36 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
 
     if(!f.glyphs.empty())
     {
-        f.fallback_glyph = f.glyphs.front();
-
         const auto& x_glyph = f.get_glyph('x');
-        f.x_height = -x_glyph.y0;
+        if(x_glyph.codepoint != 0)
+        {
+            f.x_height = -x_glyph.y0;
+        }
+        else
+        {
+            f.x_height = f.ascent - f.descent;
+        }
     }
     else
     {
-        f.x_height = f.ascent - f.descent;
+        f.x_height = f.ascent * 0.5f;
+    }
+
+    if(!f.glyphs.empty())
+    {
+        const auto& h_glyph = f.get_glyph('H');
+        if(h_glyph.codepoint != 0)
+        {
+            f.cap_height= -h_glyph.y0;
+        }
+        else
+        {
+            f.cap_height = f.ascent;
+        }
+    }
+    else
+    {
+        f.cap_height = f.ascent;
     }
 
     return f;

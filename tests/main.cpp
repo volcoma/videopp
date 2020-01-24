@@ -215,6 +215,10 @@ int main()
 
             tr.set_position(pos.x, pos.y, 0);
 
+            gfx::rect crop{300, 300, 200, 200};
+            list.add_rect(crop, gfx::color::red(), false);
+            list.push_crop({crop});
+            list.add_image(image, {pos.x, pos.y, 200, 200});
             for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
             {
                 gfx::text t;
@@ -222,7 +226,7 @@ int main()
                 t.set_utf8_text(text);
                 t.set_alignment(valign | halign);
                 t.set_leaning(leaning);
-                t.set_shadow_offsets({2, 2});
+                //t.set_shadow_offsets({2, 2});
 
                 gfx::text_decorator decorator{};
                 decorator.begin = 2;
@@ -240,6 +244,7 @@ int main()
 
                 tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
             }
+            list.pop_crop();
 //            tr.set_position(rend.get_rect().w/2, rend.get_rect().h/2, 0.0f);
 //            tr.rotate(0, 0, math::radians(1.0f));
 

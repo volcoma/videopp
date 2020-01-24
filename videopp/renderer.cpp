@@ -2,7 +2,7 @@
 #include "font.h"
 #include "ttf_font.h"
 #include "texture.h"
-#include "shaders.h"
+#include "detail/shaders.h"
 #include "detail/utils.h"
 
 #ifdef WGL_CONTEXT
@@ -36,7 +36,7 @@ inline GLenum to_gl_primitive(primitive_type type)
     }
 }
 
-static constexpr float FARTHEST_Z = -1.0f;
+constexpr float FARTHEST_Z = -1.0f;
 
 // Callback function for printing debug statements
 void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
@@ -240,20 +240,18 @@ renderer::renderer(os::window& win, bool vsync)
     create_program(get_program<programs::multi_channel>(),
                    std::string(fs_begin).append(fs_multi_channel).c_str(), vs_simple);
     create_program(get_program<programs::multi_channel_crop>(),
-                   std::string(fs_begin).append(crop_defines).append(fs_multi_channel).c_str(), vs_simple);
+                   std::string(fs_begin).append(user_defines).append(fs_multi_channel).c_str(), vs_simple);
 
     create_program(get_program<programs::single_channel>(),
                    std::string(fs_begin).append(fs_single_channel).c_str(), vs_simple);
     create_program(get_program<programs::single_channel_crop>(),
-                   std::string(fs_begin).append(crop_defines).append(fs_single_channel).c_str(), vs_simple);
+                   std::string(fs_begin).append(user_defines).append(fs_single_channel).c_str(), vs_simple);
 
     create_program(get_program<programs::distance_field>(),
-                   std::string(fs_begin).append(fs_distance_field).c_str(), vs_simple);
+                   std::string(fs_begin).append(fs_derivatives).append(fs_distance_field).c_str(), vs_simple);
     create_program(get_program<programs::distance_field_crop>(),
-                   std::string(fs_begin).append(crop_defines).append(fs_distance_field).c_str(), vs_simple);
+                   std::string(fs_begin).append(fs_derivatives).append(user_defines).append(fs_distance_field).c_str(), vs_simple);
 
-    create_program(get_program<programs::multi_channel_dither>(),
-                    std::string(fs_begin).append(fs_multi_channel_dither).c_str(), vs_simple);
     create_program(get_program<programs::blur>(),
                    std::string(fs_begin).append(fs_blur).c_str(), vs_simple);
     create_program(get_program<programs::fxaa>(),
