@@ -708,13 +708,13 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 
     if(sdf_spread > 0)
     {
-        if(has_crop)
+        if(!has_crop)
         {
-            setup.program = get_program<programs::distance_field_crop>();
+            setup.program = get_program<programs::distance_field>();
         }
         else
         {
-            setup.program = get_program<programs::distance_field>();
+            setup.program = get_program<programs::distance_field_crop>();
         }
 
         has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
@@ -782,7 +782,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                                   std::move(setup),
                                   cpu_batch, pixel_snap);
 
-    pop_transform();
 
     // check if a new command was added
     if(!cmd.setup.begin)
@@ -884,6 +883,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
             ctx.rend.pop_transform();
         };
     }
+
+    pop_transform();
 
     if(debug_draw)
     {
