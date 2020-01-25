@@ -31,11 +31,13 @@ static constexpr const char* fs_derivatives =
                 #endif
 
 
-static constexpr const char* user_defines = R"(
-                    #define CHECK_RECTS 1;
-                    )";
+static constexpr const char* user_defines =
+                R"(
+                    #define CROP_RECTS;
+                )";
 
-static constexpr const char* vs_simple = R"(
+static constexpr const char* vs_simple =
+                R"(
                     attribute vec2 aPosition;
                     attribute vec2 aTexCoord;
                     attribute vec4 aColor;
@@ -49,16 +51,19 @@ static constexpr const char* vs_simple = R"(
                         gl_Position = uProjection * vec4(aPosition, 0.0, 1.0);
                         vTexCoord = aTexCoord;
                         vColor = aColor;
-                    })";
+                    }
+                )";
 
 static constexpr const char* fs_simple =
                 R"(
                     precision mediump float;
                     varying vec4 vColor;
 
-                    void main() {
+                    void main()
+                    {
                         gl_FragColor = vColor;
-                    })";
+                    }
+                )";
 
 static constexpr const char* fs_multi_channel =
                 R"(
@@ -66,14 +71,14 @@ static constexpr const char* fs_multi_channel =
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
                     uniform sampler2D uTexture;
-                #ifdef CHECK_RECTS
+                #ifdef CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
 
                     void main()
                     {
-                #ifdef CHECK_RECTS
+                #ifdef CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
@@ -90,7 +95,8 @@ static constexpr const char* fs_multi_channel =
                 #endif
 
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
-                    })";
+                    }
+                )";
 
 
 static constexpr const char* fs_single_channel =
@@ -100,7 +106,7 @@ static constexpr const char* fs_single_channel =
                     varying vec4 vColor;
 
                     uniform sampler2D uTexture;
-                #ifdef CHECK_RECTS
+                #ifdef CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
@@ -108,7 +114,7 @@ static constexpr const char* fs_single_channel =
                     void main()
                     {
 
-                    #ifdef CHECK_RECTS
+                    #ifdef CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
@@ -126,7 +132,8 @@ static constexpr const char* fs_single_channel =
 
                         float alpha = texture2D(uTexture, vTexCoord.xy).r;
                         gl_FragColor = vec4(vColor.rgb, vColor.a * alpha);
-                    })";
+                    }
+                )";
 
 
 static constexpr const char* fs_distance_field =
@@ -139,7 +146,7 @@ static constexpr const char* fs_distance_field =
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 
-                #ifdef CHECK_RECTS
+                #ifdef CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
@@ -224,7 +231,7 @@ static constexpr const char* fs_distance_field =
                         // Done!
                         gl_FragColor = rcolor;
 
-                    #ifdef CHECK_RECTS
+                    #ifdef CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
@@ -241,7 +248,7 @@ static constexpr const char* fs_distance_field =
                     #endif
 
                     }
-                    )";
+                )";
 
 static constexpr const char* fs_blur =
                 R"(
@@ -253,7 +260,8 @@ static constexpr const char* fs_blur =
                     uniform vec2 uTextureSize;
                     uniform vec2 uDirection;
 
-                    vec4 blur5(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                    vec4 blur5(sampler2D image, vec2 uv, vec2 resolution, vec2 direction)
+                    {
                         vec4 color = vec4(0.0);
                         vec2 off1 = vec2(1.3333333333333333) * direction;
                         color += texture2D(image, uv) * 0.29411764705882354;
@@ -262,7 +270,8 @@ static constexpr const char* fs_blur =
                         return color;
                     }
 
-                    vec4 blur9(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                    vec4 blur9(sampler2D image, vec2 uv, vec2 resolution, vec2 direction)
+                    {
                         vec4 color = vec4(0.0);
                         vec2 off1 = vec2(1.3846153846) * direction;
                         vec2 off2 = vec2(3.2307692308) * direction;
@@ -274,7 +283,8 @@ static constexpr const char* fs_blur =
                         return color;
                     }
 
-                    vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction) {
+                    vec4 blur13(sampler2D image, vec2 uv, vec2 resolution, vec2 direction)
+                    {
                         vec4 color = vec4(0.0);
                         vec2 off1 = vec2(1.411764705882353) * direction;
                         vec2 off2 = vec2(3.2941176470588234) * direction;
@@ -288,9 +298,12 @@ static constexpr const char* fs_blur =
                         color += texture2D(image, uv - (off3 / resolution)) * 0.010381362401148057;
                         return color;
                     }
-                    void main() {
+
+                    void main()
+                    {
                         gl_FragColor = blur5(uTexture, vTexCoord, uTextureSize, uDirection) * vColor;
-                    })";
+                    }
+                )";
 
 
 static constexpr const char* fs_fxaa =
@@ -527,5 +540,6 @@ static constexpr const char* fs_fxaa =
                     {
                         vec4 SourceSize = vec4(uTextureSize, 1.0 / uTextureSize); //either TextureSize or InputSize
                         gl_FragColor = vec4(FxaaPixelShader(vTexCoord, uTexture, vec2(SourceSize.z, SourceSize.w)), 1.0) * 1.0;
-                    })";
+                    }
+                )";
 }

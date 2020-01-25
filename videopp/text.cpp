@@ -196,7 +196,6 @@ void text::set_utf8_text(const std::string& t)
         return;
     }
     utf8_text_ = t;
-    regen_unicode_text();
     clear_lines();
     clear_geometry();
 }
@@ -208,7 +207,26 @@ void text::set_utf8_text(std::string&& t)
         return;
     }
     utf8_text_ = std::move(t);
-    regen_unicode_text();
+    clear_lines();
+    clear_geometry();
+}
+
+void text::append_utf8_text(const std::string& t, text_decorator decorator)
+{
+    if(decorator.begin == decorator.end)
+    {
+        decorator.begin = utf8_text_.size();
+        decorator.end = decorator.begin + t.size();
+    }
+    add_decorator(decorator);
+    utf8_text_.append(t);
+    clear_lines();
+    clear_geometry();
+}
+
+void text::append_utf8_text(const std::string& t)
+{
+    utf8_text_.append(t);
     clear_lines();
     clear_geometry();
 }
@@ -337,6 +355,12 @@ const std::vector<std::vector<uint32_t>>& text::get_lines() const
     return lines_;
 }
 
+const std::vector<uint32_t> &text::get_unicode_text() const
+{
+    update_unicode_text();
+    return unicode_text_;
+}
+
 const std::vector<line_metrics>& text::get_lines_metrics() const
 {
     get_geometry();
@@ -415,7 +439,6 @@ void text::set_line_path(polyline&& line)
 void text::add_decorator(const text_decorator& decorator)
 {
     decorators_.emplace_back(decorator);
-
     clear_geometry();
 }
 
@@ -450,6 +473,7 @@ void text::clear_lines()
 {
     chars_ = 0;
     lines_.clear();
+    unicode_text_.clear();
 }
 
 void text::update_lines() const
@@ -460,16 +484,17 @@ void text::update_lines() const
         return;
     }
 
-    if(unicode_text_.empty())
-    {
-        return;
-    }
-
     if(!font_)
     {
         return;
     }
 
+    const auto& unicode_text = get_unicode_text();
+
+    if(unicode_text.empty())
+    {
+        return;
+    }
     // find newlines
     float advance = 0.0f;
     auto last_space = size_t(-1);
@@ -478,7 +503,7 @@ void text::update_lines() const
     cache<text>::get(lines_, 1);
     lines_.resize(1);
 
-    const auto unicode_text_size = unicode_text_.size();
+    const auto unicode_text_size = unicode_text.size();
     cache<text>::get(lines_.back(), unicode_text_size);
     lines_.back().reserve(unicode_text_size);
 
@@ -487,7 +512,7 @@ void text::update_lines() const
 
     for(size_t i = 0; i < unicode_text_size; ++i)
     {
-        uint32_t c = unicode_text_[i];
+        uint32_t c = unicode_text[i];
 
         if(c == 32 || c == '\n')
         {
@@ -520,9 +545,19 @@ void text::update_lines() const
 }
 
 
-void text::regen_unicode_text()
+void text::update_unicode_text() const
 {
-    unicode_text_.clear();
+    // we already generated unicode codepoints?
+    if(!unicode_text_.empty())
+    {
+        return;
+    }
+
+    if(utf8_text_.empty())
+    {
+        return;
+    }
+
     cache<text>::get(unicode_text_, utf8_text_.size() * 2);
     unicode_text_.reserve(utf8_text_.size() * 2); // enough for most scripts
 
@@ -531,7 +566,7 @@ void text::regen_unicode_text()
 
     while(beg < end)
     {
-        uint32_t uchar;
+        uint32_t uchar{};
 
         int m = fnt::text_char_from_utf8(&uchar, beg, end);
         if(!m)
@@ -562,19 +597,17 @@ void text::update_geometry(bool all) const
         return;
     }
 
-    if(unicode_text_.empty())
-    {
-        return;
-    }
-
     if(!geometry_.empty())
     {
         return;
     }
-
+    const auto& lines = get_lines();
+    if(lines.empty())
+    {
+        return;
+    }
     auto advance_offset_x = get_advance_offset_x();
     auto advance_offset_y = get_advance_offset_y();
-    const auto& lines = get_lines();
 
     float leaning = 0.0f;
     bool has_leaning = false;

@@ -229,17 +229,18 @@ int main()
                 //t.set_shadow_offsets({2, 2});
 
                 gfx::text_decorator decorator{};
-                decorator.begin = 2;
-                decorator.end = decorator.begin + 2;
+//                decorator.begin = 2;
+//                decorator.end = decorator.begin + 2;
                 decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
                 decorator.scale = scale;
-                t.add_decorator(decorator);
+                t.append_utf8_text("0000", decorator);
+//                t.add_decorator(decorator);
 
-                decorator.begin = 7;
-                decorator.end = decorator.begin + 2;
-                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
-                decorator.scale = scale;
-                t.add_decorator(decorator);
+//                decorator.begin = 7;
+//                decorator.end = decorator.begin + 2;
+//                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
+//                decorator.scale = scale;
+//                t.add_decorator(decorator);
                 list.add_text(t, tr);
 
                 tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);

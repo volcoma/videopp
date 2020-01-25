@@ -85,17 +85,17 @@ enum class script_type : uint8_t
 
 struct text_decorator
 {
-    /// Begin glyph (inclusive).
-	size_t begin{};
-
-    /// End glyph (exclusive).
-	size_t end{};
-
     /// Scale to be used.
 	float scale{1.0f};
 
     /// Type of the scripting to be applied.
 	script_type type{script_type::sub_base};
+
+    /// Begin glyph (inclusive).
+	size_t begin{};
+
+    /// End glyph (exclusive).
+	size_t end{};
 };
 
 class text
@@ -113,6 +113,8 @@ public:
     //-----------------------------------------------------------------------------
     void set_utf8_text(const std::string& t);
 	void set_utf8_text(std::string&& t);
+    void append_utf8_text(const std::string& t, text_decorator decorator);
+    void append_utf8_text(const std::string& t);
 
     //-----------------------------------------------------------------------------
     /// Set the font to be used.
@@ -272,6 +274,7 @@ public:
     //-----------------------------------------------------------------------------
     const std::vector<std::vector<uint32_t>>& get_lines() const;
 
+    const std::vector<uint32_t>& get_unicode_text() const;
     //-----------------------------------------------------------------------------
     /// Gets the utf8 text.
     //-----------------------------------------------------------------------------
@@ -293,7 +296,7 @@ private:
     void clear_lines();
     void update_lines() const;
     void update_geometry(bool all) const;
-    void regen_unicode_text();
+    void update_unicode_text() const;
 	const text_decorator& get_next_decorator(size_t i) const;
 
     /// Buffer of quads.
@@ -305,11 +308,11 @@ private:
     /// Lines metrics
     mutable std::vector<line_metrics> lines_metrics_;
 
+    /// Unicode text
+    mutable std::vector<uint32_t> unicode_text_;
+
     /// Utf8 text
     std::string utf8_text_;
-
-    /// Unicode text
-    std::vector<uint32_t> unicode_text_;
 
 	/// Custom line path
 	polyline line_path_;
