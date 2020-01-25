@@ -33,7 +33,7 @@ static constexpr const char* fs_derivatives =
 
 static constexpr const char* user_defines =
                 R"(
-                    #define CROP_RECTS;
+                    #define HAS_CROP_RECTS;
                 )";
 
 static constexpr const char* vs_simple =
@@ -71,14 +71,14 @@ static constexpr const char* fs_multi_channel =
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
                     uniform sampler2D uTexture;
-                #ifdef CROP_RECTS
+                #ifdef HAS_CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
 
                     void main()
                     {
-                #ifdef CROP_RECTS
+                #ifdef HAS_CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
@@ -106,7 +106,7 @@ static constexpr const char* fs_single_channel =
                     varying vec4 vColor;
 
                     uniform sampler2D uTexture;
-                #ifdef CROP_RECTS
+                #ifdef HAS_CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
@@ -114,7 +114,7 @@ static constexpr const char* fs_single_channel =
                     void main()
                     {
 
-                    #ifdef CROP_RECTS
+                    #ifdef HAS_CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
@@ -146,7 +146,7 @@ static constexpr const char* fs_distance_field =
                     uniform vec4 uOutlineColor;
                     uniform sampler2D uTexture;
 
-                #ifdef CROP_RECTS
+                #ifdef HAS_CROP_RECTS
                     uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
@@ -231,7 +231,7 @@ static constexpr const char* fs_distance_field =
                         // Done!
                         gl_FragColor = rcolor;
 
-                    #ifdef CROP_RECTS
+                    #ifdef HAS_CROP_RECTS
                         for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];

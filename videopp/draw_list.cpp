@@ -231,6 +231,48 @@ const program_setup& get_simple_setup() noexcept
 }
 
 
+std::function<void(const gpu_context&)> transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
+{
+    if(!cpu_batch)
+    {
+        return [transform = list.transforms.back(), pixel_snap](const gpu_context& ctx) mutable
+        {
+            auto pos = transform.get_position();
+
+            if(pixel_snap)
+            {
+                pos.x = float(int(pos.x));
+            }
+            transform.set_position(pos.x, pos.y, 0);
+
+            ctx.rend.push_transform(transform);
+        };
+    }
+
+    return nullptr;
+}
+
+std::function<void(const gpu_context&)> crop_rects_setup(const draw_list& list)
+{
+    if(!list.crop_areas.empty())
+    {
+        return [rects = list.crop_areas.back()](const gpu_context& ctx) mutable
+        {
+            if (!ctx.rend.is_with_fbo())
+            {
+                for (auto& area : rects)
+                {
+                    area.y = ctx.rend.get_rect().h - (area.y + area.h);
+                }
+            }
+            ctx.program.shader->set_uniform("uRects[0]", rects);
+            ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
+        };
+    }
+
+    return nullptr;
+}
+
 template<typename Setup>
 inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
                                    primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup, bool apply_transform = true, bool pixel_snap = false)
@@ -307,31 +349,31 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
     // check if a new command was added
     if(!cmd.setup.begin)
     {
-        if(!has_crop)
+        cmd.setup.begin = [setup_crop_rects = crop_rects_setup(list),
+                           setup_transform = transform_setup(list, apply_transform, pixel_snap),
+                           texture](const gpu_context& ctx) mutable
         {
-            cmd.setup.begin = [texture](const gpu_context& ctx)
+            if(setup_transform)
             {
-                ctx.program.shader->set_uniform("uTexture", texture);
-            };
-        }
-        else
+                setup_transform(ctx);
+            }
+
+            if(setup_crop_rects)
+            {
+                setup_crop_rects(ctx);
+            }
+
+            ctx.program.shader->set_uniform("uTexture", texture);
+
+        };
+    }
+
+    if(!cmd.setup.end && !apply_transform)
+    {
+        cmd.setup.end = [](const gpu_context& ctx)
         {
-            cmd.setup.begin = [texture, rects = list.crop_areas.back()](const gpu_context& ctx) mutable
-            {
-                if (!ctx.rend.is_with_fbo())
-                {
-                    for (auto& area : rects)
-                    {
-                        area.y = ctx.rend.get_rect().h - (area.y + area.h);
-                    }
-                }
-
-                ctx.program.shader->set_uniform("uTexture", texture);
-                ctx.program.shader->set_uniform("uRects[0]", rects);
-                ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
-            };
-        }
-
+            ctx.rend.pop_transform();
+        };
     }
 
     return cmd;
@@ -736,42 +778,18 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
             {
                 utils::hash(setup.uniforms_hash, distance_field_multiplier);
             }
-        }
 
-    }
-    else
-    {
-        blend = blending_mode::blend_normal;
-        switch(texture->get_pix_type())
-        {
-        case pix_type::red:
-            if(!has_crop)
+            if(has_crop)
             {
-                setup.program = get_program<programs::single_channel>();
+                const auto& areas = crop_areas.back();
+                for(const auto& area : areas)
+                {
+                    utils::hash(setup.uniforms_hash, area);
+                }
             }
-            else
-            {
-                setup.program = get_program<programs::single_channel_crop>();
-            }
-            break;
-
-        default:
-            if(!has_crop)
-            {
-                setup.program = get_program<programs::multi_channel>();
-            }
-            else
-            {
-                setup.program = get_program<programs::multi_channel_crop>();
-            }
-            break;
-        }
-
-        if(cpu_batch)
-        {
-            utils::hash(setup.uniforms_hash, texture);
         }
     }
+
 
     push_transform(transform);
     auto& cmd = add_vertices_impl(*this,
@@ -786,28 +804,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     // check if a new command was added
     if(!cmd.setup.begin)
     {
-        std::function<void(const gpu_context& ctx)> setup_crop_rects{};
 
-        if(has_crop)
-        {
-            setup_crop_rects = [rects = crop_areas.back()](const gpu_context& ctx) mutable
-            {
-                if (!ctx.rend.is_with_fbo())
-                {
-                    for (auto& area : rects)
-                    {
-                        area.y = ctx.rend.get_rect().h - (area.y + area.h);
-                    }
-                }
-                ctx.program.shader->set_uniform("uRects[0]", rects);
-                ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
-            };
-        }
         if(sdf_spread > 0)
         {
-
-            cmd.setup.begin = [setup_crop_rects = std::move(setup_crop_rects),
-                               transform = transform,
+            cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
+                               setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
                                distance_field_multiplier,
                                outline_width,
                                outline_color,
@@ -816,18 +817,16 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                                pixel_snap,
                                has_multiplier](const gpu_context& ctx) mutable
             {
-                if(!cpu_batch)
+                if(setup_transform)
                 {
-                    auto pos = transform.get_position();
-
-                    if(pixel_snap)
-                    {
-                        pos.x = float(int(pos.x));
-                    }
-                    transform.set_position(pos.x, pos.y, 0);
-
-                    ctx.rend.push_transform(transform);
+                    setup_transform(ctx);
                 }
+
+                if(setup_crop_rects)
+                {
+                    setup_crop_rects(ctx);
+                }
+
                 if(has_multiplier)
                 {
                     ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
@@ -836,44 +835,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                 ctx.program.shader->set_uniform("uOutlineColor", outline_color);
                 ctx.program.shader->set_uniform("uTexture", texture);
 
-                if(setup_crop_rects)
-                {
-                    setup_crop_rects(ctx);
-                }
             };
-
         }
-        else
-        {
-
-            cmd.setup.begin = [setup_crop_rects = std::move(setup_crop_rects),
-                               transform = transforms.back(),
-                               texture,
-                               cpu_batch,
-                               pixel_snap](const gpu_context& ctx) mutable
-            {
-                if(!cpu_batch)
-                {
-                    auto pos = transform.get_position();
-
-                    if(pixel_snap)
-                    {
-                        pos.x = float(int(pos.x));
-                    }
-                    transform.set_position(pos.x, pos.y, 0);
-
-                    ctx.rend.push_transform(transform);
-                }
-                ctx.program.shader->set_uniform("uTexture", texture);
-
-                if(setup_crop_rects)
-                {
-                    setup_crop_rects(ctx);
-                }
-            };
-
-        }
-
     }
 
     if(!cmd.setup.end && !cpu_batch)

@@ -148,7 +148,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
         }
         else
         {
-            f.x_height = f.ascent - f.descent;
+            f.x_height = f.ascent * 0.5f;
         }
     }
     else
