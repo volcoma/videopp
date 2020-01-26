@@ -94,8 +94,14 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
                     {
                         for(uint32_t i = 2; i < rect_vertices; ++i)
                         {
-                            draw_list::index_t src_indices[] = {index_offset, index_offset + i - 1, index_offset + i};
-                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
+                            draw_list::index_t src_indices[] =
+                            {
+                                index_offset,
+                                index_offset + i - 1,
+                                index_offset + i
+                            };
+                            std::memcpy(list.indices.data() + indices_before + indices_added,
+                                        src_indices, sizeof(src_indices));
                             indices_added += 3;
                         }
                         index_offset += rect_vertices;
@@ -111,8 +117,13 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
 
                         for(uint32_t i = 0; i < vertices_added - 1; ++i)
                         {
-                            draw_list::index_t src_indices[] = {index_offset + i, index_offset + i + 1};
-                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
+                            draw_list::index_t src_indices[] =
+                            {
+                                index_offset + i,
+                                index_offset + i + 1
+                            };
+                            std::memcpy(list.indices.data() + indices_before + indices_added,
+                                        src_indices, sizeof(src_indices));
                             indices_added += 2;
                         }
                     }
@@ -231,7 +242,7 @@ const program_setup& get_simple_setup() noexcept
 }
 
 
-std::function<void(const gpu_context&)> transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
+program_setup::callback transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
 {
     if(!cpu_batch)
     {
@@ -245,6 +256,7 @@ std::function<void(const gpu_context&)> transform_setup(const draw_list& list, b
             }
             transform.set_position(pos.x, pos.y, 0);
 
+            //push the transformation to happen on the gpu
             ctx.rend.push_transform(transform);
         };
     }
@@ -252,7 +264,7 @@ std::function<void(const gpu_context&)> transform_setup(const draw_list& list, b
     return nullptr;
 }
 
-std::function<void(const gpu_context&)> crop_rects_setup(const draw_list& list)
+program_setup::callback crop_rects_setup(const draw_list& list)
 {
     if(!list.crop_areas.empty())
     {
@@ -468,7 +480,7 @@ math::transformf align_item(align_t align, const rect& item)
 math::transformf align_item(align_t align, float minx, float miny, float maxx, float maxy, bool pixel_snap)
 {
     auto xoffs = get_alignment_x(align, minx, maxx, pixel_snap);
-    auto yoffs = get_alignment_y(align, miny, miny, maxy, maxy, pixel_snap);
+    auto yoffs = get_alignment_y(align, miny, miny, miny, maxy, maxy, maxy, pixel_snap);
 
     math::transformf result;
     result.translate(xoffs, yoffs, 0.0f);
@@ -809,12 +821,10 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         {
             cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
                                setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
+                               texture,
                                distance_field_multiplier,
                                outline_width,
                                outline_color,
-                               texture,
-                               cpu_batch,
-                               pixel_snap,
                                has_multiplier](const gpu_context& ctx) mutable
             {
                 if(setup_transform)
@@ -868,7 +878,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
                                                float(dst_rect.x),
                                                float(dst_rect.y),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);
@@ -929,7 +941,9 @@ void draw_list::add_text_superscript(const text& whole_text, const text& script_
                                                float(dst_rect.x),
                                                float(dst_rect.y),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);
@@ -1092,7 +1106,9 @@ void draw_list::add_text_subscript(const text& whole_text,
                                                float(dst_rect.x),
                                                float(dst_rect.y),
                                                float(dst_rect.y),
+                                               float(dst_rect.y),
                                                float(dst_rect.x + dst_rect.w),
+                                               float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                float(dst_rect.y + dst_rect.h),
                                                false);

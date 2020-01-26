@@ -26,18 +26,8 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     }
 
     font_info f;
-
-    f.glyphs.reserve(font->glyphs.size());
-    for(const auto& font_glyph : font->glyphs)
-    {
-        f.glyphs.emplace_back(font_glyph);
-    }
-
-    f.glyph_index.reserve(font->index_lookup.size());
-    for(const auto& idx : font->index_lookup)
-    {
-        f.glyph_index.push_back(idx);
-    }
+    f.glyphs = std::move(font->glyphs);
+    f.glyph_index = std::move(font->index_lookup);
 
     if(font->fallback_glyph)
     {
@@ -63,6 +53,7 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     f.superscript_offset = font->ysuperscript_offset;
     f.subscript_size = font->ysubscript_size;
     f.subscript_offset = font->ysubscript_offset;
+
     return f;
 }
 }

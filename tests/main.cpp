@@ -101,7 +101,11 @@ int main()
 
         gfx::glyphs_builder builder;
         builder.add(gfx::get_default_glyph_range());
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono-Bold.ttf", builder.get(), 80, 2);
+        builder.add(gfx::get_cyrillic_glyph_range());
+        builder.add(gfx::get_currency_glyph_range());
+        builder.add(gfx::get_korean_glyph_range());
+
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans.ttf", builder.get(), 180, 2);
         //auto info = gfx::create_font_from_ttf("C:/WINDOWS/Fonts/ARIAL.TTF", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 

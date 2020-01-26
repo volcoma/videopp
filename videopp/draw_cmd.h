@@ -62,11 +62,14 @@ struct gpu_context
     const gpu_program& program;
 };
 
+
 struct program_setup
 {
+    using callback = std::function<void(const gpu_context&)>;
+
     gpu_program program;
-    std::function<void(const gpu_context&)> begin;
-    std::function<void(const gpu_context&)> end;
+    callback begin;
+    callback end;
 
     // this is used for batching
     uint64_t uniforms_hash{};

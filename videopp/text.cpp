@@ -128,14 +128,19 @@ float get_alignment_x(align_t alignment, float minx, float maxx, bool pixel_snap
 }
 
 float get_alignment_y(align_t alignment,
-                      float miny, float miny_baseline,
-                      float maxy, float maxy_baseline, bool /*pixel_snap*/)
+                      float miny, float miny_baseline, float miny_cap,
+                      float maxy, float maxy_baseline, float maxy_cap, bool /*pixel_snap*/)
 {
     float yoffs = 0;
 
     if(alignment & align::top)
     {
         yoffs = -miny;
+    }
+
+    if(alignment & align::cap_height_top)
+    {
+        yoffs = -miny_cap;
     }
 
     if(alignment & align::baseline_top)
@@ -153,6 +158,11 @@ float get_alignment_y(align_t alignment,
         yoffs = -maxy_baseline;
     }
 
+    if(alignment & align::cap_height_bottom)
+    {
+        yoffs = -maxy_cap;
+    }
+
     if(alignment & align::middle)
     {
         yoffs = (-miny -maxy) / 2.0f;
@@ -163,12 +173,12 @@ float get_alignment_y(align_t alignment,
 
 std::pair<float, float> text::get_alignment_offsets(
         align_t alignment,
-        float minx, float miny, float miny_baseline,
-        float maxx, float maxy, float maxy_baseline,
+        float minx, float miny, float miny_baseline, float miny_cap,
+        float maxx, float maxy, float maxy_baseline, float maxy_cap,
         bool pixel_snap)
 {
     return {get_alignment_x(alignment, minx, maxx, pixel_snap),
-            get_alignment_y(alignment, miny, miny_baseline, maxy, maxy_baseline, pixel_snap)};
+            get_alignment_y(alignment, miny, miny_baseline, miny_cap, maxy, maxy_baseline, maxy_cap, pixel_snap)};
 }
 
 text::text() = default;
@@ -590,6 +600,62 @@ const text_decorator& text::get_next_decorator(size_t i) const
     return empty;
 }
 
+void text::apply_decorator(const line_metrics& metrics, size_t i,
+                           text_decorator& decorator,
+                           float& pen_y_mod,
+                           float& scale) const
+{
+    if(i >= decorator.end)
+    {
+        decorator = get_next_decorator(i);
+    }
+
+    if(i >= decorator.begin && i < decorator.end)
+    {
+        scale = decorator.scale;
+
+        const auto ascent = font_->ascent;
+        const auto superscript = font_->superscript_offset;
+        const auto subscript = font_->subscript_offset;
+        const auto superscript_scale = font_->superscript_size / font_->size;
+        const auto subscript_scale = font_->subscript_size / font_->size;
+        const auto cap_height = font_->cap_height;
+
+        switch(decorator.type)
+        {
+            case script_type::super_ascent:
+                pen_y_mod = metrics.ascent + ascent * scale;
+            break;
+            case script_type::super_cap:
+                pen_y_mod = metrics.cap + cap_height * scale;
+            break;
+            case script_type::super_original:
+                if(superscript > 0.0f)
+                {
+                    scale = superscript_scale;
+                    pen_y_mod = metrics.superscript;
+                }
+                else
+                {
+                    pen_y_mod = metrics.cap + cap_height * scale;
+                }
+            break;
+            case script_type::sub_original:
+                if(subscript > 0.0f)
+                {
+                    scale = subscript_scale;
+                    pen_y_mod = metrics.subscript;
+                }
+            break;
+            case script_type::sub_descent:
+                pen_y_mod = metrics.descent;
+            break;
+            default:
+            break;
+        }
+    }
+}
+
 void text::update_geometry(bool all) const
 {
     if(!font_)
@@ -618,8 +684,6 @@ void text::update_geometry(bool all) const
     const auto height = ascent - descent;
     const auto superscript = font_->superscript_offset;
     const auto subscript = font_->subscript_offset;
-    const auto superscript_scale = font_->superscript_size / font_->size;
-    const auto subscript_scale = font_->subscript_size / font_->size;
 
     const auto line_gap = line_height - height;
     const auto x_height = font_->x_height;
@@ -651,13 +715,15 @@ void text::update_geometry(bool all) const
     float max_y = max_h;
     float min_y_baseline = min_y + ascent;
     float max_y_baseline = max_y + descent;
+    float min_y_cap = min_y_baseline - cap_height;
+    float max_y_cap = max_y_baseline - cap_height;
 
     float min_x = std::numeric_limits<float>::max();
     float max_x = std::numeric_limits<float>::lowest();
 
     float align_y = get_alignment_y(alignment_,
-                                    min_y, min_y_baseline,
-                                    max_y, max_y_baseline,
+                                    min_y, min_y_baseline, min_y_cap,
+                                    max_y, max_y_baseline, max_y_cap,
                                     pixel_snap);
 
     min_y += align_y;
@@ -672,15 +738,15 @@ void text::update_geometry(bool all) const
     text_decorator decorator{};
     for(const auto& line : lines)
     {
-        line_metrics line_info{};
-        line_info.minx = pen_x;
-        line_info.ascent = pen_y - ascent;
-        line_info.cap = pen_y - cap_height;
-        line_info.superscript = pen_y - superscript;
-        line_info.median = pen_y - x_height;
-        line_info.baseline = pen_y;
-        line_info.subscript = pen_y + subscript;
-        line_info.descent = pen_y - descent;
+        line_metrics metrics{};
+        metrics.minx = pen_x;
+        metrics.ascent = pen_y - ascent;
+        metrics.cap = pen_y - cap_height;
+        metrics.superscript = pen_y - superscript;
+        metrics.median = pen_y - x_height;
+        metrics.baseline = pen_y;
+        metrics.subscript = pen_y + subscript;
+        metrics.descent = pen_y - descent;
 
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
@@ -689,52 +755,10 @@ void text::update_geometry(bool all) const
         {
             const auto& g = font_->get_glyph(c);
 
-            if(i >= decorator.end)
-            {
-                decorator = get_next_decorator(i);
-            }
 
-            auto pen_y_mod = pen_y;
             auto scale = 1.0f;
-
-            if(i >= decorator.begin && i < decorator.end)
-            {
-                scale = decorator.scale;
-
-                switch(decorator.type)
-                {
-                    case script_type::super_ascent:
-                        pen_y_mod = line_info.ascent + ascent * scale;
-                    break;
-                    case script_type::super_cap:
-                        pen_y_mod = line_info.cap + cap_height * scale;
-                    break;
-                    case script_type::super_original:
-                        if(superscript > 0.0f)
-                        {
-                            scale = superscript_scale;
-                            pen_y_mod = line_info.superscript;
-                        }
-                        else
-                        {
-                            pen_y_mod = line_info.cap + cap_height * scale;
-                        }
-                    break;
-                    case script_type::sub_original:
-                        if(subscript > 0.0f)
-                        {
-                            scale = subscript_scale;
-                            pen_y_mod = line_info.subscript;
-                        }
-                    break;
-                    case script_type::sub_descent:
-                        pen_y_mod = line_info.descent;
-                    break;
-                    default:
-                    break;
-                }
-            }
-
+            auto pen_y_decorated = pen_y;
+            apply_decorator(metrics, i, decorator, pen_y_decorated, scale);
 
             if(kerning_enabled_)
             {
@@ -763,11 +787,11 @@ void text::update_geometry(bool all) const
 
                 auto x0 = pen_x + g.x0 * scale;
                 auto x1 = pen_x + g.x1 * scale;
-                auto y0 = pen_y_mod + g.y0 * scale;
-                auto y1 = pen_y_mod + g.y1 * scale;
+                auto y0 = pen_y_decorated + g.y0 * scale;
+                auto y1 = pen_y_decorated + g.y1 * scale;
 
-                const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - line_info.ascent, height) : color_top_;
-                const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - line_info.ascent, height) : color_bot_;
+                const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top_;
+                const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metrics.ascent, height) : color_bot_;
 
                 std::array<vertex_2d, 4> quad =
                 {{
@@ -791,13 +815,13 @@ void text::update_geometry(bool all) const
             i++;
         }
 
-        line_info.maxx = pen_x;
+        metrics.maxx = pen_x;
 
         if(all)
         {
             auto align_x = get_alignment_x(alignment_,
-                                           line_info.minx,
-                                           line_info.maxx,
+                                           metrics.minx,
+                                           metrics.maxx,
                                            pixel_snap);
 
             if(line_path_.empty() && (math::epsilonNotEqual(align_x, 0.0f, math::epsilon<float>()) || pixel_snap))
@@ -815,16 +839,16 @@ void text::update_geometry(bool all) const
                 }
             }
 
-            line_info.minx += align_x;
-            line_info.maxx += align_x;
+            metrics.minx += align_x;
+            metrics.maxx += align_x;
 
-            lines_metrics_.emplace_back(line_info);
+            lines_metrics_.emplace_back(metrics);
 
             offset += vtx_count;
         }
 
-        min_x = std::min(line_info.minx, min_x);
-        max_x = std::max(line_info.maxx, max_x);
+        min_x = std::min(metrics.minx, min_x);
+        max_x = std::max(metrics.maxx, max_x);
 
         // go to next line
         pen_x = 0;

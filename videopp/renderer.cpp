@@ -141,7 +141,10 @@ void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
        << "   id       : " << id << "\n"
        << "   message  : " << msg << "\n";
 
-    log(ss.str());
+    if(type == GL_DEBUG_TYPE_ERROR)
+    {
+        log(ss.str());
+    }
 
 //    fprintf(stderr, "%d: %s of %s severity, raised from %s: %s\n",
 //            id, _type.c_str(), _severity.c_str(), _source.c_str(), msg);

@@ -44,9 +44,13 @@ enum align : uint32_t
     bottom      = 1<<5,
 
     // Vertical align (text only)
-    baseline_top	= 1<<6,  // baseline of first line
-    baseline_bottom	= 1<<7,  // baseline of last line
-    baseline = baseline_top
+    cap_height_top      = 1<<6,
+    cap_height_bottom   = 1<<7,
+    cap_height = cap_height_top,
+
+    baseline_top        = 1<<8,  // baseline of first line
+    baseline_bottom     = 1<<9,  // baseline of last line
+    baseline = baseline_top,
 };
 
 using align_t = uint32_t;
@@ -56,8 +60,8 @@ float get_alignment_x(align_t alignment,
                       float maxx,
                       bool pixel_snap);
 float get_alignment_y(align_t alignment,
-                      float miny, float miny_baseline,
-                      float maxy, float maxy_baseline,
+                      float miny, float miny_baseline, float miny_cap,
+                      float maxy, float maxy_baseline, float maxy_cap,
                       bool pixel_snap);
 
 enum class script_type : uint8_t
@@ -283,8 +287,8 @@ public:
     bool is_valid() const;
 
     static std::pair<float, float> get_alignment_offsets(align_t alignment,
-                                                         float minx, float miny, float miny_baseline,
-                                                         float maxx, float maxy, float maxy_baseline,
+                                                         float minx, float miny, float miny_baseline, float miny_cap,
+                                                         float maxx, float maxy, float maxy_baseline, float maxy_cap,
                                                          bool pixel_snap);
 
 private:
@@ -298,6 +302,10 @@ private:
     void update_geometry(bool all) const;
     void update_unicode_text() const;
 	const text_decorator& get_next_decorator(size_t i) const;
+    void apply_decorator(const line_metrics& metrics, size_t i,
+                         text_decorator& decorator,
+                         float& pen_y_mod,
+                         float& scale) const;
 
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
