@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <iostream>
 
 #include <fontpp/font.h>

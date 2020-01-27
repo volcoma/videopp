@@ -233,7 +233,7 @@ namespace gfx
         auto location = get_uniform_location(uniform);
         if(location >= 0 && !data.empty())
         {
-            gl_call(glUniform4fv(location, data.size(), math::value_ptr(data[0])));
+            gl_call(glUniform4fv(location, GLsizei(data.size()), math::value_ptr(data[0])));
         }
     }
 
@@ -242,7 +242,7 @@ namespace gfx
         auto location = get_uniform_location(uniform);
         if(location >= 0 && !data.empty())
         {
-            gl_call(glUniform4iv(location, data.size(), &data[0].x));
+            gl_call(glUniform4iv(location, GLsizei(data.size()), &data[0].x));
         }
     }
 
@@ -261,11 +261,11 @@ namespace gfx
         for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
         {
             rend_.unbind_texture(uint32_t(slot));
-            if ( bound_textures_[slot].custom_sampler )
+            if ( bound_textures_[size_t(slot)].custom_sampler )
             {
                 rend_.unbind_sampler(uint32_t(slot));
             }
-            bound_textures_[slot] = {};
+            bound_textures_[size_t(slot)] = {};
         }
         // activate just 1 texture
         rend_.unbind_texture(0);

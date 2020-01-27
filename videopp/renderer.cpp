@@ -40,8 +40,8 @@ constexpr float FARTHEST_Z = -1.0f;
 
 // Callback function for printing debug statements
 void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
-                            GLenum severity, GLsizei /*length*/,
-                            const GLchar *msg, const void */*data*/)
+                            GLenum severity, GLsizei,
+                            const GLchar *msg, const void*)
 {
     std::string source_str;
     std::string type_str;

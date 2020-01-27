@@ -64,7 +64,7 @@ float get_alignment_y(align_t alignment,
                       float maxy, float maxy_baseline, float maxy_cap,
                       bool pixel_snap);
 
-enum class script_type : uint8_t
+enum class script_type : uint32_t
 {
     // Superscript aligned on the ascender line.
 	super_ascent,
@@ -89,17 +89,18 @@ enum class script_type : uint8_t
 
 struct text_decorator
 {
+    /// Begin glyph (inclusive).
+	size_t begin_glyph{};
+
+    /// End glyph (exclusive).
+	size_t end_glyph{};
+
     /// Scale to be used.
 	float scale{1.0f};
 
     /// Type of the scripting to be applied.
 	script_type type{script_type::sub_base};
 
-    /// Begin glyph (inclusive).
-	size_t begin{};
-
-    /// End glyph (exclusive).
-	size_t end{};
 };
 
 class text
@@ -117,8 +118,6 @@ public:
     //-----------------------------------------------------------------------------
     void set_utf8_text(const std::string& t);
 	void set_utf8_text(std::string&& t);
-    void append_utf8_text(const std::string& t, text_decorator decorator);
-    void append_utf8_text(const std::string& t);
 
     //-----------------------------------------------------------------------------
     /// Set the font to be used.

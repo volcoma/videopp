@@ -1,9 +1,9 @@
 #include "text.h"
 #include "font.h"
 
+#include <array>
 #include <algorithm>
 #include <iostream>
-
 namespace gfx
 {
 
@@ -217,26 +217,6 @@ void text::set_utf8_text(std::string&& t)
         return;
     }
     utf8_text_ = std::move(t);
-    clear_lines();
-    clear_geometry();
-}
-
-void text::append_utf8_text(const std::string& t, text_decorator decorator)
-{
-    if(decorator.begin == decorator.end)
-    {
-        decorator.begin = utf8_text_.size();
-        decorator.end = decorator.begin + t.size();
-    }
-    add_decorator(decorator);
-    utf8_text_.append(t);
-    clear_lines();
-    clear_geometry();
-}
-
-void text::append_utf8_text(const std::string& t)
-{
-    utf8_text_.append(t);
     clear_lines();
     clear_geometry();
 }
@@ -590,7 +570,7 @@ const text_decorator& text::get_next_decorator(size_t i) const
 {
     for(const auto& decorator : decorators_)
     {
-        if(i <= decorator.begin)
+        if(i <= decorator.begin_glyph)
         {
             return decorator;
         }
@@ -605,12 +585,12 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
                            float& pen_y_mod,
                            float& scale) const
 {
-    if(i >= decorator.end)
+    if(i >= decorator.end_glyph)
     {
         decorator = get_next_decorator(i);
     }
 
-    if(i >= decorator.begin && i < decorator.end)
+    if(i >= decorator.begin_glyph && i < decorator.end_glyph)
     {
         scale = decorator.scale;
 

@@ -20,7 +20,7 @@ namespace gfx
     const glyphs& get_japanese_glyph_range();
     const glyphs& get_thai_glyph_range();
     const glyphs& get_currency_glyph_range();
-
+    const glyphs& get_all_glyph_range();
 
     struct glyphs_builder
     {

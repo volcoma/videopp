@@ -130,9 +130,10 @@ private:
 
         for(size_t i = 0; i < 3; ++i)
         {
-            if(epsilonEqual(m[i][i], 0.0f, epsilon<float>()))
+            auto& el = m[math::length_t(i)][math::length_t(i)];
+            if(epsilonEqual(el, 0.0f, epsilon<float>()))
             {
-                m[i][i] = 0.1f;
+                el = 0.1f;
             }
         }
 

@@ -215,6 +215,15 @@ const glyphs& get_currency_glyph_range()
     return currency;
 }
 
+const glyphs& get_all_glyph_range()
+{
+    static const glyphs all{
+        {0x0001, 0xFFFE},
+    };
+
+    return all;
+}
+
 void glyphs_builder::add(const glyphs& g)
 {
     std::copy(std::begin(g), std::end(g), std::back_inserter(range_));

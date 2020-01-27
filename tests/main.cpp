@@ -100,13 +100,13 @@ int main()
 //		page.load_from_utf8(html, DATA);
 
         gfx::glyphs_builder builder;
-        builder.add(gfx::get_default_glyph_range());
-        builder.add(gfx::get_cyrillic_glyph_range());
-        builder.add(gfx::get_currency_glyph_range());
-        builder.add(gfx::get_korean_glyph_range());
+//        builder.add(gfx::get_default_glyph_range());
+//        builder.add(gfx::get_cyrillic_glyph_range());
+//        builder.add(gfx::get_currency_glyph_range());
+//        builder.add(gfx::get_korean_glyph_range());
+        builder.add(gfx::get_all_glyph_range());
 
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans.ttf", builder.get(), 180, 2);
-        //auto info = gfx::create_font_from_ttf("C:/WINDOWS/Fonts/ARIAL.TTF", builder.get(), 80, 2);
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono.ttf", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 
         auto image = rend.create_texture(DATA"wheel.png");
@@ -128,15 +128,6 @@ int main()
 					std::cout << "quit (all windows were closed)" << std::endl;
 					running = false;
 					break;
-				}
-				if(e.type == os::events::window)
-				{
-					if(e.window.type == os::window_event_id::close)
-					{
-
-						std::cout << "quit (all windows were closed)" << std::endl;
-						running = false;
-					}
 				}
 				if(e.type == os::events::key_down)
 				{
@@ -219,10 +210,7 @@ int main()
 
             tr.set_position(pos.x, pos.y, 0);
 
-            gfx::rect crop{300, 300, 200, 200};
-            list.add_rect(crop, gfx::color::red(), false);
-            list.push_crop({crop});
-            list.add_image(image, {pos.x, pos.y, 200, 200});
+
             for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
             {
                 gfx::text t;
@@ -233,38 +221,22 @@ int main()
                 //t.set_shadow_offsets({2, 2});
 
                 gfx::text_decorator decorator{};
-//                decorator.begin = 2;
-//                decorator.end = decorator.begin + 2;
+                decorator.begin_glyph = 2;
+                decorator.end_glyph = decorator.begin_glyph + 2;
                 decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
                 decorator.scale = scale;
-                t.append_utf8_text("0000", decorator);
-//                t.add_decorator(decorator);
+                t.add_decorator(decorator);
 
-//                decorator.begin = 7;
-//                decorator.end = decorator.begin + 2;
-//                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
-//                decorator.scale = scale;
-//                t.add_decorator(decorator);
+                decorator.begin_glyph = 7;
+                decorator.end_glyph = decorator.begin_glyph + 2;
+                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
+                decorator.scale = scale;
+                t.add_decorator(decorator);
                 list.add_text(t, tr);
 
                 tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
             }
-            list.pop_crop();
-//            tr.set_position(rend.get_rect().w/2, rend.get_rect().h/2, 0.0f);
-//            tr.rotate(0, 0, math::radians(1.0f));
 
-//            auto pivot = gfx::align_item(gfx::align::middle | gfx::align::center, image->get_rect());
-
-//            auto world = tr * pivot;
-//            const auto& scale = world.get_scale();
-//            std::cout << "x = " << scale.x << ", y = " << scale.y << ", z = " << scale.z << std::endl;
-//            list.add_image(image, image->get_rect(), world);
-
-
-            //gfx::polyline line;
-            //line.bezier_curve_to({200, 300}, {400, 0}, {1000, 300});
-            //line.ellipse({0, 0}, {200, 100}, 64);
-            //t.set_line_path(line);
 
             rend.draw_cmd_list(list);
 

@@ -70,6 +70,7 @@ set_code_style(${target_name} lower_case check_headers "${extra_flags}")
 
 if(MSVC)
 	#target_compile_options(${target_name} PRIVATE /wd4505)
+	target_compile_definitions(${target_name} PRIVATE _SCL_SECURE_NO_WARNINGS)
 else()
 	target_compile_options(${target_name} PRIVATE -Wno-unused-function)
 endif()

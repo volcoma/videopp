@@ -333,7 +333,7 @@ int polyline::get_closest_point(float len, float& dist) const
        auto next_dist = math::distance(points_[j], points_[j + 1]);
        if (dist + next_dist >= len)
        {
-           point_idx = j;
+           point_idx = int(j);
            break;
        }
        dist += next_dist;

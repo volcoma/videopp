@@ -899,6 +899,13 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
 
     add_text(t, parent * local);
+
+    if(debug_draw)
+    {
+        auto tr = transform;
+        tr.set_scale(1.0f, 1.0f, 1.0f);
+        add_rect(dst_rect, tr, color::cyan(), false);
+    }
 }
 
 
