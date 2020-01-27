@@ -141,13 +141,10 @@ void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
        << "   id       : " << id << "\n"
        << "   message  : " << msg << "\n";
 
-    if(type == GL_DEBUG_TYPE_ERROR)
+    if(severity > GL_DEBUG_SEVERITY_NOTIFICATION)
     {
         log(ss.str());
     }
-
-//    fprintf(stderr, "%d: %s of %s severity, raised from %s: %s\n",
-//            id, _type.c_str(), _severity.c_str(), _source.c_str(), msg);
 
     assert(type != GL_DEBUG_TYPE_ERROR);
 }
@@ -176,9 +173,9 @@ renderer::renderer(os::window& win, bool vsync)
 
 
     // During init, enable debug output
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(MessageCallback, nullptr);
+    gl_call(glEnable(GL_DEBUG_OUTPUT));
+    gl_call(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
+    gl_call(glDebugMessageCallback(MessageCallback, nullptr));
 
     //rect_.x = win_.get_position().x;
     //rect_.y = win_.get_position().y;

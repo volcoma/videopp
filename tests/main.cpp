@@ -107,9 +107,11 @@ int main()
         builder.add(gfx::get_all_glyph_range());
 
         auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono.ttf", builder.get(), 80, 2);
+        //auto info = gfx::create_font_from_ttf("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", builder.get(), 40, 2);
         auto font = rend.create_font(std::move(info));
 
         auto image = rend.create_texture(DATA"wheel.png");
+
 		bool running = true;
         math::transformf tr;
 
@@ -210,7 +212,6 @@ int main()
 
             tr.set_position(pos.x, pos.y, 0);
 
-
             for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
             {
                 gfx::text t;
@@ -218,6 +219,7 @@ int main()
                 t.set_utf8_text(text);
                 t.set_alignment(valign | halign);
                 t.set_leaning(leaning);
+                //t.set_color(gfx::color::red());
                 //t.set_shadow_offsets({2, 2});
 
                 gfx::text_decorator decorator{};
@@ -236,7 +238,6 @@ int main()
 
                 tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
             }
-
 
             rend.draw_cmd_list(list);
 
