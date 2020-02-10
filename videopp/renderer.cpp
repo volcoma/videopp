@@ -969,6 +969,11 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
     vbo.unbind();
     ibo.unbind();
 
+    if(list.debug)
+    {
+        return draw_cmd_list(*list.debug);
+    }
+
     return true;
 }
 
@@ -976,23 +981,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 ///     @return true on success
 bool renderer::enable_vsync() noexcept
 {
-//    if (!vsync_enabled_)
-//    {
-//        if (0 != SDL_GL_SetSwapInterval(-1))
-//        {
-//            if (0 != SDL_GL_SetSwapInterval(1))
-//            {
-//                // TODO Remove it when all move to new version of linux
-//                // throw renderer::inner_exception("Cannot set SwapInterval.");
-//                log("ERROR: Cannot set vsync swap interval!");
-//                return false;
-//            }
-//        }
-//        vsync_enabled_ = true;
-//    }
-
     return context_->set_vsync(true);
-
 }
 
 /// Disable vertical synchronization

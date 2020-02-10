@@ -106,8 +106,8 @@ int main()
 //        builder.add(gfx::get_korean_glyph_range());
         builder.add(gfx::get_all_glyph_range());
 
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSansMono.ttf", builder.get(), 80, 2);
-        //auto info = gfx::create_font_from_ttf("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", builder.get(), 40, 2);
+        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 80, 2);
+        //auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 
         auto image = rend.create_texture(DATA"wheel.png");
@@ -157,6 +157,14 @@ int main()
                             gfx::draw_list::toggle_debug_draw();
                         }
 					}
+                    if(e.key.code == os::key::f1)
+                    {
+                        scale += 0.01f;
+                    }
+                    if(e.key.code == os::key::f2)
+                    {
+                        scale -= 0.01f;
+                    }
                     if(e.key.code == os::key::f3)
                     {
                         if(valign == gfx::align::baseline_bottom)
@@ -183,14 +191,6 @@ int main()
                             halign = gfx::align(va);
                         }
                     }
-                    if(e.key.code == os::key::f1)
-                    {
-                        scale += 0.01f;
-                    }
-                    if(e.key.code == os::key::f2)
-                    {
-                        scale -= 0.01f;
-                    }
 				}
 
                 if(e.type == os::events::mouse_wheel)
@@ -212,7 +212,7 @@ int main()
 
             tr.set_position(pos.x, pos.y, 0);
 
-            for(size_t i = 0; i < size_t(gfx::script_type::count); ++i)
+            for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
             {
                 gfx::text t;
                 t.set_font(font);
@@ -221,22 +221,30 @@ int main()
                 t.set_leaning(leaning);
                 //t.set_color(gfx::color::red());
                 //t.set_shadow_offsets({2, 2});
+                //t.set_outline_width(0.4f);
 
-                gfx::text_decorator decorator{};
-                decorator.begin_glyph = 2;
-                decorator.end_glyph = decorator.begin_glyph + 2;
-                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
-                decorator.scale = scale;
-                t.add_decorator(decorator);
+                std::vector<gfx::text_decorator> decorators;
+                {
+                    decorators.emplace_back();
+                    auto& decorator = decorators.back();
+                    decorator.begin_glyph = 2;
+                    decorator.end_glyph = decorator.begin_glyph + 2;
+                    decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+                    decorator.scale = scale;
+                }
 
-                decorator.begin_glyph = 7;
-                decorator.end_glyph = decorator.begin_glyph + 2;
-                decorator.type = gfx::script_type(size_t(gfx::script_type::super_ascent) + i);
-                decorator.scale = scale;
-                t.add_decorator(decorator);
+                {
+                    decorators.emplace_back();
+                    auto& decorator = decorators.back();
+                    decorator.begin_glyph = 2;
+                    decorator.end_glyph = decorator.begin_glyph + 2;
+                    decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+                    decorator.scale = scale;
+                }
+                t.set_decorators(decorators);
                 list.add_text(t, tr);
 
-                tr.translate(0.0f, t.get_height() * tr.get_scale().y * 2.0f, 0.0f);
+                tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
             }
 
             rend.draw_cmd_list(list);

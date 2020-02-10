@@ -493,7 +493,7 @@ const program_setup& empty_setup() noexcept
     static program_setup setup;
     return setup;
 }
-draw_list::draw_list()
+draw_list::draw_list(bool has_debug)
 {
     constexpr size_t vertices_reserved = 128;
     constexpr size_t indices_reserved = (vertices_reserved - 2) * 3;
@@ -505,6 +505,11 @@ draw_list::draw_list()
     indices.reserve(indices_reserved);
     cache<draw_list>::get(commands, commands_reserved);
     commands.reserve(commands_reserved);
+
+    if(has_debug)
+    {
+        debug = std::make_unique<draw_list>(false);
+    }
 }
 
 draw_list::~draw_list()
@@ -524,6 +529,11 @@ void draw_list::clear() noexcept
     transforms.clear();
     programs.clear();
     commands_requested = 0;
+
+    if(debug)
+    {
+        debug->clear();
+    }
 }
 
 void draw_list::add_rect(const std::array<math::vec2, 4>& points, color col, bool filled,
@@ -709,6 +719,11 @@ void draw_list::add_list(const draw_list& list)
     }
 
     commands_requested += list.commands_requested;
+
+    if(debug && list.debug)
+    {
+        debug->add_list(*list.debug);
+    }
 }
 
 void draw_list::add_text(const text& t, const math::transformf& transform)
@@ -731,13 +746,15 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
     {
         auto shadow = t;
-        shadow.debug = true;
         shadow.set_vgradient_colors(t.get_shadow_color_top(), t.get_shadow_color_bot());
         shadow.set_outline_color(t.get_shadow_color_top());
         shadow.set_shadow_offsets({0.0f, 0.0f});
         math::transformf shadow_transform{};
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
+
+        auto debug_draw_old = set_debug_draw(false);
         add_text(shadow, transform * shadow_transform);
+        set_debug_draw(debug_draw_old);
     }
 
     float unit_length_in_pixels_at_font_position = 1.0f;
@@ -859,9 +876,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 
     pop_transform();
 
-    if(debug_draw)
+    if(debug_draw && debug)
     {
-        add_text_debug_info(t, transform);
+        debug->add_text_debug_info(t, transform);
     }
 }
 
@@ -874,16 +891,16 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     float text_width = t.get_width() * scale_x;
     float text_height = t.get_height() * scale_y;
 
-    auto offsets = text::get_alignment_offsets(align,
-                                               float(dst_rect.x),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.x + dst_rect.w),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               false);
+    auto offsets = get_alignment_offsets(align,
+                                         float(dst_rect.x),
+                                         float(dst_rect.y),
+                                         float(dst_rect.y),
+                                         float(dst_rect.y),
+                                         float(dst_rect.x + dst_rect.w),
+                                         float(dst_rect.y + dst_rect.h),
+                                         float(dst_rect.y + dst_rect.h),
+                                         float(dst_rect.y + dst_rect.h),
+                                         false);
 
     math::transformf parent{};
     parent.translate(transform.get_position());
@@ -900,347 +917,19 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
     add_text(t, parent * local);
 
-    if(debug_draw)
+    if(debug_draw && debug)
     {
         auto tr = transform;
         tr.set_scale(1.0f, 1.0f, 1.0f);
-        add_rect(dst_rect, tr, color::cyan(), false);
+        debug->add_rect(dst_rect, tr, color::cyan(), false);
     }
 }
 
-
-void draw_list::add_text_superscript(const text& whole_text, const text& script_text,
-                                     const math::transformf& transform,
-                                     float script_scale)
+bool draw_list::set_debug_draw(bool debug)
 {
-    add_text_superscript_impl(whole_text, script_text, transform, script_scale);
-}
-
-void draw_list::add_text_superscript(const text& whole_text, const text& script_text,
-                                     const math::transformf& transform, const rect& dst_rect,
-                                     float script_scale, size_fit sz_fit,
-                                     dimension_fit dim_fit)
-{
-    if(!whole_text.is_valid() && !script_text.is_valid())
-    {
-        return;
-    }
-    if(whole_text.is_valid() && !script_text.is_valid())
-    {
-        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    }
-    auto align = [&]()
-    {
-        if(whole_text.is_valid())
-        {
-            return whole_text.get_alignment();
-        }
-
-        return script_text.get_alignment();
-    }();
-
-    auto scale_whole = transform.get_scale();
-    auto scale_partial = script_scale * transform.get_scale();
-    float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
-    float text_height = whole_text.get_height() * scale_whole.y;
-
-    auto offsets = text::get_alignment_offsets(align,
-                                               float(dst_rect.x),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.x + dst_rect.w),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               false);
-
-    math::transformf parent{};
-    parent.translate(transform.get_position());
-    parent.set_rotation(transform.get_rotation());
-
-    math::transformf local = fit_item(text_width,
-                                      text_height,
-                                      float(dst_rect.w),
-                                      float(dst_rect.h),
-                                      sz_fit, dim_fit);
-    local.scale(transform.get_scale());
-    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
-
-    add_text_superscript_impl(whole_text, script_text, parent * local, script_scale);
-}
-
-void draw_list::add_text_superscript_impl(const text& whole_text, const text& script_text,
-                                          const math::transformf& transform,
-                                          float script_scale)
-{
-    if(!whole_text.is_valid() && !script_text.is_valid())
-    {
-        return;
-    }
-    if(whole_text.is_valid() && !script_text.is_valid())
-    {
-        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    }
-    auto align = [&]()
-    {
-        if(whole_text.is_valid())
-        {
-            return whole_text.get_alignment();
-        }
-
-        return script_text.get_alignment();
-    }();
-
-    if(whole_text.get_lines().size() > 1)
-    {
-        log("Superscript text should not be multiline. This api will not behave properly.");
-    }
-    const auto whole_text_width = whole_text.get_width();
-
-    const auto whole_text_min_baseline_height = whole_text.get_utf8_text().empty() ?
-                                                script_text.get_min_baseline_height() :
-                                                whole_text.get_min_baseline_height();
-    const auto whole_text_max_baseline_height = whole_text.get_utf8_text().empty() ?
-                                                script_text.get_max_baseline_height() :
-                                                whole_text.get_max_baseline_height();
-
-    const auto script_text_width = script_text.get_width() * script_scale;
-    const auto text_partial_height = whole_text.get_utf8_text().empty() ?
-                                     script_text.get_height() * (1.0f - script_scale) :
-                                     whole_text.get_height() - (script_text.get_height() * script_scale);
-
-    const auto script_text_min_baseline_height =
-        script_text.get_min_baseline_height() * script_scale;
-    const auto script_text_max_baseline_height =
-        script_text.get_max_baseline_height() * script_scale;
-
-    const auto half_whole_text_width = whole_text_width * 0.5f;
-    const auto half_script_text_width = script_text_width * 0.5f;
-    const auto half_text_partial_height = text_partial_height * 0.5f;
-
-    math::transformf whole_transform{};
-    math::transformf script_transform{};
-    script_transform.scale({script_scale, script_scale, 1.0f});
-
-
-    if(align & align::top)
-    {
-    }
-
-    if(align & align::middle)
-    {
-        script_transform.translate(0.0f, -half_text_partial_height, 0.0f);
-    }
-
-    if(align & align::bottom)
-    {
-        script_transform.translate(0.0f, -text_partial_height, 0.0f);
-    }
-
-    if(align & align::baseline_top)
-    {
-        script_transform.translate(0.0f, script_text_min_baseline_height - whole_text_min_baseline_height, 0.0f);
-    }
-
-    if(align & align::baseline_bottom)
-    {
-
-        script_transform.translate(0.0f, script_text_max_baseline_height - whole_text_max_baseline_height, 0.0f);
-    }
-
-
-    if(align & align::left)
-    {
-        script_transform.translate(whole_text_width, 0.0f, 0.0f);
-    }
-
-    if(align & align::right)
-    {
-        whole_transform.translate(-script_text_width, 0.0f, 0.0f);
-    }
-
-    if(align & align::center)
-    {
-        whole_transform.translate(-half_script_text_width, 0.0f, 0.0f);
-        script_transform.translate(half_whole_text_width, 0.0f, 0.0f);
-    }
-
-    add_text(whole_text, transform * whole_transform);
-    add_text(script_text, transform * script_transform);
-}
-
-void draw_list::add_text_subscript(const text& whole_text,
-                                   const text& script_text,
-                                   const math::transformf& transform,
-                                   float script_scale)
-{
-    add_text_subscript_impl(whole_text, script_text, transform, script_scale);
-}
-
-void draw_list::add_text_subscript(const text& whole_text,
-                                   const text& script_text,
-                                   const math::transformf& transform,
-                                   const rect& dst_rect,
-                                   float script_scale,
-                                   size_fit sz_fit,
-                                   dimension_fit dim_fit)
-{
-    if(!whole_text.is_valid() && !script_text.is_valid())
-    {
-        return;
-    }
-    if(whole_text.is_valid() && !script_text.is_valid())
-    {
-        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    }
-    auto align = [&]()
-    {
-        if(whole_text.is_valid())
-        {
-            return whole_text.get_alignment();
-        }
-
-        return script_text.get_alignment();
-    }();
-
-    auto scale_whole = transform.get_scale();
-    auto scale_partial = script_scale * transform.get_scale();
-    float text_width = whole_text.get_width() * scale_whole.x + script_text.get_width() * scale_partial.x;
-    float text_height = whole_text.get_height() * scale_whole.y;
-
-    auto offsets = text::get_alignment_offsets(align,
-                                               float(dst_rect.x),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.y),
-                                               float(dst_rect.x + dst_rect.w),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               float(dst_rect.y + dst_rect.h),
-                                               false);
-
-    math::transformf parent{};
-    parent.translate(transform.get_position());
-    parent.set_rotation(transform.get_rotation());
-
-    math::transformf local = fit_item(text_width,
-                                      text_height,
-                                      float(dst_rect.w),
-                                      float(dst_rect.h),
-                                      sz_fit, dim_fit);
-
-    local.scale(transform.get_scale());
-    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
-
-    add_text_subscript_impl(whole_text, script_text, parent * local, script_scale);
-}
-
-void draw_list::add_text_subscript_impl(const text& whole_text,
-                                        const text& script_text,
-                                        const math::transformf& transform,
-                                        float script_scale)
-{
-    if(!whole_text.is_valid() && !script_text.is_valid())
-    {
-        return;
-    }
-    if(whole_text.is_valid() && !script_text.is_valid())
-    {
-        assert(whole_text.get_alignment() == script_text.get_alignment() && "Both texts should have the same alignment.");
-    }
-    auto align = [&]()
-    {
-        if(whole_text.is_valid())
-        {
-            return whole_text.get_alignment();
-        }
-
-        return script_text.get_alignment();
-    }();
-    if(whole_text.get_lines().size() > 1)
-    {
-        log("Subscript text should not be multiline. This api will not behave properly.");
-    }
-
-    const auto whole_text_width = whole_text.get_width();
-
-    const auto whole_text_height = whole_text.get_utf8_text().empty() ?
-                                   script_text.get_height() :
-                                   whole_text.get_height();
-
-    const auto whole_text_max_baseline_height = whole_text.get_utf8_text().empty() ?
-                                                script_text.get_max_baseline_height() :
-                                                whole_text.get_max_baseline_height();
-
-    const auto script_text_width = script_text.get_width() * script_scale;
-    const auto text_partial_height = script_scale * script_text.get_height();
-    const auto text_partial_height_dif = whole_text_height - text_partial_height;
-
-    const auto script_text_max_baseline_height =
-        script_text.get_max_baseline_height() * script_scale;
-
-    const auto half_whole_text_width = whole_text_width * 0.5f;
-    const auto half_script_text_width = script_text_width * 0.5f;
-    const auto half_text_partial_height_dif = text_partial_height_dif * 0.5f;
-
-    const auto top_y_aligns_partial_offset = whole_text_max_baseline_height - script_text_max_baseline_height;
-    const auto center_y_aligns_partial_offset = whole_text_max_baseline_height - (half_text_partial_height_dif + script_text_max_baseline_height);
-    const auto bottom_y_aligns_partial_offset = - ((whole_text_height - whole_text_max_baseline_height) -
-                                                  (text_partial_height - script_text_max_baseline_height));
-
-    math::transformf whole_transform{};
-    math::transformf script_transform{};
-    script_transform.scale({script_scale, script_scale, 1.0f});
-
-
-    if(align & align::top)
-    {
-        script_transform.translate(0.0f, top_y_aligns_partial_offset, 0.0f);
-    }
-
-    if(align & align::middle)
-    {
-        script_transform.translate(0.0f, center_y_aligns_partial_offset, 0.0f);
-    }
-
-    if(align & align::bottom)
-    {
-        script_transform.translate(0.0f, bottom_y_aligns_partial_offset, 0.0f);
-    }
-
-    if(align & align::baseline_top)
-    {
-    }
-
-    if(align & align::baseline_bottom)
-    {
-    }
-
-
-    if(align & align::left)
-    {
-        script_transform.translate(whole_text_width, 0.0f, 0.0f);
-    }
-
-    if(align & align::right)
-    {
-        whole_transform.translate(-script_text_width, 0.0f, 0.0f);
-    }
-
-    if(align & align::center)
-    {
-        whole_transform.translate(-half_script_text_width, 0.0f, 0.0f);
-        script_transform.translate(half_whole_text_width, 0.0f, 0.0f);
-    }
-
-    add_text(whole_text, transform * whole_transform);
-    add_text(script_text, transform * script_transform);
-}
-
-void draw_list::set_debug_draw(bool debug)
-{
+    bool old = debug_draw;
     debug_draw = debug;
+    return old;
 }
 
 void draw_list::toggle_debug_draw()
@@ -1783,115 +1472,95 @@ void draw_list::reserve_rects(size_t count)
 
 void draw_list::add_text_debug_info(const text& t, const math::transformf& transform)
 {
-    if(t.debug)
-    {
-        return;
-    }
-
     const auto& lines = t.get_lines_metrics();
 
-//    math::transformf tr = transform;
-//    {
-//        auto col = color::cyan();
-//        std::string desc = "ascent ";
-//        for(const auto& line : lines)
-//        {
-//            auto v1 = transform.transform_coord({line.minx, line.ascent});
-//            auto v2 = transform.transform_coord({line.maxx, line.ascent});
+    math::transformf tr = transform;
+    {
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.ascent});
+            auto v2 = transform.transform_coord({line.maxx, line.ascent});
 
-//            text txt;
-//            txt.debug = true;
-//            txt.set_color(col);
-//            txt.set_font(default_font());
-//            txt.set_alignment(align::right | align::middle);
-//            txt.set_utf8_text(desc);
+            text txt;
+            txt.set_color(color::cyan());
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text("ascent ");
 
-//            tr.set_position(v1.x, v1.y, 0.0f);
-//            add_text(txt, tr);
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
 
-//            auto width = line.maxx - line.minx;
-//            std::stringstream ss;
-//            ss << " width = " << std::fixed << std::setprecision(2) << width;
+            auto width = line.maxx - line.minx;
+            std::stringstream ss;
+            ss << " width = " << std::fixed << std::setprecision(2) << width;
 
-//            txt.set_alignment(align::left | align::middle);
-//            txt.set_utf8_text(ss.str());
+            txt.set_alignment(align::left | align::middle);
+            txt.set_utf8_text(ss.str());
 
-//            tr.set_position(v2.x, v1.y, 0.0f);
-//            add_text(txt, tr);
-//        }
-//    }
-//    {
-//        auto col = color::red();
-//        std::string desc = "cap_height ";
-//        for(const auto& line : lines)
-//        {
-//            auto v1 = transform.transform_coord({line.minx, line.cap});
+            tr.set_position(v2.x, v1.y, 0.0f);
+            add_text(txt, tr);
+        }
+    }
+    {
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.cap});
 
-//            text txt;
-//            txt.debug = true;
-//            txt.set_color(col);
-//            txt.set_font(default_font());
-//            txt.set_alignment(align::right | align::middle);
-//            txt.set_utf8_text(desc);
+            text txt;
+            txt.set_color(color::green());
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text("cap_height ");
 
-//            tr.set_position(v1.x, v1.y, 0.0f);
-//            add_text(txt, tr);
-//        }
-//    }
-//    {
-//        auto col = color::red();
-//        std::string desc = "median ";
-//        for(const auto& line : lines)
-//        {
-//            auto v1 = transform.transform_coord({line.minx, line.median});
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
+        }
+    }
+    {
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.median});
 
-//            text txt;
-//            txt.debug = true;
-//            txt.set_color(col);
-//            txt.set_font(default_font());
-//            txt.set_alignment(align::right | align::middle);
-//            txt.set_utf8_text(desc);
+            text txt;
+            txt.set_color(color::red());
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text("median ");
 
-//            tr.set_position(v1.x, v1.y, 0.0f);
-//            add_text(txt, tr);
-//        }
-//    }
-//    {
-//        auto col = color::magenta();
-//        std::string desc = "baseline ";
-//        for(const auto& line : lines)
-//        {
-//            auto v1 = transform.transform_coord({line.minx, line.baseline});
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
+        }
+    }
+    {
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.baseline});
 
-//            text txt;
-//            txt.debug = true;
-//            txt.set_color(col);
-//            txt.set_font(default_font());
-//            txt.set_alignment(align::right | align::middle);
-//            txt.set_utf8_text(desc);
+            text txt;
+            txt.set_color(color::magenta());
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text("baseline ");
 
-//            tr.set_position(v1.x, v1.y, 0.0f);
-//            add_text(txt, tr);
-//        }
-//    }
-//    {
-//        auto col = color::blue();
-//        std::string desc = "descent ";
-//        for(const auto& line : lines)
-//        {
-//            auto v1 = transform.transform_coord({line.minx, line.descent});
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
+        }
+    }
+    {
+        for(const auto& line : lines)
+        {
+            auto v1 = transform.transform_coord({line.minx, line.descent});
 
-//            text txt;
-//            txt.debug = true;
-//            txt.set_color(col);
-//            txt.set_font(default_font());
-//            txt.set_alignment(align::right | align::middle);
-//            txt.set_utf8_text(desc);
+            text txt;
+            txt.set_color(color::blue());
+            txt.set_font(default_font());
+            txt.set_alignment(align::right | align::middle);
+            txt.set_utf8_text("descent ");
 
-//            tr.set_position(v1.x, v1.y, 0.0f);
-//            add_text(txt, tr);
-//        }
-//    }
+            tr.set_position(v1.x, v1.y, 0.0f);
+            add_text(txt, tr);
+        }
+    }
 
 
     {

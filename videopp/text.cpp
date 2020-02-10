@@ -171,7 +171,7 @@ float get_alignment_y(align_t alignment,
     return yoffs;
 }
 
-std::pair<float, float> text::get_alignment_offsets(
+std::pair<float, float> get_alignment_offsets(
         align_t alignment,
         float minx, float miny, float miny_baseline, float miny_cap,
         float maxx, float maxy, float maxy_baseline, float maxy_cap,
@@ -426,9 +426,9 @@ void text::set_line_path(polyline&& line)
     clear_geometry();
 }
 
-void text::add_decorator(const text_decorator& decorator)
+void text::set_decorators(const std::vector<text_decorator>& decorators)
 {
-    decorators_.emplace_back(decorator);
+    decorators_ = decorators;
     clear_geometry();
 }
 
@@ -593,42 +593,51 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
     if(i >= decorator.begin_glyph && i < decorator.end_glyph)
     {
         scale = decorator.scale;
+        if(scale < 0.001f)
+        {
+            scale = 0.001f;
+        }
 
         const auto ascent = font_->ascent;
-        const auto superscript = font_->superscript_offset;
-        const auto subscript = font_->subscript_offset;
-        const auto superscript_scale = font_->superscript_size / font_->size;
-        const auto subscript_scale = font_->subscript_size / font_->size;
-        const auto cap_height = font_->cap_height;
+        const auto descent = font_->descent;
 
-        switch(decorator.type)
+//        const auto superscript = font_->superscript_offset;
+//        const auto subscript = font_->subscript_offset;
+//        const auto superscript_scale = font_->superscript_size / font_->size;
+//        const auto subscript_scale = font_->subscript_size / font_->size;
+        const auto cap_height = font_->cap_height;
+        const auto median = font_->x_height;
+        switch(decorator.align)
         {
-            case script_type::super_ascent:
+            case text_line::ascent:
                 pen_y_mod = metrics.ascent + ascent * scale;
             break;
-            case script_type::super_cap:
+            case text_line::cap_height:
                 pen_y_mod = metrics.cap + cap_height * scale;
             break;
-            case script_type::super_original:
-                if(superscript > 0.0f)
-                {
-                    scale = superscript_scale;
-                    pen_y_mod = metrics.superscript;
-                }
-                else
-                {
-                    pen_y_mod = metrics.cap + cap_height * scale;
-                }
+            case text_line::median:
+                pen_y_mod = metrics.median + median * scale;
             break;
-            case script_type::sub_original:
-                if(subscript > 0.0f)
-                {
-                    scale = subscript_scale;
-                    pen_y_mod = metrics.subscript;
-                }
-            break;
-            case script_type::sub_descent:
-                pen_y_mod = metrics.descent;
+//            case text_line::superscript_original:
+//                if(superscript > 0.0f)
+//                {
+//                    scale = superscript_scale;
+//                    pen_y_mod = metrics.superscript;
+//                }
+//                else
+//                {
+//                    pen_y_mod = metrics.cap + cap_height * scale;
+//                }
+//            break;
+//            case text_line::subscript_original:
+//                if(subscript > 0.0f)
+//                {
+//                    scale = subscript_scale;
+//                    pen_y_mod = metrics.subscript;
+//                }
+//            break;
+            case text_line::descent:
+                pen_y_mod = metrics.descent + descent * scale;
             break;
             default:
             break;

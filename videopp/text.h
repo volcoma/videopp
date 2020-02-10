@@ -31,21 +31,43 @@ struct line_metrics
     float maxx{};
 };
 
+
+enum class text_line : uint32_t
+{
+    // Superscript aligned on the ascender line.
+	ascent,
+
+    // Superscript aligned on the cap height line.
+    cap_height,
+
+    // Superscript aligned on the median line.
+    median,
+
+    // Subscript aligned on the baseline.
+	baseline,
+
+    // Subscript aligned on the descender line.
+    descent,
+
+    count
+};
+
+
 enum align : uint32_t
 {
-    // Horizontal align
+    // Horizontal align (general)
     left        = 1<<0,
     center      = 1<<1,
     right       = 1<<2,
 
-    // Vertical align
+    // Vertical align (general)
     top 		= 1<<3,
     middle      = 1<<4,
     bottom      = 1<<5,
 
     // Vertical align (text only)
-    cap_height_top      = 1<<6,
-    cap_height_bottom   = 1<<7,
+    cap_height_top      = 1<<6, // cap_height of first line
+    cap_height_bottom   = 1<<7, // cap_height of last line
     cap_height = cap_height_top,
 
     baseline_top        = 1<<8,  // baseline of first line
@@ -59,33 +81,16 @@ float get_alignment_x(align_t alignment,
                       float minx,
                       float maxx,
                       bool pixel_snap);
+
 float get_alignment_y(align_t alignment,
                       float miny, float miny_baseline, float miny_cap,
                       float maxy, float maxy_baseline, float maxy_cap,
                       bool pixel_snap);
 
-enum class script_type : uint32_t
-{
-    // Superscript aligned on the ascender line.
-	super_ascent,
-
-    // Superscript aligned on the font's defined line. Scaled with font's defined scale as well.
-    super_original,
-
-    // Superscript aligned on the cap height line.
-    super_cap,
-
-    // Subscript aligned on the baseline.
-	sub_base,
-
-    // Subscript aligned on the font's defined line. Scaled with font's defined scale as well.
-    sub_original,
-
-    // Subscript aligned on the descender line.
-    sub_descent,
-
-    count
-};
+std::pair<float, float> get_alignment_offsets(align_t alignment,
+                                              float minx, float miny, float miny_baseline, float miny_cap,
+                                              float maxx, float maxy, float maxy_baseline, float maxy_cap,
+                                              bool pixel_snap);
 
 struct text_decorator
 {
@@ -99,7 +104,7 @@ struct text_decorator
 	float scale{1.0f};
 
     /// Type of the scripting to be applied.
-	script_type type{script_type::sub_base};
+	text_line align{text_line::baseline};
 
 };
 
@@ -188,7 +193,7 @@ public:
 	void set_line_path(const polyline& line);
 	void set_line_path(polyline&& line);
 
-	void add_decorator(const text_decorator& decorator);
+	void set_decorators(const std::vector<text_decorator>& decorators);
 	//-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
     //-----------------------------------------------------------------------------
@@ -285,10 +290,6 @@ public:
 
     bool is_valid() const;
 
-    static std::pair<float, float> get_alignment_offsets(align_t alignment,
-                                                         float minx, float miny, float miny_baseline, float miny_cap,
-                                                         float maxx, float maxy, float maxy_baseline, float maxy_cap,
-                                                         bool pixel_snap);
 
 private:
 
@@ -366,9 +367,6 @@ private:
 
     /// Kerning usage if the font provides any kerning pairs.
     bool kerning_enabled_ = false;
-
-public:
-    bool debug = false;
 };
 
 

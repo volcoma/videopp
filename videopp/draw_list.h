@@ -44,9 +44,7 @@ struct draw_list
     using index_t = uint32_t;
     using crop_area_t = std::vector<rect>;
 
-    draw_list();
-    draw_list(const draw_list&) = default;
-    draw_list& operator=(const draw_list&) = default;
+    draw_list(bool has_debug = true);
     draw_list(draw_list&&) = default;
     draw_list& operator=(draw_list&&) = default;
     ~draw_list();
@@ -201,49 +199,6 @@ struct draw_list
 
 
     //-----------------------------------------------------------------------------
-    /// Adds a supercript text to the list.
-    /// The script part lies on the ascent of the whole part.
-    //-----------------------------------------------------------------------------
-    void add_text_superscript(const text& whole_text,
-                              const text& script_text,
-                              const math::transformf& transform,
-                              float script_scale = 0.7f);
-
-    //-----------------------------------------------------------------------------
-    /// Adds a supercript text which will be fitted into the destination rect.
-    /// Position inside the rect is affected by the text's alignment and transform.
-    //-----------------------------------------------------------------------------
-    void add_text_superscript(const text& whole_text,
-                              const text& script_text,
-                              const math::transformf& transform,
-                              const rect& dst_rect,
-                              float script_scale = 0.7f,
-                              size_fit sz_fit = size_fit::shrink_to_fit,
-                              dimension_fit dim_fit = dimension_fit::uniform);
-
-    //-----------------------------------------------------------------------------
-    /// Adds a subscript text to the list.
-    /// The script part lies on the baseline of the whole part.
-    //-----------------------------------------------------------------------------
-    void add_text_subscript(const text& whole_text,
-                            const text& script_text,
-                            const math::transformf& transform,
-                            float script_scale = 0.7f);
-
-    //-----------------------------------------------------------------------------
-    /// Adds a subscript text which will be fitted into the destination rect.
-    /// The script part lies on the baseline of the whole part.
-    /// Position inside the rect is affected by the text's alignment and transform.
-    //-----------------------------------------------------------------------------
-    void add_text_subscript(const text& whole_text,
-                            const text& script_text,
-                            const math::transformf& transform,
-                            const rect& dst_rect,
-                            float script_scale = 0.7f,
-                            size_fit sz_fit = size_fit::shrink_to_fit,
-                            dimension_fit dim_fit = dimension_fit::uniform);
-
-    //-----------------------------------------------------------------------------
     /// Adds a polyline to the list.
     //-----------------------------------------------------------------------------
     void add_polyline(const polyline& poly,
@@ -319,24 +274,12 @@ struct draw_list
 
 
     //-----------------------------------------------------------------------------
-    ///
-    //-----------------------------------------------------------------------------
-    void add_text_superscript_impl(const text& whole_text,
-                                   const text& script_text,
-                                   const math::transformf& transform,
-                                   float script_scale);
-    void add_text_subscript_impl(const text& whole_text,
-                                 const text& script_text,
-                                 const math::transformf& transform,
-                                 float script_scale);
-
-    //-----------------------------------------------------------------------------
     /// Debugging facilities
     //-----------------------------------------------------------------------------
     void add_text_debug_info(const text& t, const math::transformf& transform);
     std::string to_string() const;
     void validate_stacks() const noexcept;
-    static void set_debug_draw(bool debug);
+    static bool set_debug_draw(bool debug);
     static void toggle_debug_draw();
 
     //-----------------------------------------------------------------------------
@@ -360,6 +303,8 @@ struct draw_list
     std::vector<gpu_program> programs;
     /// total commands requested
     size_t commands_requested = 0;
+
+    std::unique_ptr<draw_list> debug;
 };
 
 }
