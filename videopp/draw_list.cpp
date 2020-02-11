@@ -1474,95 +1474,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 {
     const auto& lines = t.get_lines_metrics();
 
-    math::transformf tr = transform;
-    {
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.ascent});
-            auto v2 = transform.transform_coord({line.maxx, line.ascent});
-
-            text txt;
-            txt.set_color(color::cyan());
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text("ascent ");
-
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-
-            auto width = line.maxx - line.minx;
-            std::stringstream ss;
-            ss << " width = " << std::fixed << std::setprecision(2) << width;
-
-            txt.set_alignment(align::left | align::middle);
-            txt.set_utf8_text(ss.str());
-
-            tr.set_position(v2.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.cap});
-
-            text txt;
-            txt.set_color(color::green());
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text("cap_height ");
-
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.median});
-
-            text txt;
-            txt.set_color(color::red());
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text("median ");
-
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.baseline});
-
-            text txt;
-            txt.set_color(color::magenta());
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text("baseline ");
-
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-    {
-        for(const auto& line : lines)
-        {
-            auto v1 = transform.transform_coord({line.minx, line.descent});
-
-            text txt;
-            txt.set_color(color::blue());
-            txt.set_font(default_font());
-            txt.set_alignment(align::right | align::middle);
-            txt.set_utf8_text("descent ");
-
-            tr.set_position(v1.x, v1.y, 0.0f);
-            add_text(txt, tr);
-        }
-    }
-
-
     {
         auto geometry = t.get_geometry();
         for(auto& v : geometry)
@@ -1592,6 +1503,96 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     }
     else
     {
+        math::transformf tr = transform;
+        {
+            for(const auto& line : lines)
+            {
+                auto v1 = transform.transform_coord({line.minx, line.ascent});
+                auto v2 = transform.transform_coord({line.maxx, line.ascent});
+
+                text txt;
+                txt.set_color(color::cyan());
+                txt.set_font(default_font());
+                txt.set_alignment(align::right | align::middle);
+                txt.set_utf8_text("ascent ");
+
+                tr.set_position(v1.x, v1.y, 0.0f);
+                add_text(txt, tr);
+
+                auto width = line.maxx - line.minx;
+                std::stringstream ss;
+                ss << " width = " << std::fixed << std::setprecision(2) << width;
+
+                txt.set_alignment(align::left | align::middle);
+                txt.set_utf8_text(ss.str());
+
+                tr.set_position(v2.x, v1.y, 0.0f);
+                add_text(txt, tr);
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                auto v1 = transform.transform_coord({line.minx, line.cap});
+
+                text txt;
+                txt.set_color(color::green());
+                txt.set_font(default_font());
+                txt.set_alignment(align::right | align::middle);
+                txt.set_utf8_text("cap_height ");
+
+                tr.set_position(v1.x, v1.y, 0.0f);
+                add_text(txt, tr);
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                auto v1 = transform.transform_coord({line.minx, line.median});
+
+                text txt;
+                txt.set_color(color::red());
+                txt.set_font(default_font());
+                txt.set_alignment(align::right | align::middle);
+                txt.set_utf8_text("median ");
+
+                tr.set_position(v1.x, v1.y, 0.0f);
+                add_text(txt, tr);
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                auto v1 = transform.transform_coord({line.minx, line.baseline});
+
+                text txt;
+                txt.set_color(color::magenta());
+                txt.set_font(default_font());
+                txt.set_alignment(align::right | align::middle);
+                txt.set_utf8_text("baseline ");
+
+                tr.set_position(v1.x, v1.y, 0.0f);
+                add_text(txt, tr);
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                auto v1 = transform.transform_coord({line.minx, line.descent});
+
+                text txt;
+                txt.set_color(color::blue());
+                txt.set_font(default_font());
+                txt.set_alignment(align::right | align::middle);
+                txt.set_utf8_text("descent ");
+
+                tr.set_position(v1.x, v1.y, 0.0f);
+                add_text(txt, tr);
+            }
+        }
+
+
+
         add_rect(t.get_frect(), transform, color::red(), false, 1.0f);
 
         for(const auto& line : lines)
