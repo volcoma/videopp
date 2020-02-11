@@ -39,6 +39,7 @@ int main()
 	os::init();
 	gfx::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
 
+    parallel::get_pool();
 	{
 		os::window win("win", os::window::centered, os::window::centered, 1366, 768, os::window::resizable);
 		gfx::renderer rend(win, true);
@@ -210,7 +211,7 @@ int main()
 
             gfx::draw_list list;
 
-            tr.set_position(pos.x, pos.y, 0);
+            tr.set_position(float(pos.x), float(pos.y), 0);
 
             for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
             {
