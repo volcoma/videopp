@@ -17,10 +17,6 @@ struct line_metrics
     float median{};
     /// Cap height of the line (H-height) is the height of a capital letter above the baseline.
     float cap{};
-    /// Superscript height of the line.
-    float superscript{};
-    /// Subscript height of the line.
-    float subscript{};
     /// Baseline of the line.
     float baseline{};
     /// Descent of the line.

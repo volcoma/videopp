@@ -731,10 +731,8 @@ void text::update_geometry(bool all) const
         metrics.minx = pen_x;
         metrics.ascent = pen_y - ascent;
         metrics.cap = pen_y - cap_height;
-        metrics.superscript = pen_y - superscript;
         metrics.median = pen_y - x_height;
         metrics.baseline = pen_y;
-        metrics.subscript = pen_y + subscript;
         metrics.descent = pen_y - descent;
 
         size_t vtx_count{};

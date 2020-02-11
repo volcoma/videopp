@@ -1605,14 +1605,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
         for(const auto& line : lines)
         {
-            math::vec2 v1{line.minx, line.superscript};
-            math::vec2 v2{line.maxx, line.superscript};
-
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color(252, 152, 3));
-        }
-
-        for(const auto& line : lines)
-        {
             math::vec2 v1{line.minx, line.cap};
             math::vec2 v2{line.maxx, line.cap};
 
@@ -1633,14 +1625,6 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             math::vec2 v2{line.maxx, line.baseline};
 
             add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
-        }
-
-        for(const auto& line : lines)
-        {
-            math::vec2 v1{line.minx, line.subscript};
-            math::vec2 v2{line.maxx, line.subscript};
-
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color(96, 81, 102));
         }
 
         for(const auto& line : lines)

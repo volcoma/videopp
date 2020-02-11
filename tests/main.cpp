@@ -39,7 +39,7 @@ int main()
 	os::init();
 	gfx::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
 
-    parallel::get_pool();
+
 	{
 		os::window win("win", os::window::centered, os::window::centered, 1366, 768, os::window::resizable);
 		gfx::renderer rend(win, true);
@@ -107,11 +107,11 @@ int main()
 //        builder.add(gfx::get_korean_glyph_range());
         builder.add(gfx::get_all_glyph_range());
 
-        auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 80, 2);
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 50, 2);
         //auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 80, 2);
         auto font = rend.create_font(std::move(info));
 
-        auto image = rend.create_texture(DATA"wheel.png");
+		auto image = rend.create_texture(DATA"wooden_wheel.png");
 
 		bool running = true;
         math::transformf tr;
@@ -209,44 +209,51 @@ int main()
 			rend.clear(gfx::color::gray());
 			//page.draw(0, 0, rend.get_rect().w);
 
-            gfx::draw_list list;
+			gfx::draw_list list;
 
-            tr.set_position(float(pos.x), float(pos.y), 0);
+//			tr.set_position(float(pos.x), float(pos.y), 0);
 
-            for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
-            {
-                gfx::text t;
-                t.set_font(font);
-                t.set_utf8_text(text);
-                t.set_alignment(valign | halign);
-                t.set_leaning(leaning);
-                //t.set_color(gfx::color::red());
-                //t.set_shadow_offsets({2, 2});
-                //t.set_outline_width(0.4f);
+//			for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
+//			{
+//				gfx::text t;
+//				t.set_font(font);
+//				t.set_utf8_text(text);
+//				t.set_alignment(valign | halign);
+//				t.set_leaning(leaning);
+//				//t.set_color(gfx::color::red());
+//				//t.set_shadow_offsets({2, 2});
+//				//t.set_outline_width(0.4f);
 
-                std::vector<gfx::text_decorator> decorators;
-                {
-                    decorators.emplace_back();
-                    auto& decorator = decorators.back();
-                    decorator.begin_glyph = 2;
-                    decorator.end_glyph = decorator.begin_glyph + 2;
-                    decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
-                    decorator.scale = scale;
-                }
+//				std::vector<gfx::text_decorator> decorators;
+//				{
+//					decorators.emplace_back();
+//					auto& decorator = decorators.back();
+//					decorator.begin_glyph = 2;
+//					decorator.end_glyph = decorator.begin_glyph + 2;
+//					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+//					decorator.scale = scale;
+//				}
 
-                {
-                    decorators.emplace_back();
-                    auto& decorator = decorators.back();
-                    decorator.begin_glyph = 2;
-                    decorator.end_glyph = decorator.begin_glyph + 2;
-                    decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
-                    decorator.scale = scale;
-                }
-                t.set_decorators(decorators);
-                list.add_text(t, tr);
+//				{
+//					decorators.emplace_back();
+//					auto& decorator = decorators.back();
+//					decorator.begin_glyph = 2;
+//					decorator.end_glyph = decorator.begin_glyph + 2;
+//					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+//					decorator.scale = scale;
+//				}
+//				t.set_decorators(decorators);
+//				list.add_text(t, tr);
 
-                tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
-            }
+//				tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
+//			}
+
+			gfx::rect r = image->get_rect();
+			auto pivot = gfx::align_item(gfx::align::center | gfx::align::middle, r);
+
+			tr.rotate(0.0f, 0.0f, math::radians(1.0f));
+			tr.set_position(rend.get_rect().w/2.0f, rend.get_rect().h/2.0f, 0.0f);
+			list.add_image(image, image->get_rect(), image->get_rect(), tr * pivot);
 
             rend.draw_cmd_list(list);
 

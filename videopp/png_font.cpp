@@ -139,27 +139,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
     }
 
     f.cap_height = f.ascent;
-    for(auto codepoint : {'H', 'I'})
-    {
-        const auto& glyph = f.get_glyph(uint32_t(codepoint));
-        if(glyph.codepoint != 0)
-        {
-            f.cap_height= -glyph.y0;
-            break;
-        }
-    }
-
     f.x_height = f.cap_height * 0.5f;
-    for(auto codepoint : {'x', 'z'})
-    {
-        const auto& glyph = f.get_glyph(uint32_t(codepoint));
-        if(glyph.codepoint != 0)
-        {
-            f.x_height= -glyph.y0;
-            break;
-        }
-    }
-
 
     return f;
 }
