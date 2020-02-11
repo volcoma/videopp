@@ -215,11 +215,13 @@ int main()
 
 //			for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
 //			{
-//				gfx::text t;
-//				t.set_font(font);
+				gfx::text t;
+				t.set_font(font);
 //				t.set_utf8_text(text);
-//				t.set_alignment(valign | halign);
-//				t.set_leaning(leaning);
+				t.set_alignment(valign | halign);
+				t.set_leaning(leaning);
+
+				auto w = t.get_width();
 //				//t.set_color(gfx::color::red());
 //				//t.set_shadow_offsets({2, 2});
 //				//t.set_outline_width(0.4f);
@@ -248,12 +250,12 @@ int main()
 //				tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
 //			}
 
-			gfx::rect r = image->get_rect();
-			auto pivot = gfx::align_item(gfx::align::center | gfx::align::middle, r);
+//			gfx::rect r = image->get_rect();
+//			auto pivot = gfx::align_item(gfx::align::center | gfx::align::middle, r);
 
-			tr.rotate(0.0f, 0.0f, math::radians(1.0f));
-			tr.set_position(rend.get_rect().w/2.0f, rend.get_rect().h/2.0f, 0.0f);
-			list.add_image(image, image->get_rect(), image->get_rect(), tr * pivot);
+//			tr.rotate(0.0f, 0.0f, math::radians(1.0f));
+//			tr.set_position(rend.get_rect().w/2.0f, rend.get_rect().h/2.0f, 0.0f);
+//			list.add_image(image, image->get_rect(), image->get_rect(), tr * pivot);
 
             rend.draw_cmd_list(list);
 

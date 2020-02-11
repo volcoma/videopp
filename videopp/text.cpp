@@ -171,15 +171,34 @@ float get_alignment_y(align_t alignment,
     return yoffs;
 }
 
-std::pair<float, float> get_alignment_offsets(
-        align_t alignment,
-        float minx, float miny, float miny_baseline, float miny_cap,
-        float maxx, float maxy, float maxy_baseline, float maxy_cap,
-        bool pixel_snap)
+
+float get_alignment_y(align_t alignment,
+					  float miny,
+					  float maxy, bool pixel_snap)
 {
-    return {get_alignment_x(alignment, minx, maxx, pixel_snap),
-            get_alignment_y(alignment, miny, miny_baseline, miny_cap, maxy, maxy_baseline, maxy_cap, pixel_snap)};
+	return get_alignment_y(alignment, miny, miny, miny, maxy, maxy, maxy, pixel_snap);
 }
+
+std::pair<float, float> get_alignment_offsets(
+	align_t alignment,
+	float minx, float miny, float miny_baseline, float miny_cap,
+	float maxx, float maxy, float maxy_baseline, float maxy_cap,
+	bool pixel_snap)
+{
+	return {get_alignment_x(alignment, minx, maxx, pixel_snap),
+			get_alignment_y(alignment, miny, miny_baseline, miny_cap, maxy, maxy_baseline, maxy_cap, pixel_snap)};
+}
+
+std::pair<float, float> get_alignment_offsets(
+	align_t alignment,
+	float minx, float miny,
+	float maxx, float maxy,
+	bool pixel_snap)
+{
+	return get_alignment_offsets(alignment, minx, miny, miny, miny, maxx, maxy, maxy, maxy, pixel_snap);
+
+}
+
 
 text::text() = default;
 text::text(const text&) = default;
@@ -601,10 +620,6 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
         const auto ascent = font_->ascent;
         const auto descent = font_->descent;
 
-//        const auto superscript = font_->superscript_offset;
-//        const auto subscript = font_->subscript_offset;
-//        const auto superscript_scale = font_->superscript_size / font_->size;
-//        const auto subscript_scale = font_->subscript_size / font_->size;
         const auto cap_height = font_->cap_height;
         const auto median = font_->x_height;
         switch(decorator.align)
@@ -618,24 +633,6 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
             case text_line::median:
                 pen_y_mod = metrics.median + median * scale;
             break;
-//            case text_line::superscript_original:
-//                if(superscript > 0.0f)
-//                {
-//                    scale = superscript_scale;
-//                    pen_y_mod = metrics.superscript;
-//                }
-//                else
-//                {
-//                    pen_y_mod = metrics.cap + cap_height * scale;
-//                }
-//            break;
-//            case text_line::subscript_original:
-//                if(subscript > 0.0f)
-//                {
-//                    scale = subscript_scale;
-//                    pen_y_mod = metrics.subscript;
-//                }
-//            break;
             case text_line::descent:
                 pen_y_mod = metrics.descent + descent * scale;
             break;
@@ -671,8 +668,6 @@ void text::update_geometry(bool all) const
     const auto ascent = font_->ascent;
     const auto descent = font_->descent;
     const auto height = ascent - descent;
-    const auto superscript = font_->superscript_offset;
-    const auto subscript = font_->subscript_offset;
 
     const auto line_gap = line_height - height;
     const auto x_height = font_->x_height;

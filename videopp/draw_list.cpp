@@ -480,7 +480,7 @@ math::transformf align_item(align_t align, const rect& item)
 math::transformf align_item(align_t align, float minx, float miny, float maxx, float maxy, bool pixel_snap)
 {
     auto xoffs = get_alignment_x(align, minx, maxx, pixel_snap);
-    auto yoffs = get_alignment_y(align, miny, miny, miny, maxy, maxy, maxy, pixel_snap);
+	auto yoffs = get_alignment_y(align, miny, maxy, pixel_snap);
 
     math::transformf result;
     result.translate(xoffs, yoffs, 0.0f);
@@ -894,11 +894,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
     auto offsets = get_alignment_offsets(align,
                                          float(dst_rect.x),
                                          float(dst_rect.y),
-                                         float(dst_rect.y),
-                                         float(dst_rect.y),
                                          float(dst_rect.x + dst_rect.w),
-                                         float(dst_rect.y + dst_rect.h),
-                                         float(dst_rect.y + dst_rect.h),
                                          float(dst_rect.y + dst_rect.h),
                                          false);
 

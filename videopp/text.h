@@ -79,14 +79,27 @@ float get_alignment_x(align_t alignment,
                       bool pixel_snap);
 
 float get_alignment_y(align_t alignment,
-                      float miny, float miny_baseline, float miny_cap,
-                      float maxy, float maxy_baseline, float maxy_cap,
-                      bool pixel_snap);
+					  float miny,
+					  float maxy,
+					  bool pixel_snap);
+
 
 std::pair<float, float> get_alignment_offsets(align_t alignment,
-                                              float minx, float miny, float miny_baseline, float miny_cap,
-                                              float maxx, float maxy, float maxy_baseline, float maxy_cap,
-                                              bool pixel_snap);
+											  float minx, float miny,
+											  float maxx, float maxy,
+											  bool pixel_snap);
+
+
+
+float get_alignment_y(align_t alignment,
+					  float miny, float miny_baseline, float miny_cap,
+					  float maxy, float maxy_baseline, float maxy_cap,
+					  bool pixel_snap);
+
+std::pair<float, float> get_alignment_offsets(align_t alignment,
+											  float minx, float miny, float miny_baseline, float miny_cap,
+											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
+											  bool pixel_snap);
 
 struct text_decorator
 {
