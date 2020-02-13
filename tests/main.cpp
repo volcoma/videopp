@@ -213,7 +213,7 @@ int main()
 
 			tr.set_position(float(pos.x), float(pos.y), 0);
 
-			for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
+			for(size_t i = 0; i < size_t(gfx::script_line::count); ++i)
 			{
 				gfx::text t;
 				t.set_font(font);
@@ -232,9 +232,9 @@ int main()
 					auto& decorator = decorators.back();
 					decorator.begin_glyph = 2;
 					decorator.end_glyph = decorator.begin_glyph + 2;
-					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+					decorator.script = gfx::script_line(size_t(gfx::script_line::ascent) + i);
 					decorator.scale = scale;
-                    decorator.color = gfx::color::red();
+					decorator.col = gfx::color::red();
 				}
 
 				{
@@ -242,7 +242,7 @@ int main()
 					auto& decorator = decorators.back();
 					decorator.begin_glyph = 2;
 					decorator.end_glyph = decorator.begin_glyph + 2;
-					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+					decorator.script = gfx::script_line(size_t(gfx::script_line::ascent) + i);
 					decorator.scale = scale;
 				}
 				t.set_decorators(decorators);

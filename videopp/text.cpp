@@ -615,8 +615,11 @@ bool text::apply_decorator(const line_metrics& metrics, size_t i,
 
     if(i >= decorator.begin_glyph && i < decorator.end_glyph)
     {
-        color_top = decorator.color;
-        color_bot = decorator.color;
+		if(decorator.col.a != 0)
+		{
+			color_top = decorator.col;
+			color_bot = decorator.col;
+		}
         scale = decorator.scale;
         if(scale < 0.001f)
         {
@@ -629,24 +632,24 @@ bool text::apply_decorator(const line_metrics& metrics, size_t i,
         const auto x_height = font_->x_height;
         const auto median = cap_height * 0.5f;
 
-        switch(decorator.align)
+		switch(decorator.script)
         {
-            case text_line::ascent:
+			case script_line::ascent:
                 pen_y_mod = metrics.ascent + ascent * scale;
             break;
-            case text_line::cap_height:
+			case script_line::cap_height:
                 pen_y_mod = metrics.cap_height + cap_height * scale;
             break;
-            case text_line::x_height:
+			case script_line::x_height:
                 pen_y_mod = metrics.x_height + x_height * scale;
             break;
-            case text_line::median:
+			case script_line::median:
                 pen_y_mod = metrics.median + median * scale;
             break;  
-            case text_line::baseline:
+			case script_line::baseline:
                 pen_y_mod = metrics.baseline;
             break;
-            case text_line::descent:
+			case script_line::descent:
                 pen_y_mod = metrics.descent + descent * scale;
             break;
             default:

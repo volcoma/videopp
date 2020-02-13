@@ -30,7 +30,7 @@ struct line_metrics
 };
 
 
-enum class text_line : uint32_t
+enum class script_line : uint32_t
 {
     // ascender line.
 	ascent,
@@ -120,9 +120,9 @@ struct text_decorator
     /// '>'  median - superscript
     /// '==' median - normal (center based)
     /// '<'  median - subscript
-	text_line align{text_line::baseline};
+	script_line script{script_line::baseline};
 
-    color color = color::white();
+	color col{0, 0, 0, 0};
 };
 
 class text
