@@ -211,49 +211,50 @@ int main()
 
 			gfx::draw_list list;
 
-//			tr.set_position(float(pos.x), float(pos.y), 0);
+			tr.set_position(float(pos.x), float(pos.y), 0);
 
-//			for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
-//			{
+			for(size_t i = 0; i < size_t(gfx::text_line::count); ++i)
+			{
 				gfx::text t;
 				t.set_font(font);
-//				t.set_utf8_text(text);
+				t.set_utf8_text(text);
 				t.set_alignment(valign | halign);
 				t.set_leaning(leaning);
 
-				auto w = t.get_width();
-//				//t.set_color(gfx::color::red());
-//				//t.set_shadow_offsets({2, 2});
-//				//t.set_outline_width(0.4f);
 
-//				std::vector<gfx::text_decorator> decorators;
-//				{
-//					decorators.emplace_back();
-//					auto& decorator = decorators.back();
-//					decorator.begin_glyph = 2;
-//					decorator.end_glyph = decorator.begin_glyph + 2;
-//					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
-//					decorator.scale = scale;
-//				}
+				//t.set_color(gfx::color::red());
+				//t.set_shadow_offsets({2, 2});
+				//t.set_outline_width(0.4f);
 
-//				{
-//					decorators.emplace_back();
-//					auto& decorator = decorators.back();
-//					decorator.begin_glyph = 2;
-//					decorator.end_glyph = decorator.begin_glyph + 2;
-//					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
-//					decorator.scale = scale;
-//				}
-//				t.set_decorators(decorators);
-//				list.add_text(t, tr);
+				std::vector<gfx::text_decorator> decorators;
+				{
+					decorators.emplace_back();
+					auto& decorator = decorators.back();
+					decorator.begin_glyph = 2;
+					decorator.end_glyph = decorator.begin_glyph + 2;
+					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+					decorator.scale = scale;
+                    decorator.color = gfx::color::red();
+				}
 
-//				tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
-//			}
+				{
+					decorators.emplace_back();
+					auto& decorator = decorators.back();
+					decorator.begin_glyph = 2;
+					decorator.end_glyph = decorator.begin_glyph + 2;
+					decorator.align = gfx::text_line(size_t(gfx::text_line::ascent) + i);
+					decorator.scale = scale;
+				}
+				t.set_decorators(decorators);
+				list.add_text(t, tr);
+
+				tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
+			}
 
 //			gfx::rect r = image->get_rect();
 //			auto pivot = gfx::align_item(gfx::align::center | gfx::align::middle, r);
 
-//			tr.rotate(0.0f, 0.0f, math::radians(1.0f));
+			//tr.rotate(0.0f, 0.0f, math::radians(1.0f));
 //			tr.set_position(rend.get_rect().w/2.0f, rend.get_rect().h/2.0f, 0.0f);
 //			list.add_image(image, image->get_rect(), image->get_rect(), tr * pivot);
 

@@ -579,7 +579,9 @@ void text::update_unicode_text() const
 
         int m = fnt::text_char_from_utf8(&uchar, beg, end);
         if(!m)
+        {
             break;
+        }
         unicode_text_.push_back(uchar);
         beg += m;
     }
@@ -599,10 +601,12 @@ const text_decorator& text::get_next_decorator(size_t i) const
     return empty;
 }
 
-void text::apply_decorator(const line_metrics& metrics, size_t i,
+bool text::apply_decorator(const line_metrics& metrics, size_t i,
                            text_decorator& decorator,
                            float& pen_y_mod,
-                           float& scale) const
+                           float& scale,
+                           color& color_top,
+                           color& color_bot) const
 {
     if(i >= decorator.end_glyph)
     {
@@ -611,6 +615,8 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
 
     if(i >= decorator.begin_glyph && i < decorator.end_glyph)
     {
+        color_top = decorator.color;
+        color_bot = decorator.color;
         scale = decorator.scale;
         if(scale < 0.001f)
         {
@@ -619,19 +625,26 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
 
         const auto ascent = font_->ascent;
         const auto descent = font_->descent;
-
         const auto cap_height = font_->cap_height;
-        const auto median = font_->x_height;
+        const auto x_height = font_->x_height;
+        const auto median = cap_height * 0.5f;
+
         switch(decorator.align)
         {
             case text_line::ascent:
                 pen_y_mod = metrics.ascent + ascent * scale;
             break;
             case text_line::cap_height:
-                pen_y_mod = metrics.cap + cap_height * scale;
+                pen_y_mod = metrics.cap_height + cap_height * scale;
+            break;
+            case text_line::x_height:
+                pen_y_mod = metrics.x_height + x_height * scale;
             break;
             case text_line::median:
                 pen_y_mod = metrics.median + median * scale;
+            break;  
+            case text_line::baseline:
+                pen_y_mod = metrics.baseline;
             break;
             case text_line::descent:
                 pen_y_mod = metrics.descent + descent * scale;
@@ -639,7 +652,11 @@ void text::apply_decorator(const line_metrics& metrics, size_t i,
             default:
             break;
         }
+
+        return true;
     }
+
+    return false;
 }
 
 void text::update_geometry(bool all) const
@@ -725,22 +742,49 @@ void text::update_geometry(bool all) const
         line_metrics metrics{};
         metrics.minx = pen_x;
         metrics.ascent = pen_y - ascent;
-        metrics.cap = pen_y - cap_height;
-        metrics.median = pen_y - x_height;
+        metrics.cap_height = pen_y - cap_height;
+        metrics.x_height = pen_y - x_height;
+        metrics.median = pen_y - cap_height * 0.5f;
         metrics.baseline = pen_y;
         metrics.descent = pen_y - descent;
 
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
 
+        bool changed_colors{};
         for(auto c : line)
         {
             const auto& g = font_->get_glyph(c);
 
-
             auto scale = 1.0f;
             auto pen_y_decorated = pen_y;
-            apply_decorator(metrics, i, decorator, pen_y_decorated, scale);
+            auto color_top = color_top_;
+            auto color_bot = color_bot_;
+
+            if(apply_decorator(metrics, i, decorator, pen_y_decorated, scale, color_top, color_bot))
+            {
+                if(!changed_colors)
+                {
+                    vcolor_top = math::vec4{color_top.r, color_top.g, color_top.b, color_top.a};
+                    vcolor_bot = math::vec4{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
+                    has_gradient = color_top != color_bot;
+
+                    changed_colors = true;
+                }
+            }
+            else
+            {
+                if(changed_colors)
+                {
+                    vcolor_top = math::vec4{color_top.r, color_top.g, color_top.b, color_top.a};
+                    vcolor_bot = math::vec4{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
+
+                    has_gradient = color_top != color_bot;
+                    changed_colors = false;
+                }
+            }
+
+
 
             if(kerning_enabled_)
             {
@@ -772,8 +816,8 @@ void text::update_geometry(bool all) const
                 auto y0 = pen_y_decorated + g.y0 * scale;
                 auto y1 = pen_y_decorated + g.y1 * scale;
 
-                const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top_;
-                const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metrics.ascent, height) : color_bot_;
+                const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top;
+                const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metrics.ascent, height) : color_bot;
 
                 std::array<vertex_2d, 4> quad =
                 {{

@@ -13,10 +13,12 @@ struct line_metrics
 {
     /// Ascent of the line.
     float ascent{};
-    /// Median of the line(x-height).
-    float median{};
     /// Cap height of the line (H-height) is the height of a capital letter above the baseline.
-    float cap{};
+    float cap_height{};
+    /// X height of the line.
+    float x_height{};
+    /// Median of the line(cap_height/2).
+    float median{};
     /// Baseline of the line.
     float baseline{};
     /// Descent of the line.
@@ -30,24 +32,26 @@ struct line_metrics
 
 enum class text_line : uint32_t
 {
-    // Superscript aligned on the ascender line.
+    // ascender line.
 	ascent,
 
-    // Superscript aligned on the cap height line.
+    // cap height line.
     cap_height,
 
-    // Superscript aligned on the median line.
+    // x_height line.
+    x_height,
+
+    // median line.
     median,
 
-    // Subscript aligned on the baseline.
+    // baseline.
 	baseline,
 
-    // Subscript aligned on the descender line.
+    // descender line.
     descent,
 
     count
 };
-
 
 enum align : uint32_t
 {
@@ -112,9 +116,13 @@ struct text_decorator
     /// Scale to be used.
 	float scale{1.0f};
 
-    /// Type of the scripting to be applied.
+    /// The line to align to.
+    /// '>'  median - superscript
+    /// '==' median - normal (center based)
+    /// '<'  median - subscript
 	text_line align{text_line::baseline};
 
+    color color = color::white();
 };
 
 class text
@@ -311,10 +319,12 @@ private:
     void update_geometry(bool all) const;
     void update_unicode_text() const;
 	const text_decorator& get_next_decorator(size_t i) const;
-    void apply_decorator(const line_metrics& metrics, size_t i,
+    bool apply_decorator(const line_metrics& metrics, size_t i,
                          text_decorator& decorator,
                          float& pen_y_mod,
-                         float& scale) const;
+                         float& scale,
+                         color& color_top,
+                         color& color_bot) const;
 
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
