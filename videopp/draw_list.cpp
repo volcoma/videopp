@@ -472,6 +472,39 @@ math::transformf fit_item(float item_w, float item_h,
     return fit_trans;
 }
 
+math::transformf fit_text(const text &t, const math::transformf &transform,
+                                         const rect &dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+{
+    auto align = t.get_alignment();
+    auto scale_x = transform.get_scale().x;
+    auto scale_y = transform.get_scale().y;
+    float text_width = t.get_width() * scale_x;
+    float text_height = t.get_height() * scale_y;
+
+    const auto& translation = transform.get_position();
+    auto offsets = get_alignment_offsets(align,
+                                         float(dst_rect.x) + translation.x,
+                                         float(dst_rect.y) + translation.y,
+                                         float(dst_rect.x + dst_rect.w) - translation.x,
+                                         float(dst_rect.y + dst_rect.h) - translation.y,
+                                         false);
+
+    math::transformf parent{};
+    parent.translate(translation);
+    parent.set_rotation(transform.get_rotation());
+
+    math::transformf local = fit_item(text_width  + translation.y,
+                                      text_height + translation.y,
+                                      float(dst_rect.w) - translation.x,
+                                      float(dst_rect.h) - translation.y,
+                                      sz_fit, dim_fit);
+
+    local.scale(transform.get_scale());
+    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
+
+    return parent * local;
+}
+
 math::transformf align_item(align_t align, const rect& item)
 {
     return align_item(align, float(item.x), float(item.y), float(item.x + item.w), float(item.y + item.h), true);
@@ -667,6 +700,11 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
     }
 
     add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, blend, setup);
+
+    if(debug_draw && debug)
+    {
+        debug->add_rect(points, col, false);
+    }
 }
 
 void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, texture_view texture, const program_setup& setup)
@@ -753,7 +791,9 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
 
         auto debug_draw_old = set_debug_draw(false);
+        //push_program(get_program<programs::multi_channel>());
         add_text(shadow, transform * shadow_transform);
+        //pop_program();
         set_debug_draw(debug_draw_old);
     }
 
@@ -885,33 +925,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
-    auto align = t.get_alignment();
-    auto scale_x = transform.get_scale().x;
-    auto scale_y = transform.get_scale().y;
-    float text_width = t.get_width() * scale_x;
-    float text_height = t.get_height() * scale_y;
-
-    auto offsets = get_alignment_offsets(align,
-                                         float(dst_rect.x),
-                                         float(dst_rect.y),
-                                         float(dst_rect.x + dst_rect.w),
-                                         float(dst_rect.y + dst_rect.h),
-                                         false);
-
-    math::transformf parent{};
-    parent.translate(transform.get_position());
-    parent.set_rotation(transform.get_rotation());
-
-    math::transformf local = fit_item(text_width,
-                                      text_height,
-                                      float(dst_rect.w),
-                                      float(dst_rect.h),
-                                      sz_fit, dim_fit);
-
-    local.scale(transform.get_scale());
-    local.translate(-math::vec3(offsets.first, offsets.second, 0.0f));
-
-    add_text(t, parent * local);
+    add_text(t, fit_text(t, transform, dst_rect, sz_fit, dim_fit));
 
     if(debug_draw && debug)
     {

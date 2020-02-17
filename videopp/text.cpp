@@ -13,6 +13,39 @@ namespace
 
 constexpr size_t vertices_per_quad = 4;
 
+
+// line feed (0x0a, '\n')
+bool is_newline(uint32_t c)
+{
+    return c == 0x0a;
+}
+
+// Checks if the given character is a blank character
+// as classified by the currently installed C locale.
+// Blank characters are whitespace characters used to
+// separate words within a sentence.
+// In the default C locale, only
+// horizontal tab (0x09, '\t')
+// space (0x20, ' ')
+// are classified as blank characters.
+bool is_blank(uint32_t c)
+{
+    return c == 0x20 || c == 0x09;
+}
+
+// Checks if the given character is whitespace character as classified by the currently installed C locale.
+// In the default locale, the whitespace characters are the following:
+// horizontal tab (0x09, '\t')
+// space (0x20, ' ')
+// line feed (0x0a, '\n')
+// vertical tab (0x0b, '\v')
+// form feed (0x0c, '\f')
+// carriage return (0x0d, '\r')
+bool is_space(uint32_t c)
+{
+    return is_blank(c) ||is_newline(c) || c == 0x0b || c == 0x0c || c == 0x0d;
+}
+
 inline color get_gradient(const math::vec4& ct, const math::vec4& cb, float t, float dt)
 {
     const float step = std::min(std::max(t, 0.0f), dt);
@@ -268,12 +301,18 @@ void text::set_color(color c)
 
 void text::set_vgradient_colors(color top, color bot)
 {
-    if(color_top_ == top && color_bot_ == bot)
+    if(decorator_.color_top == top && decorator_.color_bot == bot)
     {
         return;
     }
-    color_top_ = top;
-    color_bot_ = bot;
+    decorator_.color_top = top;
+    decorator_.color_bot = bot;
+
+    for(auto& decorator : decorators_)
+    {
+        decorator.color_top = top;
+        decorator.color_bot = bot;
+    }
 
     clear_geometry();
 }
@@ -328,12 +367,12 @@ void text::set_shadow_offsets(const math::vec2& offsets)
 
 void text::set_advance(const math::vec2& advance)
 {
-    if(math::all(math::epsilonEqual(advance, advance_, math::epsilon<float>())))
+    if(math::all(math::epsilonEqual(advance, decorator_.advance, math::epsilon<float>())))
     {
         return;
     }
 
-    advance_ = advance;
+    decorator_.advance = advance;
     clear_lines();
     clear_geometry();
 }
@@ -381,45 +420,45 @@ bool text::is_valid() const
     return !utf8_text_.empty() && font_;
 }
 
-float text::get_advance_offset_y() const
+float text::get_advance_offset_y(const text_decorator& decorator) const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.y + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
+        return decorator.advance.y + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
     }
 
-    return advance_.y;
+    return decorator.advance.y;
 }
 
 void text::set_kerning(bool enabled)
 {
-    if(kerning_enabled_ == enabled)
+    if(decorator_.kerning_enabled == enabled)
     {
         return;
     }
-    kerning_enabled_ = enabled;
+    decorator_.kerning_enabled = enabled;
     clear_geometry();
 }
 
 void text::set_leaning(float leaning)
 {
     leaning = math::clamp(leaning, -45.0f, 45.0f);
-    if(math::epsilonEqual(leaning_, leaning, math::epsilon<float>()))
+    if(math::epsilonEqual(decorator_.leaning, leaning, math::epsilon<float>()))
     {
         return;
     }
-    leaning_ = leaning;
+    decorator_.leaning = leaning;
     clear_geometry();
 }
 
-float text::get_advance_offset_x() const
+float text::get_advance_offset_x(const text_decorator& decorator) const
 {
     if(font_ && font_->sdf_spread > 0)
     {
-        return advance_.x + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
+        return decorator.advance.x + (outline_width_ * float(font_->sdf_spread + 3) * 2.0f);
     }
 
-    return advance_.x;
+    return decorator.advance.x;
 }
 
 void text::set_max_width(float max_width)
@@ -516,39 +555,78 @@ void text::update_lines() const
     cache<text>::get(lines_.back(), unicode_text_size);
     lines_.back().reserve(unicode_text_size);
 
-    auto max_width = float(max_width_);
-    auto advance_offset_x = get_advance_offset_x();
+    auto max_width = float(max_width_) - font_->get_glyph(' ').advance_x;
+
+    auto decorator = &decorator_;
+    auto next_decorator = get_next_decorator(0, decorator);
+
+    auto advance_offset_x = get_advance_offset_x(*decorator);
 
     for(size_t i = 0; i < unicode_text_size; ++i)
     {
         uint32_t c = unicode_text[i];
 
-        if(c == 32 || c == '\n')
+        // check if is a break possible character
+        if(is_space(c))
         {
             last_space = i;
         }
 
         const auto& g = font_->get_glyph(c);
+        auto glyph_advance = g.advance_x;
 
-        bool exceedsmax_width = max_width > 0 && (advance + g.advance_x + advance_offset_x) > max_width;
+        float callback_advance = 0.0f;
 
-        if(c == '\n' || (exceedsmax_width && (last_space != size_t(-1))))
+        // decorator begin
         {
-            lines_.back().resize(lines_.back().size() - (i - last_space));
-            chars_ -= uint32_t(i - last_space);
+            if(get_decorator(chars_, decorator, next_decorator))
+            {
+                if(decorator->callback)
+                {
+                    callback_advance = decorator->callback(false, advance, 0, 0);
+                }
+                advance_offset_x = get_advance_offset_x(*decorator);
+            }
 
-            i = last_space;
+
+            if(decorator->callback || decorator->ignore_codepoint == c)
+            {
+                glyph_advance = 0;
+            }
+
+            glyph_advance *= decorator->scale;
+            glyph_advance += callback_advance + advance_offset_x;
+        }
+        // decorator end
+
+        bool exceedsmax_width = max_width > 0 && (advance + glyph_advance) > max_width;
+
+        if(is_newline(c) || exceedsmax_width)
+        {
+            if(is_blank(c))
+            {
+                lines_.back().push_back(c);
+                ++chars_;
+            }
+            if(i > last_space)
+            {
+                lines_.back().resize(lines_.back().size() - (i - (last_space + 1)));
+                chars_ -= uint32_t(i - (last_space + 1));
+                i = last_space;
+            }
+
             lines_.resize(lines_.size() + 1);
             cache<text>::get(lines_.back(), unicode_text_size - chars_);
             lines_.back().reserve(unicode_text_size - chars_);
             advance = 0;
             last_space = size_t(-1);
+
         }
         else
         {
             lines_.back().push_back(c);
             ++chars_;
-            advance += g.advance_x;
+            advance += glyph_advance;
         }
     }
 }
@@ -587,79 +665,43 @@ void text::update_unicode_text() const
     }
 }
 
-const text_decorator& text::get_next_decorator(size_t i) const
+const text_decorator* text::get_next_decorator(size_t glyph_idx, const text_decorator* current) const
 {
+    const text_decorator* result = &decorator_;
+
     for(const auto& decorator : decorators_)
     {
-        if(i <= decorator.begin_glyph)
+        if(current->end_glyph >= glyph_idx && current != &decorator && glyph_idx <= decorator.begin_glyph)
         {
-            return decorator;
+            if(result == &decorator_ || decorator.begin_glyph < result->begin_glyph)
+            {
+                result = &decorator;
+            }
         }
     }
 
-    static text_decorator empty{};
-    return empty;
+    return result;
 }
 
-bool text::apply_decorator(const line_metrics& metrics, size_t i,
-                           text_decorator& decorator,
-                           float& pen_y_mod,
-                           float& scale,
-                           color& color_top,
-                           color& color_bot) const
+bool text::get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const
 {
-    if(i >= decorator.end_glyph)
+    bool changed = false;
+
+    if(i >= current->end_glyph)
     {
-        decorator = get_next_decorator(i);
-    }
-
-    if(i >= decorator.begin_glyph && i < decorator.end_glyph)
-    {
-		if(decorator.col.a != 0)
-		{
-			color_top = decorator.col;
-			color_bot = decorator.col;
-		}
-        scale = decorator.scale;
-        if(scale < 0.001f)
+        if(current != next && i >= next->begin_glyph)
         {
-            scale = 0.001f;
+            changed = true;
+            current = next;
+            next = get_next_decorator(i, current);
         }
-
-        const auto ascent = font_->ascent;
-        const auto descent = font_->descent;
-        const auto cap_height = font_->cap_height;
-        const auto x_height = font_->x_height;
-        const auto median = cap_height * 0.5f;
-
-		switch(decorator.script)
+        else if(current != &decorator_)
         {
-			case script_line::ascent:
-                pen_y_mod = metrics.ascent + ascent * scale;
-            break;
-			case script_line::cap_height:
-                pen_y_mod = metrics.cap_height + cap_height * scale;
-            break;
-			case script_line::x_height:
-                pen_y_mod = metrics.x_height + x_height * scale;
-            break;
-			case script_line::median:
-                pen_y_mod = metrics.median + median * scale;
-            break;  
-			case script_line::baseline:
-                pen_y_mod = metrics.baseline;
-            break;
-			case script_line::descent:
-                pen_y_mod = metrics.descent + descent * scale;
-            break;
-            default:
-            break;
+            changed = true;
+            current = &decorator_;
         }
-
-        return true;
     }
-
-    return false;
+    return changed;
 }
 
 void text::update_geometry(bool all) const
@@ -678,13 +720,24 @@ void text::update_geometry(bool all) const
     {
         return;
     }
-    auto advance_offset_x = get_advance_offset_x();
-    auto advance_offset_y = get_advance_offset_y();
+
+    auto decorator = &decorator_;
+    auto next_decorator = get_next_decorator(0, decorator);
+
+    auto advance_offset_x = get_advance_offset_x(*decorator);
+    auto advance_offset_y = get_advance_offset_y(*decorator);
+
+    auto color_top = decorator->color_top;
+    auto color_bot = decorator->color_bot;
+    math::vec4 vcolor_top{color_top.r, color_top.g, color_top.b, color_top.a};
+    math::vec4 vcolor_bot{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
+    bool has_gradient = color_top != color_bot;
+    bool kerning_enabled = decorator->kerning_enabled;
 
     float leaning = 0.0f;
     bool has_leaning = false;
+    auto line_height = font_->line_height + advance_offset_y;
     const auto pixel_snap = font_->pixel_snap;
-    const auto line_height = font_->line_height + advance_offset_y;
     const auto ascent = font_->ascent;
     const auto descent = font_->descent;
     const auto height = ascent - descent;
@@ -692,7 +745,7 @@ void text::update_geometry(bool all) const
     const auto line_gap = line_height - height;
     const auto x_height = font_->x_height;
     const auto cap_height = font_->cap_height;
-
+    const auto median = cap_height * 0.5f;
     if(all)
     {
         cache<text>::get(lines_metrics_, lines.size());
@@ -700,19 +753,15 @@ void text::update_geometry(bool all) const
         cache<text>::get(geometry_, chars_ * vertices_per_quad);
         geometry_.resize(chars_ * vertices_per_quad);
 
-        has_leaning = math::epsilonNotEqual(leaning_, 0.0f, math::epsilon<float>());
+        has_leaning = math::epsilonNotEqual(decorator->leaning, 0.0f, math::epsilon<float>());
         if(has_leaning)
         {
-            leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-leaning_)).x;
+            leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-decorator->leaning)).x;
         }
     }
 
     size_t offset = 0;
     auto vptr = geometry_.data();
-
-    math::vec4 vcolor_top{color_top_.r, color_top_.g, color_top_.b, color_top_.a};
-    math::vec4 vcolor_bot{color_bot_.r, color_bot_.g, color_bot_.b, color_bot_.a};
-    bool has_gradient = color_top_ != color_bot_;
 
     float max_h = (lines.size() * line_height) - line_gap;
     float min_y = 0.0f;
@@ -739,7 +788,7 @@ void text::update_geometry(bool all) const
     auto pen_y = ascent + align_y;
 
     size_t i = 0;
-    text_decorator decorator{};
+
     for(const auto& line : lines)
     {
         line_metrics metrics{};
@@ -754,42 +803,83 @@ void text::update_geometry(bool all) const
         size_t vtx_count{};
         auto last_codepoint = char_t(-1);
 
-        bool changed_colors{};
         for(auto c : line)
         {
             const auto& g = font_->get_glyph(c);
 
-            auto scale = 1.0f;
             auto pen_y_decorated = pen_y;
-            auto color_top = color_top_;
-            auto color_bot = color_bot_;
 
-            if(apply_decorator(metrics, i, decorator, pen_y_decorated, scale, color_top, color_bot))
+            // decorator begin
             {
-                if(!changed_colors)
+                if(get_decorator(i, decorator, next_decorator))
                 {
-                    vcolor_top = math::vec4{color_top.r, color_top.g, color_top.b, color_top.a};
-                    vcolor_bot = math::vec4{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
-                    has_gradient = color_top != color_bot;
+                    if(decorator->callback)
+                    {
+                        pen_x += decorator->callback(all, pen_x, pen_y, lines_metrics_.size());
+                    }
 
-                    changed_colors = true;
+                    advance_offset_x = get_advance_offset_x(*decorator);
+                    kerning_enabled = decorator->kerning_enabled;
+
+                    if(all)
+                    {
+                        color_top = decorator->color_top;
+                        color_bot = decorator->color_bot;
+                        vcolor_top = {color_top.r, color_top.g, color_top.b, color_top.a};
+                        vcolor_bot = {color_bot.r, color_bot.g, color_bot.b, color_bot.a};
+                        has_gradient = color_top != color_bot;
+
+                        has_leaning = math::epsilonNotEqual(decorator->leaning, 0.0f, math::epsilon<float>());
+                        if(has_leaning)
+                        {
+                            leaning = math::rotateZ(math::vec3{0.0f, ascent, 0.0f}, math::radians(-decorator->leaning)).x;
+                        }
+                    }
+                }
+
+                if(decorator->callback || decorator->ignore_codepoint == g.codepoint)
+                {
+                    i++;
+                    continue;
                 }
             }
-            else
-            {
-                if(changed_colors)
-                {
-                    vcolor_top = math::vec4{color_top.r, color_top.g, color_top.b, color_top.a};
-                    vcolor_bot = math::vec4{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
 
-                    has_gradient = color_top != color_bot;
-                    changed_colors = false;
+            auto scale = std::max(decorator->scale, 0.001f);
+
+            if(all)
+            {
+                // ----------------------------
+                // Apply the decorator
+                // ----------------------------
+                switch(decorator->script)
+                {
+                    case script_line::ascent:
+                        pen_y_decorated = metrics.ascent + ascent * scale;
+                    break;
+                    case script_line::cap_height:
+                        pen_y_decorated = metrics.cap_height + cap_height * scale;
+                    break;
+                    case script_line::x_height:
+                        pen_y_decorated = metrics.x_height + x_height * scale;
+                    break;
+                    case script_line::median:
+                        pen_y_decorated = metrics.median + median * scale;
+                    break;
+                    case script_line::baseline:
+                        pen_y_decorated = metrics.baseline;
+                    break;
+                    case script_line::descent:
+                        pen_y_decorated = metrics.descent + descent * scale;
+                    break;
+                    default:
+                    break;
                 }
+
+                // ----------------------------
             }
 
 
-
-            if(kerning_enabled_)
+            if(kerning_enabled)
             {
                 // modify the pen advance with the kerning from the previous character
                 pen_x += font_->get_kerning(last_codepoint, g.codepoint) * scale;
@@ -865,6 +955,11 @@ void text::update_geometry(bool all) const
                     {
                         vv.pos.x = float(int(vv.pos.x));
                     }
+                }
+
+                if(align_line_callback)
+                {
+                    align_line_callback(lines_metrics_.size(), align_x);
                 }
             }
 
@@ -952,7 +1047,11 @@ rect text::get_rect() const
 
 const frect& text::get_frect() const
 {
-    update_geometry(true);
+    if(rect_)
+    {
+        return rect_;
+    }
+    update_geometry(false);
 
     return rect_;
 }
@@ -985,6 +1084,76 @@ color text::get_shadow_color_top() const
 color text::get_shadow_color_bot() const
 {
     return shadow_color_bot_;
+}
+
+
+std::vector<text_decorator*> text::generate_decorators(uint32_t codepoint)
+{
+    const auto& unicode_text = get_unicode_text();
+
+    auto sz_before = decorators_.size();
+
+    size_t idx  = 0;
+
+    for(auto c : unicode_text)
+    {
+        if(c == codepoint)
+        {
+            if(!decorators_.empty())
+            {
+                auto& last_decorator = decorators_.back();
+                if(last_decorator.end_glyph <= last_decorator.begin_glyph)
+                {
+                    last_decorator.end_glyph = idx + 1;
+                    last_decorator.ignore_codepoint = codepoint;
+                }
+                else
+                {
+
+                    decorators_.emplace_back();
+                    auto& decorator = decorators_.back();
+                    decorator.begin_glyph = idx;
+
+                }
+            }
+            else
+            {
+                decorators_.emplace_back();
+                auto& decorator = decorators_.back();
+                decorator.begin_glyph = idx;
+            }
+        }
+
+        if(!is_newline(c))
+        {
+            idx++;
+        }
+    }
+
+    if(!decorators_.empty())
+    {
+        auto& decorator = decorators_.back();
+        if(!decorator.end_glyph)
+        {
+            decorators_.pop_back();
+        }
+    }
+
+    auto sz_after = decorators_.size();
+
+    auto count = sz_after - sz_before;
+
+    std::vector<text_decorator*> result;
+    if(count > 0)
+    {
+        result.resize(count);
+        for(size_t i = 0; i < count; ++i)
+        {
+            result[i] = &decorators_[sz_before + i];
+        }
+    }
+
+    return result;
 }
 
 }

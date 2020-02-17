@@ -17,6 +17,15 @@ namespace gfx
         rect_t(const rect_t &other) noexcept  = default;
         rect_t(rect_t &&other) noexcept = default;
         
+        void expand(T x_off, T y_off)
+        {
+            x -= int(x_off);
+            y -= int(y_off);
+            w += int(x_off * 2.0f);
+            h += int(y_off * 2.0f);
+
+        }
+
         rect_t offset(const point_t<T>& pt) const
         {
             rect_t copy = *this;

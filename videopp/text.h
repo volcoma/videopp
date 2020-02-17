@@ -105,6 +105,7 @@ std::pair<float, float> get_alignment_offsets(align_t alignment,
 											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
 											  bool pixel_snap);
 
+
 struct text_decorator
 {
     /// Begin glyph (inclusive).
@@ -113,16 +114,32 @@ struct text_decorator
     /// End glyph (exclusive).
 	size_t end_glyph{};
 
+    std::function<float(bool add, float pen_x, float pen_y, size_t line)> callback;
+
+    /// Extra advance
+    math::vec2 advance{0, 0};
+
+    uint32_t ignore_codepoint{};
+
     /// Scale to be used.
 	float scale{1.0f};
 
+    /// Leaning
+    float leaning{};
+
+    /// Color of the text
+    color color_top = color::white();
+    color color_bot = color::white();
+
     /// The line to align to.
-    /// '>'  median - superscript
-    /// '==' median - normal (center based)
-    /// '<'  median - subscript
+    /// > median - superscript
+    /// = median - normal (center based)
+    /// < median - subscript
 	script_line script{script_line::baseline};
 
-	color col{0, 0, 0, 0};
+    /// Kerning usage if the font provides any kerning pairs.
+    bool kerning_enabled{};
+
 };
 
 class text
@@ -307,25 +324,25 @@ public:
 
     bool is_valid() const;
 
+    void set_align_line_callback(const std::function<void(size_t, float)>& callback)
+    {
+        align_line_callback = callback;
+    }
 
+    std::vector<text_decorator*> generate_decorators(uint32_t codepoint);
 private:
 
-    float get_advance_offset_x() const;
-    float get_advance_offset_y() const;
+    float get_advance_offset_x(const text_decorator& decorator) const;
+    float get_advance_offset_y(const text_decorator& decorator) const;
 
     void clear_geometry();
     void clear_lines();
     void update_lines() const;
     void update_geometry(bool all) const;
     void update_unicode_text() const;
-	const text_decorator& get_next_decorator(size_t i) const;
-    bool apply_decorator(const line_metrics& metrics, size_t i,
-                         text_decorator& decorator,
-                         float& pen_y_mod,
-                         float& scale,
-                         color& color_top,
-                         color& color_bot) const;
+    const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
 
+    bool get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const;
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
 
@@ -338,6 +355,7 @@ private:
     /// Unicode text
     mutable std::vector<uint32_t> unicode_text_;
 
+    std::function<void(size_t, float)> align_line_callback;
     /// Utf8 text
     std::string utf8_text_;
 
@@ -350,20 +368,15 @@ private:
     /// Rect of the text relative to the aligned origin.
     mutable frect rect_{};
 
+    text_decorator decorator_{};
+
 	std::vector<text_decorator> decorators_{};
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets_{0.0f, 0.0f};
 
-    /// Extra advance
-    math::vec2 advance_ = {0, 0};
-
     /// Total chars in the text.
     mutable uint32_t chars_ = 0;
-
-    /// Color of the text
-    color color_top_ = color::white();
-    color color_bot_ = color::white();
 
     /// Outline color of the text
     color outline_color_ = color::black();
@@ -378,14 +391,9 @@ private:
     /// Origin alignment
     align_t alignment_ = align::left | align::baseline_top;
 
-    /// Leaning
-    float leaning_{};
-
     /// Max width
     float max_width_{};
 
-    /// Kerning usage if the font provides any kerning pairs.
-    bool kerning_enabled_ = false;
 };
 
 

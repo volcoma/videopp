@@ -9,30 +9,195 @@
 #include <iostream>
 #include <thread>
 
-static std::string html =
-R"(
-<!DOCTYPE html>
-<html>
-<body>
+static std::string EN =
+R"(^FREE SPINS^
+$3$ #scatter# symbols anywhere on the $2nd$, $3rd$ and $4th$ reels only trigger $10 FREE SPINS$ + $MOVING SYMBOLS$.
+During $FREE SPINS$, if symbol appear on the entire $1st$ reel and on any position on the $3rd$, $4th$ or $5th$ reel, the positions on the row between them will also be filled with that symbol.
+In case of retriggering $FREE SPINS$, the player wins $10$ new $FREE SPINS$ which are added to the current number of $FREE SPINS$.
+The winnings from #scatter# symbols and new @FREE SPINS@ are won before the expanding of the moving symbols. The $FREE SPINS$ are played at trigger bet and lines. During $FREE SPINS$ an alternate set of reels is used.
 
-<h1 style="text-align:center;">Centered Heading</h1>
-<p style="text-align:center;">Centered paragraph.</p>
-<h1 style="background-color:rgba(255,0,0,0.1);color:Tomato;">Hello World</h3>
-<h3 style="background-color:rgba(0,255,0,0.1);color:Tomato;">Hello World</h3>
-<p style="background-color:rgba(255,255,0,0.1);color:DodgerBlue;">Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.</p>
-<p style="color:MediumSeaGreen;font-size: 32pt">Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat.</p>
-<pre>
-Text in a pre element
-is displayed in a fixed-width
-font, and it preserves
-both      spaces and
-line breaks
-</pre>
+^WILD^
+#wild# subtitutes for all symbols except #scatter#.)";
 
-</body>
-</html>
-)";
+static std::string BG =
+R"(^БЕЗПЛАТНИ СПИНОВЕ^
+$3$ #scatter# символи навсякъде на $2ра$, $3та$ и $4та$ ролка задействат само $10 БЕЗПЛАТНИ СПИНОВЕ$ + $ДВИЖЕЩИ СИМВОЛИ$.
+По време на $БЕЗПЛАТНИ СПИНОВЕ$, ако символът се появи на цялата $1ва$ ролка и на всяка позиция на $3та$, $4та$ или $5та$ ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
+В случай на повторно задействане на $БЕЗПЛАТНИ СПИНОВЕ$, играчът печели $10$ нови $БЕЗПЛАТНИ СПИНОВЕ$, които се добавят към текущия брой $БЕЗПЛАТНИ СПИНОВЕ$.
+Печалбите от #scatter# символи и нови @БЕЗПЛАТНИ СПИНОВЕ@ се печелят преди разширяването на движещите се символи. $БЕЗПЛАТНИ СПИНОВЕ$ се играят при залагане на тригер и линии. По време на $БЕЗПЛАТНИ СПИНОВЕ$ се използва алтернативен набор от макари.
 
+^ДИВ^
+#wild# замества за всички символи, с изключение на #scatter#.)";
+
+static std::string ESP =
+R"(^GIRAS GRATIS^
+Los símbolos $3$ #scatter# en cualquier lugar de los carretes $2nd$, $3rd$ y $4th$ solo activan $10 GIRAS GRATIS$ + $SÍMBOLOS EN MOVIMIENTO$.
+Durante $GIRAS GRATIS$, si el símbolo aparece en todo el carrete $ 1st $ y en cualquier posición en el carrete $3rd$, $4th$ o $5th$, las posiciones en la fila entre ellos también se llenarán con ese símbolo.
+En caso de reactivar $GIRAS GRATIS$, el jugador gana $10$ nuevos $GIRAS GRATIS$ que se agregan al número actual de $FREE SPINS$.
+Las ganancias de los símbolos #scatter# y los nuevos @GIRAS GRATIS@ se ganan antes de la expansión de los símbolos móviles. Los $GIRAS GRATIS$ se juegan en la apuesta de activación y en las líneas. Durante $GIRAS GRATIS$ se usa un conjunto alternativo de carretes.
+
+^SALVAJE^
+#wild# sustituye a todos los símbolos excepto #scatter#.)";
+
+
+static std::array<std::string, 3> texts{EN, BG, ESP};
+
+struct rich_text : gfx::text
+{
+    struct embedded_image
+    {
+        size_t line{};
+        float x_offset{};
+        float y_offset{};
+        gfx::texture_weak_ptr image;
+    };
+
+    void draw(gfx::draw_list& list, math::transformf transform, gfx::rect dst_rect, gfx::size_fit sz_fit = gfx::size_fit::shrink_to_fit,
+              gfx::dimension_fit dim_fit = gfx::dimension_fit::uniform)
+    {
+        auto advance = (max_line_height - get_font()->line_height);
+        transform.translate(0.0f, advance * 0.5f, 0.0f);
+        dst_rect.h -= int(advance * 0.5f);
+
+        auto max_w = dst_rect.w;
+
+        math::transformf world;
+        size_t loop{0};
+        while(loop < 32)
+        {
+            set_max_width(max_w);
+            world = gfx::fit_text(*this, transform, dst_rect, sz_fit, dim_fit);
+            auto w = int(float(dst_rect.w) / world.get_scale().x);
+
+            if(w == max_w)
+            {
+                break;
+            }
+
+            max_w = w;
+            loop++;
+        }
+
+        list.add_text(*this, world);
+
+        const auto& font = get_font();
+        auto height = font->ascent - font->descent;
+        auto midline = font->descent + height / 2;
+
+        for(const auto& embedded : images)
+        {
+            auto image = embedded.image.lock();
+
+            if(image)
+            {
+                auto img_dst_rect = apply_constraints(image->get_rect());
+
+                img_dst_rect.x += int(embedded.x_offset);
+                img_dst_rect.y += int(embedded.y_offset);
+                img_dst_rect.y -= img_dst_rect.h / 2 + int(midline);
+                list.add_image(image, img_dst_rect, world);
+            }
+        }
+    }
+
+    void setup_decorators()
+    {
+        max_line_height = get_font()->line_height * 2.0f;
+        auto advance = (max_line_height - get_font()->line_height);
+
+        set_advance({0, advance});
+
+        set_align_line_callback([&](size_t line, float align_x)
+        {
+            for(auto& image : images)
+            {
+                if(image.line == line)
+                {
+                    image.x_offset += align_x;
+                }
+            }
+        });
+
+        {
+            auto decorators = generate_decorators('#');
+
+            for(const auto& decorator : decorators)
+            {
+                decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
+                {
+                    auto it = textures.find("#");
+                    if(it == std::end(textures))
+                    {
+                        return 0.0f;
+                    }
+
+                    const auto& texture_weak = it->second;
+                    if(add)
+                    {
+                        images.emplace_back();
+                        auto& image = images.back();
+
+                        image.line = line;
+                        image.x_offset = pen_x;
+                        image.y_offset = pen_y;
+                        image.image = texture_weak;
+                    }
+
+                    auto texture = texture_weak.lock();
+
+                    return float(apply_constraints(texture->get_rect()).w);
+                };
+            }
+        }
+
+
+        {
+            auto decorators = generate_decorators('$');
+
+            for(const auto& decorator : decorators)
+            {
+                decorator->color_top = gfx::color::cyan();
+                decorator->color_bot = gfx::color::cyan();
+            }
+        }
+
+        {
+            auto decorators = generate_decorators('@');
+
+            for(const auto& decorator : decorators)
+            {
+                decorator->color_top = gfx::color::red();
+                decorator->color_bot = gfx::color::yellow();
+                decorator->scale = 1.4f;
+                decorator->leaning = 12.0f;
+            }
+        }
+
+        {
+            auto decorators = generate_decorators('^');
+
+            for(const auto& decorator : decorators)
+            {
+                decorator->color_top = gfx::color::green();
+                decorator->color_bot = gfx::color::yellow();
+                decorator->scale = 2.4f;
+            }
+        }
+    }
+
+    gfx::rect apply_constraints(gfx::rect r) const
+    {
+        float aspect = float(r.w) / float(r.h);
+        auto result = r;
+        result.h = int(max_line_height);
+        result.w = int(aspect * max_line_height);
+        return result;
+    }
+
+    float max_line_height{};
+    std::vector<embedded_image> images{};
+    std::map<std::string, gfx::texture_weak_ptr> textures;
+};
 
 int main()
 {
@@ -44,79 +209,25 @@ int main()
 		os::window win("win", os::window::centered, os::window::centered, 1366, 768, os::window::resizable);
 		gfx::renderer rend(win, true);
 
-		gfx::html_defaults options;
-		options.default_font = "serif";
-		options.default_font_size = 16;
-		options.default_font_options = gfx::font_flags::use_kerning | gfx::font_flags::simulate_all;
-		options.default_font_families = {
-			{
-				"monospace",
-				{
-					DATA"fonts/dejavu/DejaVuSansMono.ttf",
-					DATA"fonts/dejavu/DejaVuSansMono-Oblique.ttf",
-					DATA"fonts/dejavu/DejaVuSansMono-Bold.ttf",
-					DATA"fonts/dejavu/DejaVuSansMono-BoldOblique.ttf",
-				},
-			},
-			{
-				"serif",
-                {
-					DATA"fonts/dejavu/DejaVuSerif.ttf",
-					DATA"fonts/dejavu/DejaVuSerif-Italic.ttf",
-					DATA"fonts/dejavu/DejaVuSerif-Bold.ttf",
-					DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf",
-				},
-			},
-			{
-				"sans-serif",
-				{
-					DATA"fonts/dejavu/DejaVuSans.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Oblique.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Bold.ttf",
-					DATA"fonts/dejavu/DejaVuSans-BoldOblique.ttf",
-				},
-			},
-			{
-				"cursive",
-                {
-					DATA"fonts/dejavu/DejaVuSans.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Oblique.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Bold.ttf",
-					DATA"fonts/dejavu/DejaVuSans-BoldOblique.ttf",
-				},
-			},
-			{
-				"fantasy",
-                {
-					DATA"fonts/dejavu/DejaVuSans.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Oblique.ttf",
-					DATA"fonts/dejavu/DejaVuSans-Bold.ttf",
-					DATA"fonts/dejavu/DejaVuSans-BoldOblique.ttf",
-				},
-			},
-		};
-
-		gfx::html_context html_ctx(rend, std::move(options));
-		gfx::html_page page(html_ctx);
-//		page.load_from_utf8(html, DATA);
 
         gfx::glyphs_builder builder;
-//        builder.add(gfx::get_default_glyph_range());
-//        builder.add(gfx::get_cyrillic_glyph_range());
-//        builder.add(gfx::get_currency_glyph_range());
-//        builder.add(gfx::get_korean_glyph_range());
         builder.add(gfx::get_all_glyph_range());
 
-		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif.ttf", builder.get(), 50, 2);
-        //auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 80, 2);
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-Bold.ttf", builder.get(), 30, 2);
+//        auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 46, 2);
         auto font = rend.create_font(std::move(info));
 
-		auto image = rend.create_texture(DATA"wooden_wheel.png");
+		auto img_symbol = rend.create_texture(DATA"symbol.png");
+        auto img_background = rend.create_texture(DATA"background.png");
+
+
 
 		bool running = true;
         math::transformf tr;
 
-        std::string text = "1234";
+
+        size_t curr_lang = 1;
+        std::string text = texts[curr_lang];
         auto valign = gfx::align::top;
         auto halign = gfx::align::left;
         float leaning = 0.0f;
@@ -136,9 +247,9 @@ int main()
 				{
 					if(e.key.code == os::key::f5)
 					{
-						page.load_from_file(DATA "html/simple_page/index.html");
-                        //page.load_from_file(DATA "html/text/pull_quotes2.html");
-
+                        curr_lang++;
+                        curr_lang %= texts.size();
+                        text = texts[curr_lang];
 					}
                     if(e.key.code == os::key::backspace)
 					{
@@ -168,28 +279,26 @@ int main()
                     }
                     if(e.key.code == os::key::f3)
                     {
-                        if(valign == gfx::align::baseline_bottom)
-                        {
-                            valign = gfx::align::top;
-                        }
-                        else
                         {
                             uint32_t va = valign;
                             va *= 2;
                             valign = gfx::align(va);
                         }
+                        if(valign == gfx::align::baseline_bottom)
+                        {
+                            valign = gfx::align::top;
+                        }
                     }
                     if(e.key.code == os::key::f4)
                     {
-                        if(halign == gfx::align::top)
-                        {
-                            halign = gfx::align::left;
-                        }
-                        else
                         {
                             uint32_t va = halign;
                             va *= 2;
                             halign = gfx::align(va);
+                        }
+                        if(halign == gfx::align::top)
+                        {
+                            halign = gfx::align::left;
                         }
                     }
 				}
@@ -197,7 +306,7 @@ int main()
                 if(e.type == os::events::mouse_wheel)
 				{
                     //leaning += float(e.wheel.y);
-                    tr.scale(1.0f + float(e.wheel.y) * 0.1f, 1.0f + float(e.wheel.y) * 0.1f, 0.0f);
+                    tr.scale(1.0f + float(e.wheel.y) * 0.01f, 1.0f + float(e.wheel.y) * 0.01f, 0.0f);
 				}
                 if(e.type == os::events::text_input)
                 {
@@ -205,58 +314,36 @@ int main()
                 }
 			}
 
-            auto pos = os::mouse::get_position(win);
 			rend.clear(gfx::color::gray());
 			//page.draw(0, 0, rend.get_rect().w);
 
 			gfx::draw_list list;
 
-			tr.set_position(float(pos.x), float(pos.y), 0);
+            gfx::rect section = rend.get_rect();
 
-			for(size_t i = 0; i < size_t(gfx::script_line::count); ++i)
-			{
-				gfx::text t;
-				t.set_font(font);
-				t.set_utf8_text(text);
-				t.set_alignment(valign | halign);
-				t.set_leaning(leaning);
+            float x_percent = 4.0f;
+            float y_percent = 13.0f;
+            float x_off = x_percent / 100.0f * rend.get_rect().w;
+            float y_off = y_percent / 100.0f * rend.get_rect().h;
 
+            section.expand(int(-x_off), int(-y_off));
 
-				//t.set_color(gfx::color::red());
-				//t.set_shadow_offsets({2, 2});
-				//t.set_outline_width(0.4f);
+            list.add_image(img_background, rend.get_rect());
+            list.add_rect(section, gfx::color::red(), false);
 
-				std::vector<gfx::text_decorator> decorators;
-				{
-					decorators.emplace_back();
-					auto& decorator = decorators.back();
-					decorator.begin_glyph = 2;
-					decorator.end_glyph = decorator.begin_glyph + 2;
-					decorator.script = gfx::script_line(size_t(gfx::script_line::ascent) + i);
-					decorator.scale = scale;
-					decorator.col = gfx::color::red();
-				}
+            rich_text t;
+            t.set_font(font);
+            t.set_utf8_text(text);
+            t.set_alignment(valign | halign);
+            t.set_leaning(leaning);
+            t.set_outline_color(gfx::color::black());
+            t.set_outline_width(0.1f);
+//            t.set_shadow_offsets({3, 3});
+//            t.set_shadow_color(gfx::color::black());
+            t.setup_decorators();
+            t.textures["#"] = img_symbol;
 
-				{
-					decorators.emplace_back();
-					auto& decorator = decorators.back();
-					decorator.begin_glyph = 2;
-					decorator.end_glyph = decorator.begin_glyph + 2;
-					decorator.script = gfx::script_line(size_t(gfx::script_line::ascent) + i);
-					decorator.scale = scale;
-				}
-				t.set_decorators(decorators);
-				list.add_text(t, tr);
-
-				tr.translate(0.0f, t.get_height() * tr.get_scale().y, 0.0f);
-			}
-
-//			gfx::rect r = image->get_rect();
-//			auto pivot = gfx::align_item(gfx::align::center | gfx::align::middle, r);
-
-			//tr.rotate(0.0f, 0.0f, math::radians(1.0f));
-//			tr.set_position(rend.get_rect().w/2.0f, rend.get_rect().h/2.0f, 0.0f);
-//			list.add_image(image, image->get_rect(), image->get_rect(), tr * pivot);
+            t.draw(list, tr, section);
 
             rend.draw_cmd_list(list);
 

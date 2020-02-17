@@ -65,6 +65,7 @@ struct vertex_2d
     math::vec2 pos{0, 0}; // 2d position
     math::vec2 uv{0, 0};  // 2d texture coordinates
     color col{0, 0, 0, 0};// 32bit RGBA color
+    uint8_t tex_idx{0};
 };
 
 /// A vertex buffer object wrapper

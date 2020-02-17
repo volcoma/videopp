@@ -38,6 +38,13 @@ math::transformf align_item(align_t align,
 
 math::transformf align_item(align_t align,
                             const rect& item);
+
+math::transformf fit_text(const text& t,
+                          const math::transformf& transform,
+                          const rect& dst_rect,
+                          size_fit sz_fit = size_fit::shrink_to_fit,
+                          dimension_fit dim_fit = dimension_fit::uniform);
+
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
 {
@@ -180,6 +187,12 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_list(const draw_list& list);
 
+
+    math::transformf calc_fitting(const text& t,
+                                  const math::transformf& transform,
+                                  const rect& dst_rect,
+                                  size_fit sz_fit = size_fit::shrink_to_fit,
+                                  dimension_fit dim_fit = dimension_fit::uniform);
     //-----------------------------------------------------------------------------
     /// Adds a text which will be fitted into the destination rect.
     /// Position inside the rect is affected by the text's alignment and transform.

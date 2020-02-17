@@ -228,11 +228,13 @@ renderer::renderer(os::window& win, bool vsync)
             constexpr auto stride = sizeof(vertex_2d);
             layout.template add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
             layout.template add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
-            layout.template add<uint8_t>(4, offsetof(vertex_2d, col) ,"aColor", stride, true);
+            layout.template add<uint8_t>(4, offsetof(vertex_2d, col) , "aColor", stride, true);
+            layout.template add<uint8_t>(1, offsetof(vertex_2d, tex_idx), "aTexIdx", stride);
         }
     };
 
-
+//    GLint texture_units = 0;
+//    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
 
     create_program(get_program<programs::simple>(),
                    std::string(fs_begin).append(fs_simple).c_str(), vs_simple);
