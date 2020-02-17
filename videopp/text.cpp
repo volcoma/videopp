@@ -232,12 +232,6 @@ std::pair<float, float> get_alignment_offsets(
 
 }
 
-
-text::text() = default;
-text::text(const text&) = default;
-text& text::operator=(const text&) = default;
-text::text(text&&) noexcept = default;
-text& text::operator=(text&&) noexcept = default;
 text::~text()
 {
     cache<text>::add(geometry_);
