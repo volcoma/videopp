@@ -43,7 +43,7 @@ Las ganancias de los símbolos #scatter# y los nuevos @GIRAS GRATIS@ se ganan an
 
 static std::array<std::string, 3> texts{EN, BG, ESP};
 
-struct rich_text : gfx::text
+struct rich_text
 {
     struct embedded_image
     {
@@ -56,7 +56,7 @@ struct rich_text : gfx::text
     void draw(gfx::draw_list& list, math::transformf transform, gfx::rect dst_rect, gfx::size_fit sz_fit = gfx::size_fit::shrink_to_fit,
               gfx::dimension_fit dim_fit = gfx::dimension_fit::uniform)
     {
-        auto advance = (max_line_height - get_font()->line_height);
+        auto advance = (max_line_height - text.get_font()->line_height);
         transform.translate(0.0f, advance * 0.5f, 0.0f);
         dst_rect.h -= int(advance * 0.5f);
 
@@ -66,8 +66,8 @@ struct rich_text : gfx::text
         size_t loop{0};
         while(loop < 32)
         {
-            set_max_width(max_w);
-            world = gfx::fit_text(*this, transform, dst_rect, sz_fit, dim_fit);
+            text.set_max_width(max_w);
+            world = gfx::fit_text(text, transform, dst_rect, sz_fit, dim_fit);
             auto w = int(float(dst_rect.w) / world.get_scale().x);
 
             if(w == max_w)
@@ -79,9 +79,9 @@ struct rich_text : gfx::text
             loop++;
         }
 
-        list.add_text(*this, world);
+        list.add_text(text, world);
 
-        const auto& font = get_font();
+        const auto& font = text.get_font();
         auto height = font->ascent - font->descent;
         auto midline = font->descent + height / 2;
 
@@ -103,12 +103,12 @@ struct rich_text : gfx::text
 
     void setup_decorators()
     {
-        max_line_height = get_font()->line_height * 2.0f;
-        auto advance = (max_line_height - get_font()->line_height);
+        max_line_height = text.get_font()->line_height * 2.0f;
+        auto advance = (max_line_height - text.get_font()->line_height);
 
-        set_advance({0, advance});
+        text.set_advance({0, advance});
 
-        set_align_line_callback([&](size_t line, float align_x)
+        text.set_align_line_callback([&](size_t line, float align_x)
         {
             for(auto& image : images)
             {
@@ -119,14 +119,14 @@ struct rich_text : gfx::text
             }
         });
 
-        set_clear_geometry_callback([&]()
+        text.set_clear_geometry_callback([&]()
         {
             images.clear();
         });
 
         {
             static const std::regex rx(R"(\#(scatter)\#)"); // --> #scatter#
-            auto decorators = add_decorators(rx);
+            auto decorators = text.add_decorators(rx);
             for(const auto& decorator : decorators)
             {
                 decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
@@ -158,7 +158,7 @@ struct rich_text : gfx::text
 
         {
             static const std::regex rx(R"(\#(wild)\#)"); // --> #wild#
-            auto decorators = add_decorators(rx);
+            auto decorators = text.add_decorators(rx);
             for(const auto& decorator : decorators)
             {
                 decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
@@ -191,7 +191,7 @@ struct rich_text : gfx::text
 
         {
             static const std::regex rx(R"(\$([\s\S]*?)\$)"); // --> $some_text$
-            auto decorators = add_decorators(rx);
+            auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
@@ -203,7 +203,7 @@ struct rich_text : gfx::text
 
         {
             static const std::regex rx(R"(\@([\s\S]*?)\@)"); // --> @some_text@
-            auto decorators = add_decorators(rx);
+            auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
@@ -218,7 +218,7 @@ struct rich_text : gfx::text
         {
             static const std::regex rx(R"(\^([\s\S]*?)\^)"); // --> ^some_text^
 //            static const std::regex rx(R"(style\(1\)\(([\s\S]*?)\))");
-            auto decorators = add_decorators(rx);
+            auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
@@ -239,6 +239,8 @@ struct rich_text : gfx::text
         return result;
     }
 
+
+    gfx::text text;
     float max_line_height{};
     std::vector<embedded_image> images{};
     std::map<std::string, gfx::texture_weak_ptr> textures;
@@ -253,7 +255,7 @@ void print_matches(const std::regex& rx, const std::string& text)
          ++it)
     {
 
-        index_matches.push_back({it->position(), it->length()});
+        index_matches.emplace_back(it->position(), it->length());
     }
 
     std::cout << "found " << index_matches.size() << " matches!" << std::endl;
@@ -409,14 +411,14 @@ int main()
             list.add_rect(section, gfx::color::red(), false);
 
             rich_text t;
-            t.set_font(font);
-            t.set_utf8_text(text);
-            t.set_alignment(valign | halign);
-            t.set_leaning(leaning);
-            t.set_outline_color(gfx::color::black());
-            t.set_outline_width(0.1f);
-            t.set_shadow_offsets({3, 3});
-            t.set_shadow_color(gfx::color::black());
+            t.text.set_font(font);
+            t.text.set_utf8_text(text);
+            t.text.set_alignment(valign | halign);
+            t.text.set_leaning(leaning);
+            t.text.set_outline_color(gfx::color::black());
+            t.text.set_outline_width(0.1f);
+            t.text.set_shadow_offsets({3, 3});
+            t.text.set_shadow_color(gfx::color::black());
             t.setup_decorators();
             t.textures["#scatter#"] = img_symbol;
             t.textures["#wild#"] = img_symbol;
