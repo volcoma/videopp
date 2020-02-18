@@ -6,6 +6,7 @@
 #include "polyline.h"
 
 #include <vector>
+#include <regex>
 
 namespace gfx
 {
@@ -114,6 +115,7 @@ struct text_decorator
     /// End glyph (exclusive).
 	size_t end_glyph{};
 
+    /// Callback to be called once for the whole range
     std::function<float(bool add, float pen_x, float pen_y, size_t line)> callback;
 
     /// Extra advance
@@ -228,6 +230,11 @@ public:
 	void set_line_path(polyline&& line);
 
 	void set_decorators(const std::vector<text_decorator>& decorators);
+    void set_decorators(std::vector<text_decorator>&& decorators);
+    void add_decorator(const text_decorator& decorators);
+    void add_decorator(text_decorator&& decorators);
+
+
 	//-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
     //-----------------------------------------------------------------------------
@@ -324,12 +331,13 @@ public:
 
     bool is_valid() const;
 
-    void set_align_line_callback(const std::function<void(size_t, float)>& callback)
-    {
-        align_line_callback = callback;
-    }
+    void set_align_line_callback(const std::function<void(size_t, float)>& callback);
+    void set_clear_geometry_callback(const std::function<void()>& callback);
+    std::vector<text_decorator*> add_decorators(const std::regex& rx);
 
-    std::vector<text_decorator*> generate_decorators(uint32_t codepoint);
+    static size_t count_glyphs(const std::string& utf8_text);
+    static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
+
 private:
 
     float get_advance_offset_x(const text_decorator& decorator) const;
@@ -356,6 +364,8 @@ private:
     mutable std::vector<uint32_t> unicode_text_;
 
     std::function<void(size_t, float)> align_line_callback;
+    std::function<void()> clear_geometry_callback;
+
     /// Utf8 text
     std::string utf8_text_;
 

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <thread>
+#include <regex>
 
 static std::string EN =
 R"(^FREE SPINS^
@@ -118,14 +119,51 @@ struct rich_text : gfx::text
             }
         });
 
+        set_clear_geometry_callback([&]()
         {
-            auto decorators = generate_decorators('#');
+            images.clear();
+        });
 
+        {
+            static const std::regex rx(R"(\#(scatter)\#)"); // --> #scatter#
+            auto decorators = add_decorators(rx);
             for(const auto& decorator : decorators)
             {
                 decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
                 {
-                    auto it = textures.find("#");
+                    auto it = textures.find("#scatter#");
+                    if(it == std::end(textures))
+                    {
+                        return 0.0f;
+                    }
+
+                    const auto& texture_weak = it->second;
+                    if(add)
+                    {
+                        images.emplace_back();
+                        auto& image = images.back();
+
+                        image.line = line;
+                        image.x_offset = pen_x;
+                        image.y_offset = pen_y;
+                        image.image = texture_weak;
+                    }
+
+                    auto texture = texture_weak.lock();
+
+                    return float(apply_constraints(texture->get_rect()).w);
+                };
+            }
+        }
+
+        {
+            static const std::regex rx(R"(\#(wild)\#)"); // --> #wild#
+            auto decorators = add_decorators(rx);
+            for(const auto& decorator : decorators)
+            {
+                decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
+                {
+                    auto it = textures.find("#wild#");
                     if(it == std::end(textures))
                     {
                         return 0.0f;
@@ -152,20 +190,24 @@ struct rich_text : gfx::text
 
 
         {
-            auto decorators = generate_decorators('$');
+            static const std::regex rx(R"(\$([\s\S]*?)\$)"); // --> $some_text$
+            auto decorators = add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
+                decorator->ignore_codepoint = '$';
                 decorator->color_top = gfx::color::cyan();
                 decorator->color_bot = gfx::color::cyan();
             }
         }
 
         {
-            auto decorators = generate_decorators('@');
+            static const std::regex rx(R"(\@([\s\S]*?)\@)"); // --> @some_text@
+            auto decorators = add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
+                decorator->ignore_codepoint = '@';
                 decorator->color_top = gfx::color::red();
                 decorator->color_bot = gfx::color::yellow();
                 decorator->scale = 1.4f;
@@ -174,10 +216,13 @@ struct rich_text : gfx::text
         }
 
         {
-            auto decorators = generate_decorators('^');
+            static const std::regex rx(R"(\^([\s\S]*?)\^)"); // --> ^some_text^
+//            static const std::regex rx(R"(style\(1\)\(([\s\S]*?)\))");
+            auto decorators = add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
+                decorator->ignore_codepoint = '^';
                 decorator->color_top = gfx::color::green();
                 decorator->color_bot = gfx::color::yellow();
                 decorator->scale = 2.4f;
@@ -199,8 +244,39 @@ struct rich_text : gfx::text
     std::map<std::string, gfx::texture_weak_ptr> textures;
 };
 
+void print_matches(const std::regex& rx, const std::string& text)
+{
+    std::vector<std::pair<int, int>> index_matches;
+
+    for(auto it = std::sregex_iterator(text.begin(), text.end(), rx);
+        it != std::sregex_iterator();
+         ++it)
+    {
+
+        index_matches.push_back({it->position(), it->length()});
+    }
+
+    std::cout << "found " << index_matches.size() << " matches!" << std::endl;
+    for(const auto& range : index_matches)
+    {
+        std::cout << std::string(&text[range.first], range.second) << std::endl;
+    }
+}
+
 int main()
 {
+    std::regex rx(R"(\$([\s\S]*?)\$)");
+
+    std::cout << "PRINT EN" << std::endl;
+    print_matches(rx, EN);
+
+    std::cout << "PRINT BG" << std::endl;
+    print_matches(rx, BG);
+
+    std::cout << "PRINT ESP" << std::endl;
+    print_matches(rx, ESP);
+
+
 	os::init();
 	gfx::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
 
@@ -213,7 +289,7 @@ int main()
         gfx::glyphs_builder builder;
         builder.add(gfx::get_all_glyph_range());
 
-		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-Bold.ttf", builder.get(), 30, 2);
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 30, 2);
 //        auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 46, 2);
         auto font = rend.create_font(std::move(info));
 
@@ -226,7 +302,7 @@ int main()
         math::transformf tr;
 
 
-        size_t curr_lang = 1;
+        size_t curr_lang = 0;
         std::string text = texts[curr_lang];
         auto valign = gfx::align::top;
         auto halign = gfx::align::left;
@@ -314,6 +390,7 @@ int main()
                 }
 			}
 
+
 			rend.clear(gfx::color::gray());
 			//page.draw(0, 0, rend.get_rect().w);
 
@@ -338,10 +415,11 @@ int main()
             t.set_leaning(leaning);
             t.set_outline_color(gfx::color::black());
             t.set_outline_width(0.1f);
-//            t.set_shadow_offsets({3, 3});
-//            t.set_shadow_color(gfx::color::black());
+            t.set_shadow_offsets({3, 3});
+            t.set_shadow_color(gfx::color::black());
             t.setup_decorators();
-            t.textures["#"] = img_symbol;
+            t.textures["#scatter#"] = img_symbol;
+            t.textures["#wild#"] = img_symbol;
 
             t.draw(list, tr, section);
 
