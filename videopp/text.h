@@ -148,11 +148,11 @@ class text
 {
 public:
 
-    text();
-    text(const text&);
-    text& operator=(const text&);
-    text(text&&) noexcept;
-    text& operator=(text&&) noexcept;
+	text() = default;
+	text(const text&) = default;
+	text& operator=(const text&) = default;
+	text(text&&) = default;
+	text& operator=(text&&) = default;
     ~text();
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
