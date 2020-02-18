@@ -625,7 +625,7 @@ void text::update_lines() const
 
         bool exceedsmax_width = max_width > 0 && (advance + glyph_advance) > max_width;
 
-        if(is_newline(c) || exceedsmax_width)
+		if(is_newline(c) || (exceedsmax_width && (last_space != size_t(-1))))
         {
             if(is_blank(c) || is_newline(c))
             {
