@@ -1080,11 +1080,7 @@ rect text::get_rect() const
 
 const frect& text::get_frect() const
 {
-    if(rect_)
-    {
-        return rect_;
-    }
-    update_geometry(false);
+	update_geometry(true);
 
     return rect_;
 }
@@ -1139,8 +1135,8 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& rx)
         decorators_.emplace_back();
         auto& decorator = decorators_.back();
 
-        decorator.begin_glyph = gfx::text::count_glyphs(text.c_str(), begin);
-        decorator.end_glyph = decorator.begin_glyph + gfx::text::count_glyphs(begin, end);
+		decorator.begin_glyph = count_glyphs(text.c_str(), begin);
+		decorator.end_glyph = decorator.begin_glyph + count_glyphs(begin, end);
 
     }
 

@@ -16,7 +16,7 @@ namespace gfx
 
 namespace
 {
-bool debug_draw = false;
+bool debug_draw_enabled = false;
 
 
 template<typename T>
@@ -701,7 +701,7 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
 
     add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, blend, setup);
 
-    if(debug_draw && debug)
+	if(debug_draw() && debug)
     {
         debug->add_rect(points, col, false);
     }
@@ -916,7 +916,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 
     pop_transform();
 
-    if(debug_draw && debug)
+	if(debug_draw() && debug)
     {
         debug->add_text_debug_info(t, transform);
     }
@@ -927,24 +927,12 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 {
     add_text(t, fit_text(t, transform, dst_rect, sz_fit, dim_fit));
 
-    if(debug_draw && debug)
+	if(debug_draw() && debug)
     {
         auto tr = transform;
         tr.set_scale(1.0f, 1.0f, 1.0f);
         debug->add_rect(dst_rect, tr, color::cyan(), false);
     }
-}
-
-bool draw_list::set_debug_draw(bool debug)
-{
-    bool old = debug_draw;
-    debug_draw = debug;
-    return old;
-}
-
-void draw_list::toggle_debug_draw()
-{
-    debug_draw = !debug_draw;
 }
 
 std::string draw_list::to_string() const
@@ -1666,5 +1654,22 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     add_rect(rect{-1, -1, 2, 2}, transform, color{255, 190, 2});
 }
 
+
+bool set_debug_draw(bool debug)
+{
+	bool old = debug_draw_enabled;
+	debug_draw_enabled = debug;
+	return old;
+}
+
+void toggle_debug_draw()
+{
+	debug_draw_enabled = !debug_draw_enabled;
+}
+
+bool debug_draw()
+{
+	return debug_draw_enabled;
+}
 
 }

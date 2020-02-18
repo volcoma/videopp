@@ -64,7 +64,7 @@ struct rich_text
 
         math::transformf world;
         size_t loop{0};
-        while(loop < 32)
+		while(loop < 16)
         {
             text.set_max_width(max_w);
             world = gfx::fit_text(text, transform, dst_rect, sz_fit, dim_fit);
@@ -125,7 +125,7 @@ struct rich_text
         });
 
         {
-            static const std::regex rx(R"(\#(scatter)\#)"); // --> #scatter#
+			static const std::regex rx(R"(#scatter#)"); // --> #scatter#
             auto decorators = text.add_decorators(rx);
             for(const auto& decorator : decorators)
             {
@@ -157,7 +157,7 @@ struct rich_text
         }
 
         {
-            static const std::regex rx(R"(\#(wild)\#)"); // --> #wild#
+			static const std::regex rx(R"(#wild#)"); // --> #wild#
             auto decorators = text.add_decorators(rx);
             for(const auto& decorator : decorators)
             {

@@ -292,8 +292,8 @@ struct draw_list
     void add_text_debug_info(const text& t, const math::transformf& transform);
     std::string to_string() const;
     void validate_stacks() const noexcept;
-    static bool set_debug_draw(bool debug);
-    static void toggle_debug_draw();
+
+	bool empty() const noexcept { return commands_requested == 0; }
 
     //-----------------------------------------------------------------------------
     /// Data members
@@ -319,5 +319,9 @@ struct draw_list
 
     std::unique_ptr<draw_list> debug;
 };
+
+bool set_debug_draw(bool debug);
+void toggle_debug_draw();
+bool debug_draw();
 
 }
