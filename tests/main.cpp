@@ -191,11 +191,11 @@ struct rich_text
 
         {
             static const std::regex rx(R"(\$([\s\S]*?)\$)"); // --> $some_text$
+//            static const std::regex rx_visual(R"(\$([\s\S]*?)\$)"); // --> some_text
             auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
-                decorator->ignore_codepoint = '$';
                 decorator->color_top = gfx::color::cyan();
                 decorator->color_bot = gfx::color::cyan();
             }
@@ -207,7 +207,6 @@ struct rich_text
 
             for(const auto& decorator : decorators)
             {
-                decorator->ignore_codepoint = '@';
                 decorator->color_top = gfx::color::red();
                 decorator->color_bot = gfx::color::yellow();
                 decorator->scale = 1.4f;
@@ -217,17 +216,30 @@ struct rich_text
 
         {
             static const std::regex rx(R"(\^([\s\S]*?)\^)"); // --> ^some_text^
-//            static const std::regex rx(R"(style\(1\)\(([\s\S]*?)\))");
             auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
             {
-                decorator->ignore_codepoint = '^';
                 decorator->color_top = gfx::color::green();
                 decorator->color_bot = gfx::color::yellow();
                 decorator->scale = 2.4f;
             }
         }
+
+
+//        {
+////            static const std::regex rx(R"(func\(([\s\S]*?)\))"); // --> $some_text$
+//            static const std::regex rx(R"(func\[(.*?)\])"); // --> $some_text$
+//            static const std::regex rx_visual(R"((?<=\[)([^\]]+)(?=\]))"); // --> $some_text$
+
+//            auto decorators = text.add_decorators(rx, rx_visual);
+
+//            for(const auto& decorator : decorators)
+//            {
+//                decorator->color_top = gfx::color::red();
+//                decorator->color_bot = gfx::color::red();
+//            }
+//        }
     }
 
     gfx::rect apply_constraints(gfx::rect r) const
@@ -305,7 +317,7 @@ int main()
 
 
         size_t curr_lang = 0;
-        std::string text = texts[curr_lang];
+        std::string text = "";//texts[curr_lang];
         auto valign = gfx::align::top;
         auto halign = gfx::align::left;
         float leaning = 0.0f;
@@ -344,7 +356,7 @@ int main()
                         }
                         else if(e.key.ctrl)
                         {
-                            gfx::draw_list::toggle_debug_draw();
+                            gfx::toggle_debug_draw();
                         }
 					}
                     if(e.key.code == os::key::f1)

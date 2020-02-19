@@ -106,22 +106,32 @@ std::pair<float, float> get_alignment_offsets(align_t alignment,
 											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
 											  bool pixel_snap);
 
-
 struct text_decorator
 {
-    /// Begin glyph (inclusive).
-	size_t begin_glyph{};
+    struct range
+    {
+        bool contains(size_t idx) const
+        {
+            if(end == 0)
+            {
+                return true;
+            }
+            return idx >= begin && idx < end;
+        }
+        /// Begin glyph (inclusive).
+        size_t begin{};
+        /// End glyph (exclusive).
+        size_t end{};
+    };
 
-    /// End glyph (exclusive).
-	size_t end_glyph{};
+	range match_range{};
+    range visual_range{};
 
     /// Callback to be called once for the whole range
     std::function<float(bool add, float pen_x, float pen_y, size_t line)> callback;
 
     /// Extra advance
     math::vec2 advance{0, 0};
-
-    uint32_t ignore_codepoint{};
 
     /// Scale to be used.
 	float scale{1.0f};
@@ -333,7 +343,9 @@ public:
 
     void set_align_line_callback(const std::function<void(size_t, float)>& callback);
     void set_clear_geometry_callback(const std::function<void()>& callback);
-    std::vector<text_decorator*> add_decorators(const std::regex& rx);
+
+
+    std::vector<text_decorator*> add_decorators(const std::regex& global_matcher, const std::regex& local_visual_matcher={});
 
     static size_t count_glyphs(const std::string& utf8_text);
     static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
