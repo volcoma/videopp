@@ -191,7 +191,6 @@ struct rich_text
 
         {
             static const std::regex rx(R"(\$([\s\S]*?)\$)"); // --> $some_text$
-//            static const std::regex rx_visual(R"(\$([\s\S]*?)\$)"); // --> some_text
             auto decorators = text.add_decorators(rx);
 
             for(const auto& decorator : decorators)
@@ -226,20 +225,6 @@ struct rich_text
             }
         }
 
-
-//        {
-////            static const std::regex rx(R"(func\(([\s\S]*?)\))"); // --> $some_text$
-//            static const std::regex rx(R"(func\[(.*?)\])"); // --> $some_text$
-//            static const std::regex rx_visual(R"((?<=\[)([^\]]+)(?=\]))"); // --> $some_text$
-
-//            auto decorators = text.add_decorators(rx, rx_visual);
-
-//            for(const auto& decorator : decorators)
-//            {
-//                decorator->color_top = gfx::color::red();
-//                decorator->color_bot = gfx::color::red();
-//            }
-//        }
     }
 
     gfx::rect apply_constraints(gfx::rect r) const
