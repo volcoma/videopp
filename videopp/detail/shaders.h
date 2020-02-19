@@ -42,13 +42,13 @@ static constexpr const char* vs_simple =
                     attribute vec2 aTexCoord;
                     attribute vec4 aColor;
 
-                    uniform mat4 uProjection;
+					uniform mat4 uProjection;
 
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
                     void main() {
-                        gl_Position = uProjection * vec4(aPosition, 0.0, 1.0);
+						gl_Position = uProjection * vec4(aPosition, 0.0, 1.0);
                         vTexCoord = aTexCoord;
                         vColor = aColor;
                     }
@@ -72,14 +72,14 @@ static constexpr const char* fs_multi_channel =
                     varying vec4 vColor;
                     uniform sampler2D uTexture;
                 #ifdef HAS_CROP_RECTS
-                    uniform ivec4 uRects[10];
+					uniform ivec4 uRects[10];
                     uniform int uRectsCount;
                 #endif
 
                     void main()
                     {
                 #ifdef HAS_CROP_RECTS
-                        for( int i = 0; i < uRectsCount; ++i)
+						for( int i = 0; i < uRectsCount; ++i)
                         {
                             ivec4 irect = uRects[i];
                             vec4 rect = vec4(irect.x, irect.y, irect.z, irect.w);
@@ -91,7 +91,7 @@ static constexpr const char* fs_multi_channel =
                                 gl_FragColor = vec4(0.0,0.0,0.0,0.0);
                                 return;
                             }
-                        }
+						}
                 #endif
 
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;

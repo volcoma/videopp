@@ -11,37 +11,46 @@
 #include <regex>
 
 static std::string EN =
-R"(^FREE SPINS^
-$3$ #scatter# symbols anywhere on the $2nd$, $3rd$ and $4th$ reels only trigger $10 FREE SPINS$ + $MOVING SYMBOLS$.
-During $FREE SPINS$, if symbol appear on the entire $1st$ reel and on any position on the $3rd$, $4th$ or $5th$ reel, the positions on the row between them will also be filled with that symbol.
-In case of retriggering $FREE SPINS$, the player wins $10$ new $FREE SPINS$ which are added to the current number of $FREE SPINS$.
-The winnings from #scatter# symbols and new @FREE SPINS@ are won before the expanding of the moving symbols. The $FREE SPINS$ are played at trigger bet and lines. During $FREE SPINS$ an alternate set of reels is used.
+R"(style1(FREE SPINS)
+style2(3) img(scatter) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(10 FREE SPINS) + style2(MOVING SYMBOLS).
+During style2(FREE SPINS), if symbol appear on the entire style2(1st) reel and on any position on the style2(3rd), style2(4th) or style2(5th) reel, the positions on the row between them will also be filled with that symbol.
+In case of retriggering style2(FREE SPINS), the player wins style2(10) new style2(FREE SPINS) which are added to the current number of style2(FREE SPINS).
+The winnings from img(scatter) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
 
-^WILD^
-#wild# subtitutes for all symbols except #scatter#.)";
+style1(WILD)
+img(wild) subtitutes for all symbols except img(scatter).)";
 
 static std::string BG =
-R"(^БЕЗПЛАТНИ СПИНОВЕ^
-$3$ #scatter# символи навсякъде на $2ра$, $3та$ и $4та$ ролка задействат само $10 БЕЗПЛАТНИ СПИНОВЕ$ + $ДВИЖЕЩИ СИМВОЛИ$.
-По време на $БЕЗПЛАТНИ СПИНОВЕ$, ако символът се появи на цялата $1ва$ ролка и на всяка позиция на $3та$, $4та$ или $5та$ ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
-В случай на повторно задействане на $БЕЗПЛАТНИ СПИНОВЕ$, играчът печели $10$ нови $БЕЗПЛАТНИ СПИНОВЕ$, които се добавят към текущия брой $БЕЗПЛАТНИ СПИНОВЕ$.
-Печалбите от #scatter# символи и нови @БЕЗПЛАТНИ СПИНОВЕ@ се печелят преди разширяването на движещите се символи. $БЕЗПЛАТНИ СПИНОВЕ$ се играят при залагане на тригер и линии. По време на $БЕЗПЛАТНИ СПИНОВЕ$ се използва алтернативен набор от макари.
+R"(style1(БЕЗПЛАТНИ СПИНОВЕ)
+style2(3) img(scatter) символи навсякъде на style2(2ра), style2(3та) и style2(4та) ролка задействат само style2(10 БЕЗПЛАТНИ СПИНОВЕ) + style2(ДВИЖЕЩИ СИМВОЛИ).
+По време на style2(БЕЗПЛАТНИ СПИНОВЕ), ако символът се появи на цялата style2(1ва) ролка и на всяка позиция на style2(3та), style2(4та) или style2(5та) ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
+В случай на повторно задействане на style2(БЕЗПЛАТНИ СПИНОВЕ), играчът печели style2(10) нови style2(БЕЗПЛАТНИ СПИНОВЕ), които се добавят към текущия брой style2(БЕЗПЛАТНИ СПИНОВЕ).
+Печалбите от img(scatter) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
 
-^ДИВ^
-#wild# замества за всички символи, с изключение на #scatter#.)";
+style1(ДИВ)
+img(wild) замества за всички символи, с изключение на img(scatter).)";
 
 static std::string ESP =
-R"(^GIRAS GRATIS^
-Los símbolos $3$ #scatter# en cualquier lugar de los carretes $2nd$, $3rd$ y $4th$ solo activan $10 GIRAS GRATIS$ + $SÍMBOLOS EN MOVIMIENTO$.
-Durante $GIRAS GRATIS$, si el símbolo aparece en todo el carrete $ 1st $ y en cualquier posición en el carrete $3rd$, $4th$ o $5th$, las posiciones en la fila entre ellos también se llenarán con ese símbolo.
-En caso de reactivar $GIRAS GRATIS$, el jugador gana $10$ nuevos $GIRAS GRATIS$ que se agregan al número actual de $FREE SPINS$.
-Las ganancias de los símbolos #scatter# y los nuevos @GIRAS GRATIS@ se ganan antes de la expansión de los símbolos móviles. Los $GIRAS GRATIS$ se juegan en la apuesta de activación y en las líneas. Durante $GIRAS GRATIS$ se usa un conjunto alternativo de carretes.
+R"(style1(GIRAS GRATIS)
+Los símbolos style2(3) img(scatter) en cualquier lugar de los carretes style2(2nd), style2(3rd) y style2(4th) solo activan style2(10 GIRAS GRATIS) + style2(SÍMBOLOS EN MOVIMIENTO).
+Durante style2(GIRAS GRATIS), si el símbolo aparece en todo el carrete style2(1st) y en cualquier posición en el carrete style2(3rd), style2(4th) o style2(5th), las posiciones en la fila entre ellos también se llenarán con ese símbolo.
+En caso de reactivar style2(GIRAS GRATIS), el jugador gana style2(10) nuevos style2(GIRAS GRATIS) que se agregan al número actual de style2(FREE SPINS).
+Las ganancias de los símbolos img(scatter) y los nuevos style3(GIRAS GRATIS) se ganan antes de la expansión de los símbolos móviles. Los style2(GIRAS GRATIS) se juegan en la apuesta de activación y en las líneas. Durante style2(GIRAS GRATIS) se usa un conjunto alternativo de carretes.
 
-^SALVAJE^
-#wild# sustituye a todos los símbolos excepto #scatter#.)";
+style1(SALVAJE)
+img(wild) sustituye a todos los símbolos excepto img(scatter).)";
 
 
-static std::array<std::string, 3> texts{EN, BG, ESP};
+static std::vector<std::string> texts{EN, BG, ESP};
+
+static gfx::font_ptr wierd_font;
+
+struct rich_style
+{
+
+};
+
+
 
 struct rich_text
 {
@@ -52,6 +61,15 @@ struct rich_text
         float y_offset{};
         gfx::texture_weak_ptr image;
     };
+
+	struct embedded_text
+	{
+		size_t line{};
+		float x_offset{};
+		float y_offset{};
+		gfx::text text;
+	};
+
 
     void draw(gfx::draw_list& list, math::transformf transform, gfx::rect dst_rect, gfx::size_fit sz_fit = gfx::size_fit::shrink_to_fit,
               gfx::dimension_fit dim_fit = gfx::dimension_fit::uniform)
@@ -99,6 +117,13 @@ struct rich_text
                 list.add_image(image, img_dst_rect, world);
             }
         }
+
+		for(const auto& embedded : texts)
+		{
+			math::transformf tr;
+			tr.set_position(embedded.x_offset, embedded.y_offset, 0);
+			list.add_text(embedded.text, world * tr);
+		}
     }
 
     void setup_decorators()
@@ -117,81 +142,76 @@ struct rich_text
                     image.x_offset += align_x;
                 }
             }
+
+			for(auto& text : texts)
+			{
+				if(text.line == line)
+				{
+					text.x_offset += align_x;
+				}
+			}
         });
 
         text.set_clear_geometry_callback([&]()
         {
             images.clear();
+			texts.clear();
         });
 
         {
-			static const std::regex rx(R"(#scatter#)"); // --> #scatter#
-            auto decorators = text.add_decorators(rx);
-            for(const auto& decorator : decorators)
+			auto decorators = text.add_decorators("img");
+
+			for(const auto& decorator : decorators)
             {
-                decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
-                {
-                    auto it = textures.find("#scatter#");
+				decorator->calculate_size = [&](const char* str_begin, const char* str_end)
+				{
+					std::string utf8_str(str_begin, str_end);
+					auto it = textures.find(utf8_str);
                     if(it == std::end(textures))
                     {
                         return 0.0f;
                     }
 
                     const auto& texture_weak = it->second;
-                    if(add)
-                    {
-                        images.emplace_back();
-                        auto& image = images.back();
-
-                        image.line = line;
-                        image.x_offset = pen_x;
-                        image.y_offset = pen_y;
-                        image.image = texture_weak;
-                    }
-
                     auto texture = texture_weak.lock();
-
                     return float(apply_constraints(texture->get_rect()).w);
                 };
+
+				decorator->generate_geometry = [&](float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)
+				{
+					std::string utf8_str(str_begin, str_end);
+					auto it = textures.find(utf8_str);
+					if(it == std::end(textures))
+					{
+						return;
+					}
+
+					const auto& texture_weak = it->second;
+
+					images.emplace_back();
+					auto& image = images.back();
+
+					image.line = line;
+					image.x_offset = pen_x;
+					image.y_offset = pen_y;
+					image.image = texture_weak;
+				};
             }
         }
 
-        {
-			static const std::regex rx(R"(#wild#)"); // --> #wild#
-            auto decorators = text.add_decorators(rx);
-            for(const auto& decorator : decorators)
-            {
-                decorator->callback = [&](bool add, float pen_x, float pen_y, size_t line)
-                {
-                    auto it = textures.find("#wild#");
-                    if(it == std::end(textures))
-                    {
-                        return 0.0f;
-                    }
+		{
+			auto decorators = text.add_decorators("style1");
 
-                    const auto& texture_weak = it->second;
-                    if(add)
-                    {
-                        images.emplace_back();
-                        auto& image = images.back();
-
-                        image.line = line;
-                        image.x_offset = pen_x;
-                        image.y_offset = pen_y;
-                        image.image = texture_weak;
-                    }
-
-                    auto texture = texture_weak.lock();
-
-                    return float(apply_constraints(texture->get_rect()).w);
-                };
-            }
-        }
-
+			for(const auto& decorator : decorators)
+			{
+				decorator->color_top = gfx::color::green();
+				decorator->color_bot = gfx::color::yellow();
+				decorator->scale = 2.4f;
+			}
+		}
 
         {
-            static const std::regex rx(R"(\$([\s\S]*?)\$)"); // --> $some_text$
-            auto decorators = text.add_decorators(rx);
+			auto decorators = text.add_decorators("style2");
 
             for(const auto& decorator : decorators)
             {
@@ -200,31 +220,55 @@ struct rich_text
             }
         }
 
-        {
-            static const std::regex rx(R"(\@([\s\S]*?)\@)"); // --> @some_text@
-            auto decorators = text.add_decorators(rx);
 
-            for(const auto& decorator : decorators)
-            {
-                decorator->color_top = gfx::color::red();
-                decorator->color_bot = gfx::color::yellow();
-                decorator->scale = 1.4f;
-                decorator->leaning = 12.0f;
-            }
-        }
+		{
+			auto decorators = text.add_decorators("style3");
 
-        {
-            static const std::regex rx(R"(\^([\s\S]*?)\^)"); // --> ^some_text^
-            auto decorators = text.add_decorators(rx);
+			for(const auto& decorator : decorators)
+			{
+				decorator->calculate_size = [&](const char* str_begin, const char* str_end)
+				{
+					std::string utf8_str(str_begin, str_end);
 
-            for(const auto& decorator : decorators)
-            {
-                decorator->color_top = gfx::color::green();
-                decorator->color_bot = gfx::color::yellow();
-                decorator->scale = 2.4f;
-            }
-        }
+					gfx::text embedded_text;
+					embedded_text.set_font(wierd_font);
+					embedded_text.set_vgradient_colors(gfx::color::red(), gfx::color::yellow());
+					embedded_text.set_outline_width(0.3f);
+					embedded_text.set_outline_color(gfx::color::blue());
+					embedded_text.set_shadow_offsets({-2, -2});
+					embedded_text.set_shadow_color(gfx::color::white());
 
+					embedded_text.set_alignment(gfx::align::baseline | gfx::align::left);
+					embedded_text.set_utf8_text(std::move(utf8_str));
+					return embedded_text.get_width();
+				};
+
+				decorator->generate_geometry = [&](float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)
+				{
+					texts.emplace_back();
+					auto& t = texts.back();
+
+					std::string utf8_str(str_begin, str_end);
+
+					gfx::text embedded_text;
+					embedded_text.set_font(wierd_font);
+					embedded_text.set_vgradient_colors(gfx::color::red(), gfx::color::yellow());
+					embedded_text.set_outline_width(0.3f);
+					embedded_text.set_outline_color(gfx::color::blue());
+					embedded_text.set_shadow_offsets({-2, -2});
+					embedded_text.set_shadow_color(gfx::color::white());
+
+					embedded_text.set_alignment(gfx::align::baseline | gfx::align::left);
+					embedded_text.set_utf8_text(std::move(utf8_str));
+
+					t.line = line;
+					t.x_offset = pen_x;
+					t.y_offset = pen_y;
+					t.text = std::move(embedded_text);
+				};
+
+			}
+		}
     }
 
     gfx::rect apply_constraints(gfx::rect r) const
@@ -239,7 +283,9 @@ struct rich_text
 
     gfx::text text;
     float max_line_height{};
-    std::vector<embedded_image> images{};
+	std::vector<embedded_image> images{};
+	std::vector<embedded_text> texts{};
+
     std::map<std::string, gfx::texture_weak_ptr> textures;
 };
 
@@ -264,17 +310,6 @@ void print_matches(const std::regex& rx, const std::string& text)
 
 int main()
 {
-    std::regex rx(R"(\$([\s\S]*?)\$)");
-
-    std::cout << "PRINT EN" << std::endl;
-    print_matches(rx, EN);
-
-    std::cout << "PRINT BG" << std::endl;
-    print_matches(rx, BG);
-
-    std::cout << "PRINT ESP" << std::endl;
-    print_matches(rx, ESP);
-
 
 	os::init();
 	gfx::set_extern_logger([](const std::string& msg) { std::cout << msg << std::endl; });
@@ -289,9 +324,10 @@ int main()
         builder.add(gfx::get_all_glyph_range());
 
 		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 30, 2);
-//        auto info = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 46, 2);
+		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 46, 2);
         auto font = rend.create_font(std::move(info));
 
+		wierd_font = rend.create_font(std::move(info1));
 		auto img_symbol = rend.create_texture(DATA"symbol.png");
         auto img_background = rend.create_texture(DATA"background.png");
 
@@ -302,9 +338,9 @@ int main()
 
 
         size_t curr_lang = 0;
-        std::string text = "";//texts[curr_lang];
-        auto valign = gfx::align::top;
-        auto halign = gfx::align::left;
+		std::string text = texts[curr_lang];
+		auto valign = gfx::align::top;
+		auto halign = gfx::align::center;
         float leaning = 0.0f;
         float scale = 0.5f;
 		while(running)
@@ -414,11 +450,11 @@ int main()
             t.text.set_leaning(leaning);
             t.text.set_outline_color(gfx::color::black());
             t.text.set_outline_width(0.1f);
-            t.text.set_shadow_offsets({3, 3});
+			t.text.set_shadow_offsets({3, 3});
             t.text.set_shadow_color(gfx::color::black());
             t.setup_decorators();
-            t.textures["#scatter#"] = img_symbol;
-            t.textures["#wild#"] = img_symbol;
+			t.textures["scatter"] = img_symbol;
+			t.textures["wild"] = img_symbol;
 
             t.draw(list, tr, section);
 

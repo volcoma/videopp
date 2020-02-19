@@ -421,8 +421,9 @@ void text::set_align_line_callback(const std::function<void (size_t, float)> &ca
 
 void text::set_clear_geometry_callback(const std::function<void ()> &callback)
 {
-    clear_geometry_callback = callback;
+	clear_geometry_callback = callback;
 }
+
 
 float text::get_advance_offset_y(const text_decorator& decorator) const
 {
@@ -607,13 +608,14 @@ void text::update_lines() const
                 advance_offset_x = get_advance_offset_x(*decorator);
             }
 
-            if(decorator->callback && (decorator->match_range.end - 1) == chars_)
-            {
-                callback_advance = decorator->callback(false, advance, 0, 0);
+			if(decorator->calculate_size && (decorator->match_range.end - 1) == chars_)
+			{
+				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
+				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
+				callback_advance = decorator->calculate_size(str_begin, str_end);
             }
 
-
-            if(decorator->callback/* || decorator->ignore_codepoint == c*/ || !decorator->visual_range.contains(chars_))
+			if(decorator->calculate_size || !decorator->visual_range.contains(chars_))
             {
                 glyph_advance = 0;
             }
@@ -646,7 +648,7 @@ void text::update_lines() const
             advance = 0;
             last_space = size_t(-1);
         }
-        else
+		else
         {
             lines_.back().push_back(c);
             ++chars_;
@@ -862,12 +864,29 @@ void text::update_geometry(bool all) const
                     }
                 }
 
-                if(decorator->callback && (decorator->match_range.end - 1) == glyphs_processed)
-                {
-                    pen_x += decorator->callback(all, pen_x, pen_y, lines_metrics_.size());
+				if((decorator->match_range.end - 1) == glyphs_processed)
+				{
+					const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
+					const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
+
+					float external_sz = 0.0f;
+					if(decorator->calculate_size)
+					{
+						external_sz = decorator->calculate_size(str_begin, str_end);
+					}
+
+					if(all)
+					{
+						if(decorator->generate_geometry)
+						{
+							decorator->generate_geometry(pen_x, pen_y, lines_metrics_.size(), str_begin, str_end);
+						}
+					}
+
+					pen_x += external_sz;
                 }
 
-                if(decorator->callback || !decorator->visual_range.contains(glyphs_processed)/* || decorator->ignore_codepoint == g.codepoint*/)
+				if(decorator->generate_geometry || !decorator->visual_range.contains(glyphs_processed))
                 {
                     glyphs_processed++;
                     continue;
@@ -1115,6 +1134,16 @@ color text::get_shadow_color_bot() const
     return shadow_color_bot_;
 }
 
+std::vector<text_decorator*> text::add_decorators(const std::string& style_id)
+{
+	const std::string braces_matcher = R"(\(([\s\S]*?)\))";
+	const std::string match_style = style_id + braces_matcher;
+
+	const std::regex global_rx(match_style); // --> style_id(some text)
+	const std::regex local_rx(braces_matcher); // --> (some text)
+
+	return add_decorators(global_rx, local_rx);
+}
 std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, const std::regex& visual_matcher)
 {
     auto sz_before = decorators_.size();
@@ -1132,73 +1161,62 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
         auto begin = text.data() + idx;
         auto end = begin + sz;
 
-        decorators_.emplace_back();
+		decorators_.emplace_back(get_decorator());
         auto& decorator = decorators_.back();
 
 		decorator.match_range.begin = count_glyphs(text.data(), begin);
 		decorator.match_range.end = decorator.match_range.begin + count_glyphs(begin, end);
 
+		decorator.visual_range = decorator.match_range;
 
-//        auto begin_it = std::begin(text) + idx;
-//        auto end_it = begin_it + sz;
+		decorator.utf8_range.begin = idx;
+		decorator.utf8_range.end = decorator.utf8_range.begin + sz;
 
-//        std::string str(begin_it, end_it);
-//        for(auto local_it = std::sregex_iterator(begin_it, end_it, visual_matcher);
-//            local_it != std::sregex_iterator();
-//             ++local_it)
-//        {
-//            auto local_idx = local_it->position();
-//            auto local_sz = local_it->length();
+		auto begin_it = std::begin(text) + idx;
+		auto end_it = begin_it + sz;
 
-//            auto local_begin = begin + local_idx;
-//            auto local_end = local_begin + local_sz;
+		std::string str(begin_it, end_it);
+		for(auto local_it = std::sregex_iterator(begin_it, end_it, visual_matcher);
+			local_it != std::sregex_iterator();
+			++local_it)
+		{
+			auto local_idx = local_it->position();
+			auto local_sz = local_it->length();
 
-//            decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
-//            decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
+			auto local_begin = begin + local_idx;
+			auto local_end = local_begin + local_sz;
 
-//            std::smatch pieces_match;
-//            if (std::regex_match(begin_it + local_idx, begin_it + local_idx + local_sz, pieces_match, visual_matcher))
-//            {
-//                // The first sub_match is the whole string; the next
-//                // sub_match is the first parenthesized expression.
-//                if (pieces_match.size() == 2)
-//                {
-//                    std::ssub_match base_sub_match = pieces_match[1];
-//                    local_idx = std::distance(begin_it, base_sub_match.first);
-//                    local_sz = base_sub_match.length();
+			decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
+			decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
 
-//                    local_begin = begin + local_idx;
-//                    local_end = local_begin + local_sz;
+			decorator.utf8_range.begin = idx + local_idx;
+			decorator.utf8_range.end = decorator.utf8_range.begin + local_sz;
 
-//                    decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
-//                    decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
-//                }
-//            }
 
-//        }
+			std::smatch pieces_match;
+			if (std::regex_match(begin_it + local_idx, begin_it + local_idx + local_sz, pieces_match, visual_matcher))
+			{
+				// The first sub_match is the whole string; the next
+				// sub_match is the first parenthesized expression.
+				if (pieces_match.size() == 2)
+				{
+					std::ssub_match base_sub_match = pieces_match[1];
+					local_idx = std::distance(begin_it, base_sub_match.first);
+					local_sz = base_sub_match.length();
 
-//        std::smatch pieces_match;
-//        if (std::regex_match(begin_it, end_it, pieces_match, visual_matcher))
-//        {
-//            // The first sub_match is the whole string; the next
-//            // sub_match is the first parenthesized expression.
-//            if (pieces_match.size() == 2)
-//            {
-//                std::ssub_match base_sub_match = pieces_match[1];
-//                auto local_idx = std::distance(begin_it, base_sub_match.first);
-//                auto local_sz = base_sub_match.length();
+					local_begin = begin + local_idx;
+					local_end = local_begin + local_sz;
 
-//                auto local_begin = begin + local_idx;
-//                auto local_end = local_begin + local_sz;
+					decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
+					decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
 
-//                decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
-//                decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
-//            }
-//        }
-        if(decorator.visual_range.end == decorator.visual_range.begin)
-        {
-            decorator.visual_range = decorator.match_range;
-        }
+					decorator.utf8_range.begin = idx + local_idx;
+					decorator.utf8_range.end = decorator.utf8_range.begin + local_sz;
+				}
+			}
+
+		}
+
     }
 
     if(!decorators_.empty())
@@ -1254,4 +1272,10 @@ size_t text::count_glyphs(const char* beg, const char* end)
 
     return count;
 }
+
+const text_decorator& text::get_decorator() const
+{
+	return decorator_;
+}
+
 }

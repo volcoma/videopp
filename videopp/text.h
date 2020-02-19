@@ -106,6 +106,89 @@ std::pair<float, float> get_alignment_offsets(align_t alignment,
 											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
 											  bool pixel_snap);
 
+//struct text_style
+//{
+//	/// The font
+//	font_ptr font;
+
+//	/// Extra advance
+//	math::vec2 advance{0, 0};
+
+//	/// Color of the text
+//	color color_top = color::white();
+//	color color_bot = color::white();
+
+//	/// The line to align to.
+//	/// > median - superscript
+//	/// = median - normal (center based)
+//	/// < median - subscript
+//	script_line script{script_line::baseline};
+
+//	/// Shadow offsets of the text in pixels
+//	math::vec2 shadow_offsets{0.0f, 0.0f};
+
+//	/// Shadow color of the text
+//	color shadow_color_top = color::black();
+//	color shadow_color_bot = color::black();
+
+//	/// Outline color of the text
+//	color outline_color = color::black();
+
+//	/// Outline width of the text
+//	float outline_width{};
+
+//	/// Scale to be used.
+//	float scale{1.0f};
+
+//	/// Leaning
+//	float leaning{};
+
+//	/// Kerning usage if the font provides any kerning pairs.
+//	bool kerning_enabled{};
+
+//};
+
+//struct text_range
+//{
+//	bool contains(size_t idx) const
+//	{
+//		if(end == 0)
+//		{
+//			return true;
+//		}
+//		return idx >= begin && idx < end;
+//	}
+//	/// Begin glyph (inclusive).
+//	size_t begin{};
+//	/// End glyph (exclusive).
+//	size_t end{};
+//};
+
+//struct text_chunk
+//{
+//	text_range unicode_range{};
+
+//	text_range unicode_visual_range{};
+
+//	text_range utf8_range{};
+
+//	std::function<float(const char* str_begin, const char* str_end)> calculate_size;
+
+//	std::function<void(float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)> generate_geometry;
+
+//	text_style style;
+
+//	std::vector<vertex_2d> geometry;
+
+//};
+
+//struct text_ex : text_chunk
+//{
+
+//	std::vector<text_chunk> chunks;
+//};
+
+
 struct text_decorator
 {
     struct range
@@ -126,9 +209,10 @@ struct text_decorator
 
 	range match_range{};
     range visual_range{};
-
+	range utf8_range{};
     /// Callback to be called once for the whole range
-    std::function<float(bool add, float pen_x, float pen_y, size_t line)> callback;
+	std::function<float(const char* str_begin, const char* str_end)> calculate_size;
+	std::function<void(float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)> generate_geometry;
 
     /// Extra advance
     math::vec2 advance{0, 0};
@@ -344,12 +428,12 @@ public:
     void set_align_line_callback(const std::function<void(size_t, float)>& callback);
     void set_clear_geometry_callback(const std::function<void()>& callback);
 
-
+	std::vector<text_decorator*> add_decorators(const std::string& style_id);
     std::vector<text_decorator*> add_decorators(const std::regex& global_matcher, const std::regex& local_visual_matcher={});
 
     static size_t count_glyphs(const std::string& utf8_text);
     static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
-
+	const text_decorator& get_decorator() const;
 private:
 
     float get_advance_offset_x(const text_decorator& decorator) const;
