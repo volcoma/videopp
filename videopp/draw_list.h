@@ -39,7 +39,7 @@ math::transformf align_item(align_t align,
 math::transformf align_item(align_t align,
                             const rect& item);
 
-math::transformf fit_text(const text& t,
+math::transformf align_and_fit_item(align_t align, float item_w, float item_h,
                           const math::transformf& transform,
                           const rect& dst_rect,
                           size_fit sz_fit = size_fit::shrink_to_fit,
@@ -209,7 +209,6 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_text(const text& t,
                   const math::transformf& transform);
-
 
     //-----------------------------------------------------------------------------
     /// Adds a polyline to the list.

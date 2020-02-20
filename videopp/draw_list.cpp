@@ -472,21 +472,20 @@ math::transformf fit_item(float item_w, float item_h,
     return fit_trans;
 }
 
-math::transformf fit_text(const text &t, const math::transformf &transform,
-                                         const rect &dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+math::transformf align_and_fit_item(align_t align, float item_w, float item_h, const math::transformf &transform,
+                                         const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
-    auto align = t.get_alignment();
     auto scale_x = transform.get_scale().x;
     auto scale_y = transform.get_scale().y;
-    float text_width = t.get_width() * scale_x;
-    float text_height = t.get_height() * scale_y;
+    float text_width = item_w * scale_x;
+    float text_height = item_h * scale_y;
 
     const auto& translation = transform.get_position();
     auto offsets = get_alignment_offsets(align,
-                                         float(dst_rect.x) + translation.x,
-                                         float(dst_rect.y) + translation.y,
-                                         float(dst_rect.x + dst_rect.w) - translation.x,
-                                         float(dst_rect.y + dst_rect.h) - translation.y,
+                                         float(dst_rect.x),
+                                         float(dst_rect.y),
+                                         float(dst_rect.x + dst_rect.w),
+                                         float(dst_rect.y + dst_rect.h),
                                          false);
 
     math::transformf parent{};
@@ -684,6 +683,12 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
         break;
     }
 
+    if(!texture)
+    {
+        col = color::magenta();
+        col.a = 128;
+    }
+
     const vertex_2d verts[] =
     {
         {points[0], min_uv, col},
@@ -693,6 +698,7 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
     };
 
     blending_mode blend = texture.blending;
+
 
     if(col.a < 255)
     {
@@ -771,21 +777,17 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         return;
     }
 
-    const auto& geometry = t.get_geometry();
-    if(geometry.empty())
-    {
-        return;
-    }
 
-    const auto& font = t.get_font();
+    const auto& style = t.get_style();
+    const auto& font = style.font;
     auto pixel_snap = font->pixel_snap;
 
-    const auto& offsets = t.get_shadow_offsets();
+    const auto& offsets = style.shadow_offsets;
     if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
     {
         auto shadow = t;
-        shadow.set_vgradient_colors(t.get_shadow_color_top(), t.get_shadow_color_bot());
-        shadow.set_outline_color(t.get_shadow_color_top());
+        shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
+        shadow.set_outline_color(style.shadow_color_top);
         shadow.set_shadow_offsets({0.0f, 0.0f});
         math::transformf shadow_transform{};
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
@@ -797,13 +799,22 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         set_debug_draw(debug_draw_old);
     }
 
+    const auto& geometry = t.get_geometry();
+    if(geometry.empty())
+    {
+        return;
+    }
+
     float unit_length_in_pixels_at_font_position = 1.0f;
     auto sdf_spread = font->sdf_spread;
     float scale = std::max(transform.get_scale().x, transform.get_scale().y);
     float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
-    float outline_width = std::max(0.0f, t.get_outline_width());
-    color outline_color = t.get_outline_color();
-
+    float outline_width = std::max(0.0f, style.outline_width);
+    color outline_color = {0, 0, 0, 0};
+    if(outline_width > 0.0f)
+    {
+        outline_color = style.outline_color;
+    }
     // cpu_batching is disabled for text rendering with more than X vertices
     // because there are too many vertices and their matrix multiplication
     // on the cpu dominates the batching benefits.
@@ -925,7 +936,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
-    add_text(t, fit_text(t, transform, dst_rect, sz_fit, dim_fit));
+    add_text(t, align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit));
 
 	if(debug_draw() && debug)
     {
@@ -1172,7 +1183,7 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
             idx_write_ptr += 6;
             vtx_current_idx += 4;
         }
-    } 
+    }
 
     auto vtx_count = vertices.size() - vtx_offset;
     auto idx_count = indices.size() - idx_offset;
@@ -1643,7 +1654,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
         for(const auto& line : lines)
         {
-            auto line_height = t.get_font()->line_height;
+            auto line_height = t.get_style().font->line_height;
             math::vec2 v1{line.maxx, line.ascent};
             math::vec2 v2{line.maxx, line.ascent + line_height};
 

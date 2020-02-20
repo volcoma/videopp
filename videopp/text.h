@@ -106,91 +106,22 @@ std::pair<float, float> get_alignment_offsets(align_t alignment,
 											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
 											  bool pixel_snap);
 
-//struct text_style
-//{
-//	/// The font
-//	font_ptr font;
-
-//	/// Extra advance
-//	math::vec2 advance{0, 0};
-
-//	/// Color of the text
-//	color color_top = color::white();
-//	color color_bot = color::white();
-
-//	/// The line to align to.
-//	/// > median - superscript
-//	/// = median - normal (center based)
-//	/// < median - subscript
-//	script_line script{script_line::baseline};
-
-//	/// Shadow offsets of the text in pixels
-//	math::vec2 shadow_offsets{0.0f, 0.0f};
-
-//	/// Shadow color of the text
-//	color shadow_color_top = color::black();
-//	color shadow_color_bot = color::black();
-
-//	/// Outline color of the text
-//	color outline_color = color::black();
-
-//	/// Outline width of the text
-//	float outline_width{};
-
-//	/// Scale to be used.
-//	float scale{1.0f};
-
-//	/// Leaning
-//	float leaning{};
-
-//	/// Kerning usage if the font provides any kerning pairs.
-//	bool kerning_enabled{};
-
-//};
-
-//struct text_range
-//{
-//	bool contains(size_t idx) const
-//	{
-//		if(end == 0)
-//		{
-//			return true;
-//		}
-//		return idx >= begin && idx < end;
-//	}
-//	/// Begin glyph (inclusive).
-//	size_t begin{};
-//	/// End glyph (exclusive).
-//	size_t end{};
-//};
-
-//struct text_chunk
-//{
-//	text_range unicode_range{};
-
-//	text_range unicode_visual_range{};
-
-//	text_range utf8_range{};
-
-//	std::function<float(const char* str_begin, const char* str_end)> calculate_size;
-
-//	std::function<void(float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)> generate_geometry;
-
-//	text_style style;
-
-//	std::vector<vertex_2d> geometry;
-
-//};
-
-//struct text_ex : text_chunk
-//{
-
-//	std::vector<text_chunk> chunks;
-//};
-
 
 struct text_decorator
 {
+    using calc_size_t = std::function<float(
+                        const text_decorator& decorator,
+                        const char* str_begin,
+                        const char* str_end)>;
+
+    using generate_line_t = std::function<void(
+                            const text_decorator& decorator,
+                            float line_offset_x,
+                            size_t line,
+                            const line_metrics& metrics,
+                            const char* str_begin,
+                            const char* str_end)>;
+
     struct range
     {
         bool contains(size_t idx) const
@@ -210,15 +141,30 @@ struct text_decorator
 	range match_range{};
     range visual_range{};
 	range utf8_range{};
-    /// Callback to be called once for the whole range
-	std::function<float(const char* str_begin, const char* str_end)> calculate_size;
-	std::function<void(float pen_x, float pen_y, size_t line, const char* str_begin, const char* str_end)> generate_geometry;
 
-    /// Extra advance
-    math::vec2 advance{0, 0};
+	calc_size_t get_size_on_line;
+	generate_line_t set_position_on_line;
 
     /// Scale to be used.
 	float scale{1.0f};
+
+    /// The line to align to.
+    /// > median - superscript
+    /// = median - normal (center based)
+    /// < median - subscript
+	script_line script{script_line::baseline};
+};
+
+struct text_style
+{
+    /// The font
+    font_ptr font{};
+
+    /// Shadow offsets of the text in pixels
+    math::vec2 shadow_offsets{0.0f, 0.0f};
+
+    /// Extra advance
+    math::vec2 advance{0, 0};
 
     /// Leaning
     float leaning{};
@@ -227,15 +173,20 @@ struct text_decorator
     color color_top = color::white();
     color color_bot = color::white();
 
-    /// The line to align to.
-    /// > median - superscript
-    /// = median - normal (center based)
-    /// < median - subscript
-	script_line script{script_line::baseline};
+    /// Outline color of the text
+    color outline_color{color::black()};
+
+    /// Outline width of the text
+    float outline_width{0.0f};
+
+    /// Shadow color of the text
+    color shadow_color_top{color::black()};
+    color shadow_color_bot{color::black()};
+
+    float scale{1.0f};
 
     /// Kerning usage if the font provides any kerning pairs.
     bool kerning_enabled{};
-
 };
 
 class text
@@ -254,6 +205,10 @@ public:
     void set_utf8_text(const std::string& t);
 	void set_utf8_text(std::string&& t);
 
+    //-----------------------------------------------------------------------------
+    /// Set the whole style at once.
+    //-----------------------------------------------------------------------------
+    void set_style(const text_style& style);
     //-----------------------------------------------------------------------------
     /// Set the font to be used.
     //-----------------------------------------------------------------------------
@@ -323,12 +278,6 @@ public:
 	void set_line_path(const polyline& line);
 	void set_line_path(polyline&& line);
 
-	void set_decorators(const std::vector<text_decorator>& decorators);
-    void set_decorators(std::vector<text_decorator>&& decorators);
-    void add_decorator(const text_decorator& decorators);
-    void add_decorator(text_decorator&& decorators);
-
-
 	//-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
     //-----------------------------------------------------------------------------
@@ -347,20 +296,6 @@ public:
     float get_height() const;
 
     //-----------------------------------------------------------------------------
-    /// Gets the height from the baseline of the topmost line of the text.
-    /// This takes into consideration any applied modifiers such as custom advance,
-    /// outline width or shadow offsets
-    //-----------------------------------------------------------------------------
-    float get_min_baseline_height() const;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the height from the baseline of the bottommost line of the text.
-    /// This takes into consideration any applied modifiers such as custom advance,
-    /// outline width or shadow offsets
-    //-----------------------------------------------------------------------------
-    float get_max_baseline_height() const;
-
-    //-----------------------------------------------------------------------------
     /// Gets the rect of the text relative to the aligned origin. Aligned to pixel
     //-----------------------------------------------------------------------------
     rect get_rect() const;
@@ -371,30 +306,9 @@ public:
     const frect& get_frect() const;
 
     //-----------------------------------------------------------------------------
-    /// Gets the outline color of the text.
+    /// Gets the style of the text
     //-----------------------------------------------------------------------------
-    color get_outline_color() const;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the outline width of the text.
-    //-----------------------------------------------------------------------------
-    float get_outline_width() const;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the shadow offsets in pixels.
-    //-----------------------------------------------------------------------------
-    const math::vec2& get_shadow_offsets() const;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the shadow color of the text.
-    //-----------------------------------------------------------------------------
-    color get_shadow_color_top() const;
-    color get_shadow_color_bot() const;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the font of the text.
-    //-----------------------------------------------------------------------------
-    const font_ptr& get_font() const;
+    const text_style& get_style() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the alignment of the text (relative to the origin point).
@@ -417,36 +331,64 @@ public:
     //-----------------------------------------------------------------------------
     const std::vector<std::vector<uint32_t>>& get_lines() const;
 
+    //-----------------------------------------------------------------------------
+    /// Gets the unicode text.
+    //-----------------------------------------------------------------------------
     const std::vector<uint32_t>& get_unicode_text() const;
+
     //-----------------------------------------------------------------------------
     /// Gets the utf8 text.
     //-----------------------------------------------------------------------------
     const std::string& get_utf8_text() const;
 
+    //-----------------------------------------------------------------------------
+    /// Checks the validity of the text.
+    //-----------------------------------------------------------------------------
     bool is_valid() const;
 
+    //-----------------------------------------------------------------------------
+    /// Sets callbacks
+    //-----------------------------------------------------------------------------
     void set_align_line_callback(const std::function<void(size_t, float)>& callback);
     void set_clear_geometry_callback(const std::function<void()>& callback);
 
+    //-----------------------------------------------------------------------------
+    /// Adds/sets text decorators
+    //-----------------------------------------------------------------------------
+	void set_decorators(const std::vector<text_decorator>& decorators);
+    void set_decorators(std::vector<text_decorator>&& decorators);
+    void add_decorator(const text_decorator& decorators);
+    void add_decorator(text_decorator&& decorators);
+
+    //-----------------------------------------------------------------------------
+    /// Adds text decorators
+    //-----------------------------------------------------------------------------
 	std::vector<text_decorator*> add_decorators(const std::string& style_id);
     std::vector<text_decorator*> add_decorators(const std::regex& global_matcher, const std::regex& local_visual_matcher={});
 
+    //-----------------------------------------------------------------------------
+    /// Returns the main decorator
+    //-----------------------------------------------------------------------------
+    const text_decorator& get_decorator() const;
+    std::vector<text_decorator>& acess_decorators() { return decorators_; }
+
     static size_t count_glyphs(const std::string& utf8_text);
     static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
-	const text_decorator& get_decorator() const;
+
 private:
 
-    float get_advance_offset_x(const text_decorator& decorator) const;
-    float get_advance_offset_y(const text_decorator& decorator) const;
+    float get_advance_offset_x() const;
+    float get_advance_offset_y() const;
 
     void clear_geometry();
     void clear_lines();
     void update_lines() const;
     void update_geometry(bool all) const;
     void update_unicode_text() const;
-    const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
 
+    const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
     bool get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const;
+
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
 
@@ -459,40 +401,32 @@ private:
     /// Unicode text
     mutable std::vector<uint32_t> unicode_text_;
 
-    std::function<void(size_t, float)> align_line_callback;
-    std::function<void()> clear_geometry_callback;
+    /// Align line callback
+    std::function<void(size_t, float)> align_line_callback_{};
+
+    /// clear_geometry_callback
+    std::function<void()> clear_geometry_callback_{};
 
     /// Utf8 text
-    std::string utf8_text_;
+    std::string utf8_text_{};
 
 	/// Custom line path
-	polyline line_path_;
-
-    /// The font
-    font_ptr font_;
+    polyline line_path_{};
 
     /// Rect of the text relative to the aligned origin.
     mutable frect rect_{};
 
-    text_decorator decorator_{};
+    /// main decorator
+    text_decorator main_decorator_{};
 
+    /// user decorators
 	std::vector<text_decorator> decorators_{};
 
-    /// Shadow offsets of the text in pixels
-    math::vec2 shadow_offsets_{0.0f, 0.0f};
+    /// Style of the text
+    text_style style_{};
 
     /// Total chars in the text.
-    mutable uint32_t chars_ = 0;
-
-    /// Outline color of the text
-    color outline_color_ = color::black();
-
-    /// Outline width of the text
-    float outline_width_ = 0.0f;
-
-    /// Shadow color of the text
-    color shadow_color_top_ = color::black();
-    color shadow_color_bot_ = color::black();
+    mutable uint32_t chars_{0};
 
     /// Origin alignment
     align_t alignment_ = align::left | align::baseline_top;
