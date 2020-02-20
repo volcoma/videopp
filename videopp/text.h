@@ -432,7 +432,7 @@ private:
     align_t alignment_ = align::left | align::baseline_top;
 
     /// Max width
-    float max_width_{};
+	float max_width_{};
 
 };
 

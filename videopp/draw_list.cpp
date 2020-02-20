@@ -476,12 +476,12 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
                                          const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
     auto scale_x = transform.get_scale().x;
-    auto scale_y = transform.get_scale().y;
-    float text_width = item_w * scale_x;
-    float text_height = item_h * scale_y;
+	auto scale_y = transform.get_scale().y;
+	float text_width = item_w * scale_x;
+	float text_height = item_h * scale_y;
 
-    const auto& translation = transform.get_position();
-    auto offsets = get_alignment_offsets(align,
+	const auto& translation = transform.get_position();
+	auto offsets = get_alignment_offsets(align,
                                          float(dst_rect.x),
                                          float(dst_rect.y),
                                          float(dst_rect.x + dst_rect.w),
@@ -492,10 +492,10 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
     parent.translate(translation);
     parent.set_rotation(transform.get_rotation());
 
-    math::transformf local = fit_item(text_width  + translation.y,
-                                      text_height + translation.y,
-                                      float(dst_rect.w) - translation.x,
-                                      float(dst_rect.h) - translation.y,
+	math::transformf local = fit_item(text_width + translation.x,
+									  text_height + translation.y,
+									  float(dst_rect.w) - translation.x*2,
+									  float(dst_rect.h) - translation.y*2,
                                       sz_fit, dim_fit);
 
     local.scale(transform.get_scale());
@@ -519,6 +519,29 @@ math::transformf align_item(align_t align, float minx, float miny, float maxx, f
     return result;
 }
 
+
+math::transformf align_wrap_and_fit_text(text& t, const math::transformf& transform, rect dst_rect, size_fit sz_fit, dimension_fit dim_fit, size_t depth)
+{
+	auto max_w = dst_rect.w;
+
+	math::transformf world;
+	size_t loop{0};
+	while(loop < depth)
+	{
+		t.set_max_width(max_w);
+		world = gfx::align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+		auto w = int(float(dst_rect.w) / world.get_scale().x);
+
+		if(w == max_w)
+		{
+			break;
+		}
+
+		max_w = w;
+		loop++;
+	}
+	return world;
+}
 
 const program_setup& empty_setup() noexcept
 {
@@ -787,8 +810,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     {
         auto shadow = t;
         shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
-        shadow.set_outline_color(style.shadow_color_top);
-        shadow.set_shadow_offsets({0.0f, 0.0f});
+		shadow.set_outline_color(style.shadow_color_top);
+		shadow.set_shadow_offsets({0.0f, 0.0f});
         math::transformf shadow_transform{};
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
 
@@ -1682,5 +1705,6 @@ bool debug_draw()
 {
 	return debug_draw_enabled;
 }
+
 
 }

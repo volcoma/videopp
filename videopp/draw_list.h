@@ -39,11 +39,19 @@ math::transformf align_item(align_t align,
 math::transformf align_item(align_t align,
                             const rect& item);
 
-math::transformf align_and_fit_item(align_t align, float item_w, float item_h,
-                          const math::transformf& transform,
-                          const rect& dst_rect,
-                          size_fit sz_fit = size_fit::shrink_to_fit,
-                          dimension_fit dim_fit = dimension_fit::uniform);
+math::transformf align_and_fit_item(align_t align,
+									float item_w, float item_h,
+									const math::transformf& transform,
+									const rect& dst_rect,
+									size_fit sz_fit = size_fit::shrink_to_fit,
+									dimension_fit dim_fit = dimension_fit::uniform);
+
+math::transformf align_wrap_and_fit_text(text& t,
+										 const math::transformf& transform,
+										 rect dst_rect,
+										 size_fit sz_fit = size_fit::shrink_to_fit,
+										 dimension_fit dim_fit = dimension_fit::uniform,
+										 size_t depth = 4);
 
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list

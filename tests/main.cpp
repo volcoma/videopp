@@ -1,7 +1,8 @@
 #include <ospp/os.h>
-#include <videopp/html/html_page.h>
 #include <videopp/renderer.h>
 #include <videopp/ttf_font.h>
+#include <videopp/rich_text.h>
+
 
 #include <algorithm>
 #include <chrono>
@@ -27,7 +28,7 @@ style2(3) img(scatter) символи навсякъде на style2(2ра), sty
 В случай на повторно задействане на style2(БЕЗПЛАТНИ СПИНОВЕ), играчът печели style2(10) нови style2(БЕЗПЛАТНИ СПИНОВЕ), които се добавят към текущия брой style2(БЕЗПЛАТНИ СПИНОВЕ).
 Печалбите от img(scatter) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
 
-style1(ДИВ)
+style1(ЖОКЕР)
 img(wild) замества за всички символи, с изключение на img(scatter).)";
 
 static std::string ESP =
@@ -42,263 +43,6 @@ img(wild) sustituye a todos los símbolos excepto img(scatter).)";
 
 
 static std::vector<std::string> texts{EN, BG, ESP};
-
-static gfx::font_ptr wierd_font;
-
-struct line_element
-{
-    size_t line{};
-    float x_offset{};
-    float y_offset{};
-};
-
-struct image_data
-{
-    gfx::rect src_rect{};
-    gfx::texture_weak_ptr image{};
-};
-
-struct embedded_image
-{
-    line_element element{};
-    image_data data{};
-};
-
-struct embedded_text
-{
-    line_element element{};
-    gfx::text text{};
-};
-
-
-struct rich_config
-{
-    using image_getter_t = std::function<image_data(const std::string&)>;
-
-    image_getter_t image_getter;
-    std::map<std::string, gfx::text_style> styles{};
-
-    float line_height_scale = 2.0f;
-};
-
-struct rich_text : gfx::text
-{
-    void draw(gfx::draw_list& list, math::transformf transform, gfx::rect dst_rect, gfx::size_fit sz_fit = gfx::size_fit::shrink_to_fit,
-              gfx::dimension_fit dim_fit = gfx::dimension_fit::uniform)
-    {
-        const auto& style = get_style();
-        auto advance = (calculated_line_height_ - style.font->line_height);
-        transform.translate(0.0f, advance * 0.25f, 0.0f);
-        dst_rect.h -= int(advance * 0.25f);
-
-        auto max_w = dst_rect.w;
-
-        math::transformf world;
-        size_t loop{0};
-		while(loop < 16)
-        {
-            set_max_width(max_w);
-            world = gfx::align_and_fit_item(get_alignment(), get_width(), get_height(), transform, dst_rect, sz_fit, dim_fit);
-            auto w = int(float(dst_rect.w) / world.get_scale().x);
-
-            if(w == max_w)
-            {
-                break;
-            }
-
-            max_w = w;
-            loop++;
-        }
-
-        list.add_text(*this, world);
-
-        for(const auto& kvp : embedded_images_)
-        {
-            const auto& embedded = kvp.second;
-            const auto& element = embedded.element;
-            auto image = embedded.data.image.lock();
-
-            const auto& img_src_rect = embedded.data.src_rect;
-            gfx::rect img_dst_rect = {0, 0, img_src_rect.w, img_src_rect.h};
-            img_dst_rect = apply_constraints(img_dst_rect);
-
-            img_dst_rect.x += int(element.x_offset);
-            img_dst_rect.y += int(element.y_offset);
-            img_dst_rect.y -= img_dst_rect.h / 2;
-
-            list.add_image(image, img_src_rect, img_dst_rect, world);
-
-        }
-
-        for(const auto& kvp : embedded_texts_)
-        {
-            const auto& embedded = kvp.second;
-            const auto& element = embedded.element;
-            const auto& text = embedded.text;
-
-			math::transformf tr;
-			tr.set_position(element.x_offset, element.y_offset, 0);
-			list.add_text(text, world * tr);
-		}
-    }
-
-    void set_config(const rich_config& cfg)
-    {
-        cfg_ = cfg;
-        embedded_images_.clear();
-        embedded_texts_.clear();
-
-        const auto& style = get_style();
-        calculated_line_height_ = style.font->line_height * cfg_.line_height_scale;
-        auto advance = (calculated_line_height_ - style.font->line_height);
-
-        set_advance({0, advance});
-
-        set_align_line_callback([&](size_t line, float align_x)
-        {
-            for(auto& kvp : embedded_images_)
-            {
-                auto& element = kvp.second.element;
-                if(element.line == line)
-                {
-                    element.x_offset += align_x;
-                }
-            }
-
-            for(auto& kvp : embedded_texts_)
-            {
-                auto& element = kvp.second.element;
-                if(element.line == line)
-                {
-                    element.x_offset += align_x;
-                }
-            }
-        });
-
-        set_clear_geometry_callback([&]()
-        {
-            embedded_images_.clear();
-			embedded_texts_.clear();
-        });
-
-        {
-			auto decorators = add_decorators("img");
-
-			for(const auto& decorator : decorators)
-            {
-				decorator->get_size_on_line = [&](const gfx::text_decorator& decorator, const char* str_begin, const char* str_end) -> float
-				{
-                    key_t key{decorator.visual_range.begin, decorator.visual_range.end};
-
-                    auto it = embedded_images_.find(key);
-                    if(it == std::end(embedded_images_))
-                    {
-                        if(!cfg_.image_getter)
-                        {
-                            return 0.0f;
-                        }
-
-                        auto& embedded = embedded_images_[key];
-
-                        std::string utf8_str(str_begin, str_end);
-                        embedded.data = cfg_.image_getter(utf8_str);
-
-                        auto texture = embedded.data.image.lock();
-                        auto src_rect = embedded.data.src_rect;
-                        gfx::rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-                        return float(apply_constraints(dst_rect).w);
-                    }
-
-                    auto& embedded = it->second;
-                    auto image = embedded.data.image;
-                    auto src_rect = embedded.data.src_rect;
-                    gfx::rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-
-                    return float(apply_constraints(dst_rect).w);
-                };
-
-				decorator->set_position_on_line = [&](const gfx::text_decorator& decorator,
-                        float line_offset_x,
-                        size_t line,
-                        const gfx::line_metrics& metrics,
-                        const char* /*str_begin*/, const char* /*str_end*/)
-				{
-                    key_t key{decorator.visual_range.begin, decorator.visual_range.end};
-
-                    auto& embedded = embedded_images_[key];
-                    auto& element = embedded.element;
-					element.line = line;
-					element.x_offset = line_offset_x;
-                    element.y_offset = metrics.median;
-				};
-
-            }
-        }
-
-        for(const auto& kvp : cfg_.styles)
-		{
-            const auto& style_id = kvp.first;
-            const auto& style = kvp.second;
-			auto decorators = add_decorators(style_id);
-
-			for(const auto& decorator : decorators)
-			{
-                decorator->get_size_on_line = [&](const gfx::text_decorator& decorator, const char* str_begin, const char* str_end) ->float
-				{
-                    key_t key{decorator.visual_range.begin, decorator.visual_range.end};
-
-                    auto it = embedded_texts_.find(key);
-                    if(it == std::end(embedded_texts_))
-                    {
-                        auto& embedded = embedded_texts_[key];
-                        embedded.text.set_style(style);
-                        embedded.text.set_alignment(gfx::align::baseline | gfx::align::left);
-                        embedded.text.set_utf8_text({str_begin, str_end});
-                        return embedded.text.get_width();
-                    }
-
-                    auto& embedded = it->second;
-                    auto& text = embedded.text;
-					return text.get_width();
-				};
-
-				decorator->set_position_on_line = [&](const gfx::text_decorator& decorator,
-                        float line_offset_x,
-                        size_t line,
-                        const gfx::line_metrics& metrics,
-                        const char* /*str_begin*/, const char* /*str_end*/)
-				{
-                    key_t key{decorator.visual_range.begin, decorator.visual_range.end};
-
-                    auto& embedded = embedded_texts_[key];
-                    auto& element = embedded.element;
-					element.line = line;
-					element.x_offset = line_offset_x;
-					element.y_offset = metrics.baseline;
-				};
-
-			}
-		}
-    }
-
-    gfx::rect apply_constraints(gfx::rect r) const
-    {
-        float aspect = float(r.w) / float(r.h);
-        auto result = r;
-        result.h = int(calculated_line_height_);
-        result.w = int(aspect * calculated_line_height_);
-        return result;
-    }
-
-
-    float calculated_line_height_{};
-
-    using key_t = std::pair<size_t, size_t>;
-	std::map<key_t, embedded_image> embedded_images_{};
-	std::map<key_t, embedded_text> embedded_texts_{};
-
-    rich_config cfg_;
-};
 
 int main()
 {
@@ -317,12 +61,12 @@ int main()
 
 		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 30, 2);
         auto font = rend.create_font(std::move(info));
-        auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 46, 2);
-        auto font1 = rend.create_font(std::move(info1));
 
-        auto info2 = gfx::create_font_from_ttf(DATA"fonts/wds052801.ttf", builder.get(), 46, 2);
-        auto font2 = rend.create_font(std::move(info2));
+		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 46, 2);
+		auto font1 = rend.create_font(std::move(info1));
 
+		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 46, 2);
+		auto font2 = rend.create_font(std::move(info2));
 
 
 		auto img_symbol = rend.create_texture(DATA"symbol.png");
@@ -341,6 +85,71 @@ int main()
         float scale = 0.5f;
 
         float line_scale = 2.0f;
+
+
+
+
+		gfx::rich_text t;
+		t.set_font(font);
+		t.set_outline_color(gfx::color::black());
+		t.set_outline_width(0.1f);
+		t.set_shadow_offsets({3, 3});
+		t.set_shadow_color(gfx::color::black());
+
+		gfx::rich_config cfg;
+		cfg.line_height_scale = line_scale;
+
+		{
+			auto& style = cfg.styles["style1"];
+			style.font = font1;
+			style.color_top = gfx::color::green();
+			style.color_bot = gfx::color::yellow();
+			style.scale = 2.5f;
+			style.outline_color = gfx::color::red();
+			style.outline_width = 0.3f;
+		}
+
+		{
+			auto& style = cfg.styles["style2"];
+			style.font = font;
+			style.color_top = gfx::color::blue();
+			style.color_bot = gfx::color::cyan();
+			style.shadow_color_top = gfx::color::blue();
+			style.shadow_color_bot = gfx::color::cyan();
+			style.shadow_offsets = {-2.0f, -2.0f};
+			style.outline_color = gfx::color::green();
+			style.outline_width = 0.2f;
+			style.scale = 1.4f;
+		}
+
+		{
+			auto& style = cfg.styles["style3"];
+			style.font = font2;
+			style.color_top = gfx::color::red();
+			style.color_bot = gfx::color::blue();
+			style.outline_color = gfx::color::green();
+			style.outline_width = 0.2f;
+
+		}
+
+		cfg.image_getter = [&](const std::string& tag) -> gfx::image_data
+		{
+			if(tag == "scatter")
+			{
+				return {img_symbol->get_rect(), img_symbol};
+			}
+
+			if(tag == "wild")
+			{
+				return {img_symbol->get_rect(), img_symbol};
+			}
+
+			return {{0, 0, 256, 256},{}};
+		};
+
+		t.set_config(cfg);
+
+
 		while(running)
 		{
 			os::event e{};
@@ -393,7 +202,7 @@ int main()
                             va *= 2;
                             valign = gfx::align(va);
                         }
-                        if(valign == gfx::align::baseline_bottom)
+						if(valign == gfx::align::cap_height_top)
                         {
                             valign = gfx::align::top;
                         }
@@ -448,64 +257,14 @@ int main()
             list.add_image(img_background, rend.get_rect());
             list.add_rect(area, gfx::color::red(), false);
 
-            rich_text t;
-            t.set_font(font);
-            t.set_outline_color(gfx::color::black());
-            t.set_outline_width(0.1f);
-			t.set_shadow_offsets({3, 3});
-            t.set_shadow_color(gfx::color::black());
 
             t.set_utf8_text(text);
             t.set_alignment(valign | halign);
 
-            rich_config cfg;
-            cfg.line_height_scale = line_scale;
+			t.apply_config();
+			t.draw(list, t.calculate_wrap_fitting(tr, area));
 
-            {
-                auto& style = cfg.styles["style1"];
-                style.font = font2;
-                style.color_top = gfx::color::green();
-                style.color_bot = gfx::color::yellow();
-                style.scale = 2.5f;
-                style.outline_color = gfx::color::red();
-                style.outline_width = 0.3f;
-            }
-
-            {
-                auto& style = cfg.styles["style2"];
-                style.font = font;
-                style.color_top = gfx::color::cyan();
-                style.color_bot = gfx::color::cyan();
-                style.scale = 1.4f;
-            }
-
-            {
-                auto& style = cfg.styles["style3"];
-                style.font = font1;
-                style.color_top = gfx::color::red();
-                style.color_bot = gfx::color::blue();
-
-            }
-
-            cfg.image_getter = [&](const std::string& tag) -> image_data
-            {
-                if(tag == "scatter")
-                {
-                    return {img_symbol->get_rect(), img_symbol};
-                }
-
-                if(tag == "wild")
-                {
-                    return {img_symbol->get_rect(), img_symbol};
-                }
-
-                return {{0, 0, 256, 256},{}};
-            };
-
-            t.set_config(cfg);
-
-            t.draw(list, tr, area);
-
+			std::cout << list.to_string() << std::endl;
             rend.draw_cmd_list(list);
 
 			rend.present();
