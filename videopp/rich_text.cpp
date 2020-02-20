@@ -9,7 +9,10 @@ math::transformf rich_text::calculate_wrap_fitting(math::transformf transform,
 												   size_t depth)
 {
 	const auto& style = get_style();
-	auto advance = (calculated_line_height_ - style.font->line_height);
+	auto font = style.font.lock();
+	auto line_height = font ? font->line_height : 0.0f;
+
+	auto advance = (calculated_line_height_ - line_height);
 	transform.translate(0.0f, advance * 0.25f, 0.0f);
 	dst_rect.h -= int(advance * 0.25f);
 
@@ -60,8 +63,10 @@ void rich_text::apply_config()
 	embedded_texts_.clear();
 
 	const auto& style = get_style();
-	calculated_line_height_ = style.font->line_height * cfg_.line_height_scale;
-	auto advance = (calculated_line_height_ - style.font->line_height);
+	auto font = style.font.lock();
+	auto line_height = font ? font->line_height : 0.0f;
+	calculated_line_height_ = line_height * cfg_.line_height_scale;
+	auto advance = (calculated_line_height_ - line_height);
 
 	set_advance({0, advance});
 

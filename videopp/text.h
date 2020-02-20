@@ -158,7 +158,7 @@ struct text_decorator
 struct text_style
 {
     /// The font
-    font_ptr font{};
+	font_weak_ptr font{};
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets{0.0f, 0.0f};
@@ -212,7 +212,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Set the font to be used.
     //-----------------------------------------------------------------------------
-    void set_font(const font_ptr& f);
+	void set_font(const font_weak_ptr& f);
 
     //-----------------------------------------------------------------------------
     /// Sets the color of the text

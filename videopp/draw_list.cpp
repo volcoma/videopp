@@ -801,8 +801,8 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
 
-    const auto& style = t.get_style();
-    const auto& font = style.font;
+	const auto& style = t.get_style();
+	auto font = style.font.lock();
     auto pixel_snap = font->pixel_snap;
 
     const auto& offsets = style.shadow_offsets;
@@ -1675,14 +1675,18 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
         }
 
-        for(const auto& line : lines)
-        {
-            auto line_height = t.get_style().font->line_height;
-            math::vec2 v1{line.maxx, line.ascent};
-            math::vec2 v2{line.maxx, line.ascent + line_height};
+		auto font = t.get_style().font.lock();
+		if(font)
+		{
+			for(const auto& line : lines)
+			{
+				auto line_height = font->line_height;
+				math::vec2 v1{line.maxx, line.ascent};
+				math::vec2 v2{line.maxx, line.ascent + line_height};
 
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
-        }
+				add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
+			}
+		}
     }
 
     add_rect(rect{-1, -1, 2, 2}, transform, color{255, 190, 2});
