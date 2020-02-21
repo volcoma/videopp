@@ -482,20 +482,20 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
 
 	const auto& translation = transform.get_position();
 	auto offsets = get_alignment_offsets(align,
-                                         float(dst_rect.x),
-                                         float(dst_rect.y),
-                                         float(dst_rect.x + dst_rect.w),
-                                         float(dst_rect.y + dst_rect.h),
+										 float(dst_rect.x),
+										 float(dst_rect.y),
+										 float(dst_rect.x + dst_rect.w),
+										 float(dst_rect.y + dst_rect.h),
                                          false);
 
     math::transformf parent{};
     parent.translate(translation);
     parent.set_rotation(transform.get_rotation());
 
-	math::transformf local = fit_item(text_width + translation.x,
-									  text_height + translation.y,
-									  float(dst_rect.w) - translation.x*2,
-									  float(dst_rect.h) - translation.y*2,
+	math::transformf local = fit_item(text_width,
+									  text_height,
+									  float(dst_rect.w),
+									  float(dst_rect.h),
                                       sz_fit, dim_fit);
 
     local.scale(transform.get_scale());
@@ -529,10 +529,10 @@ math::transformf align_wrap_and_fit_text(text& t, const math::transformf& transf
 	while(loop < depth)
 	{
 		t.set_max_width(max_w);
-		world = gfx::align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+		world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
 		auto w = int(float(dst_rect.w) / world.get_scale().x);
 
-		if(w == max_w)
+		if(std::abs(w - max_w) < (dst_rect.w /20))
 		{
 			break;
 		}
@@ -800,33 +800,31 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         return;
     }
 
-
 	const auto& style = t.get_style();
 	auto font = style.font.lock();
-    auto pixel_snap = font->pixel_snap;
+	auto pixel_snap = font->pixel_snap;
 
-    const auto& offsets = style.shadow_offsets;
-    if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
-    {
-        auto shadow = t;
-        shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
+	const auto& offsets = style.shadow_offsets * style.scale;
+	if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
+	{
+		auto shadow = t;
+		shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
 		shadow.set_outline_color(style.shadow_color_top);
 		shadow.set_shadow_offsets({0.0f, 0.0f});
-        math::transformf shadow_transform{};
-        shadow_transform.translate(offsets.x, offsets.y, 0.0f);
+		math::transformf shadow_transform{};
+		shadow_transform.translate(offsets.x, offsets.y, 0.0f);
 
-        auto debug_draw_old = set_debug_draw(false);
-        //push_program(get_program<programs::multi_channel>());
-        add_text(shadow, transform * shadow_transform);
-        //pop_program();
-        set_debug_draw(debug_draw_old);
+		auto debug_draw_old = set_debug_draw(false);
+		add_text(shadow, transform * shadow_transform);
+		set_debug_draw(debug_draw_old);
+
     }
 
-    const auto& geometry = t.get_geometry();
-    if(geometry.empty())
-    {
-        return;
-    }
+	const auto& geometry = t.get_geometry();
+	if(geometry.empty())
+	{
+		return;
+	}
 
     float unit_length_in_pixels_at_font_position = 1.0f;
     auto sdf_spread = font->sdf_spread;

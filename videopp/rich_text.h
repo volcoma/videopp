@@ -34,26 +34,49 @@ struct embedded_text
 
 struct rich_config
 {
-	using image_getter_t = std::function<image_data(const std::string&)>;
+	using image_getter_t = std::function<void(const std::string&, image_data& out)>;
+	using dynamic_text_getter_t = std::function<void(const std::string&, text& out)>;
 
 	image_getter_t image_getter;
-	std::map<std::string, gfx::text_style> styles{};
+	dynamic_text_getter_t dynamic_text_getter;
 
+	std::map<std::string, text_style> styles{};
 	float line_height_scale = 2.0f;
 };
 
-class rich_text : public gfx::text
+struct rich_text_builder
+{
+	void append(const std::string& text)
+	{
+		result.append(text);
+	}
+
+	void append(const std::string& text, const std::string& tag)
+	{
+		result.append(tag).append("(").append(text).append(")");
+	}
+
+	std::string result;
+};
+
+
+class rich_text : public text
 {
 public:
-	math::transformf calculate_wrap_fitting(math::transformf transform, gfx::rect dst_rect, size_fit sz_fit = size_fit::shrink_to_fit,
-											dimension_fit dim_fit = dimension_fit::uniform, size_t depth = 4);
+	void calculate_wrap_fitting(math::transformf transform, rect dst_rect, size_fit sz_fit = size_fit::shrink_to_fit,
+						   dimension_fit dim_fit = dimension_fit::uniform, size_t depth = 40);
+
+
+
 	void draw(draw_list& list, const math::transformf& transform) const;
 
 	void set_config(const rich_config& cfg);
 	void apply_config();
 
+	void set_utf8_text(const std::string& t);
+	void set_utf8_text(std::string&& t);
 private:
-	gfx::rect apply_constraints(gfx::rect r) const;
+	rect apply_constraints(rect r) const;
 	float calculated_line_height_{};
 
 	// begin-end pair
@@ -62,6 +85,8 @@ private:
 	std::map<key_t, embedded_text> embedded_texts_{};
 
 	rich_config cfg_;
+
+	math::transformf wrap_fitting_{};
 };
 
 

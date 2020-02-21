@@ -241,6 +241,25 @@ std::pair<float, float> get_alignment_offsets(
 
 }
 
+bool text_decorator::range::contains(size_t idx) const
+{
+	if(end == 0)
+	{
+		return true;
+	}
+	return idx >= begin && idx < end;
+}
+
+bool text_decorator::range::at_end(size_t idx) const
+{
+	return idx == end - 1;
+}
+
+bool text_decorator::range::empty() const
+{
+	return (begin == end) == 0;
+}
+
 text::~text()
 {
 	cache<text>::add(geometry_);
@@ -255,7 +274,7 @@ text::~text()
 
 }
 
-void text::set_utf8_text(const std::string& t)
+void text::set_utf8_text(const std::string& t, bool clear_decorators)
 {
 	if(t == utf8_text_)
 	{
@@ -265,10 +284,13 @@ void text::set_utf8_text(const std::string& t)
 	clear_lines();
 	clear_geometry();
 
-	decorators_.clear();
+	if(clear_decorators)
+	{
+		decorators_.clear();
+	}
 }
 
-void text::set_utf8_text(std::string&& t)
+void text::set_utf8_text(std::string&& t, bool clear_decorators)
 {
 	if(t == utf8_text_)
 	{
@@ -278,7 +300,10 @@ void text::set_utf8_text(std::string&& t)
 	clear_lines();
 	clear_geometry();
 
-	decorators_.clear();
+	if(clear_decorators)
+	{
+		decorators_.clear();
+	}
 }
 
 void text::set_style(const text_style& style)
@@ -436,6 +461,16 @@ void text::set_clear_geometry_callback(const std::function<void ()> &callback)
 }
 
 
+float text::get_advance_offset_x() const
+{
+	auto font = style_.font.lock();
+	if(font && font->sdf_spread > 0)
+	{
+		return style_.advance.x + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
+	}
+
+	return style_.advance.x;
+}
 float text::get_advance_offset_y() const
 {
 	auto font = style_.font.lock();
@@ -468,17 +503,6 @@ void text::set_leaning(float leaning)
 	clear_geometry();
 }
 
-float text::get_advance_offset_x() const
-{
-	auto font = style_.font.lock();
-	if(font && font->sdf_spread > 0)
-	{
-		return style_.advance.x + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
-	}
-
-	return style_.advance.x;
-}
-
 void text::set_max_width(float max_width)
 {
 	if(math::epsilonEqual(max_width_, max_width, math::epsilon<float>()))
@@ -505,21 +529,49 @@ void text::set_line_path(polyline&& line)
 void text::set_decorators(const std::vector<text_decorator>& decorators)
 {
 	decorators_ = decorators;
+
+	for(auto& dec : decorators_)
+	{
+		if(dec.unicode_visual_range.empty())
+		{
+			dec.unicode_visual_range = dec.unicode_range;
+		}
+	}
 	clear_geometry();
 }
 void text::set_decorators(std::vector<text_decorator>&& decorators)
 {
 	decorators_ = std::move(decorators);
+
+	for(auto& dec : decorators_)
+	{
+		if(dec.unicode_visual_range.empty())
+		{
+			dec.unicode_visual_range = dec.unicode_range;
+		}
+	}
 	clear_geometry();
 }
 void text::add_decorator(const text_decorator& decorator)
 {
 	decorators_.emplace_back(decorator);
+
+	auto& dec = decorators_.back();
+	if(dec.unicode_visual_range.empty())
+	{
+		dec.unicode_visual_range = dec.unicode_range;
+	}
 	clear_geometry();
 }
 void text::add_decorator(text_decorator&& decorator)
 {
 	decorators_.emplace_back(decorator);
+	auto& dec = decorators_.back();
+	if(dec.unicode_visual_range.empty())
+	{
+		dec.unicode_visual_range = dec.unicode_range;
+	}
+
 	clear_geometry();
 }
 const polyline& text::get_line_path() const
@@ -584,11 +636,11 @@ void text::update_lines() const
 	cache<text>::get(lines_.back(), unicode_text_size);
 	lines_.back().reserve(unicode_text_size);
 
-	auto max_width = float(max_width_) - font->get_glyph(' ').advance_x;
 
 	auto decorator = &main_decorator_;
 	auto next_decorator = get_next_decorator(0, decorator);
 
+	auto max_width = float(max_width_) - font->get_glyph(' ').advance_x * decorator->scale;
 	auto advance_offset_x = get_advance_offset_x();
 
 	for(size_t i = 0; i < unicode_text_size; ++i)
@@ -612,14 +664,14 @@ void text::update_lines() const
 			{
 			}
 
-			if(decorator->get_size_on_line && (decorator->match_range.end - 1) == chars_)
+			if(decorator->get_size_on_line && decorator->unicode_range.at_end(chars_))
 			{
 				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
 				callback_advance = decorator->get_size_on_line(*decorator, str_begin, str_end);
 			}
 
-			if(decorator->get_size_on_line || !decorator->visual_range.contains(chars_))
+			if(decorator->get_size_on_line || !decorator->unicode_visual_range.contains(chars_))
 			{
 				glyph_advance = 0;
 			}
@@ -701,9 +753,9 @@ const text_decorator* text::get_next_decorator(size_t glyph_idx, const text_deco
 
 	for(const auto& decorator : decorators_)
 	{
-		if(current->match_range.end >= glyph_idx && current != &decorator && glyph_idx <= decorator.match_range.begin)
+		if(current->unicode_range.end >= glyph_idx && current != &decorator && glyph_idx <= decorator.unicode_range.begin)
 		{
-			if(result == &main_decorator_ || decorator.match_range.begin < result->match_range.begin)
+			if(result == &main_decorator_ || decorator.unicode_range.begin < result->unicode_range.begin)
 			{
 				result = &decorator;
 			}
@@ -717,9 +769,9 @@ bool text::get_decorator(size_t i, const text_decorator*& current, const text_de
 {
 	bool changed = false;
 
-	if(i >= current->match_range.end)
+	if(i >= current->unicode_range.end)
 	{
-		if(current != next && i >= next->match_range.begin)
+		if(current != next && i >= next->unicode_range.begin)
 		{
 			changed = true;
 			current = next;
@@ -732,6 +784,16 @@ bool text::get_decorator(size_t i, const text_decorator*& current, const text_de
 		}
 	}
 	return changed;
+}
+
+float text::get_decorator_scale(const text_decorator* current) const
+{
+	if(current != &main_decorator_)
+	{
+		return current->scale;
+	}
+
+	return 1.0f;
 }
 
 void text::update_geometry(bool all) const
@@ -768,15 +830,16 @@ void text::update_geometry(bool all) const
 
 	float leaning = 0.0f;
 	bool has_leaning = false;
-	auto line_height = font->line_height + advance_offset_y;
+	float scale = decorator->scale;
+	auto line_height = scale * font->line_height + advance_offset_y;
 	const auto pixel_snap = font->pixel_snap;
-	const auto ascent = font->ascent;
-	const auto descent = font->descent;
+	const auto ascent = scale * font->ascent;
+	const auto descent = scale * font->descent;
 	const auto height = ascent - descent;
 
 	const auto line_gap = line_height - height;
-	const auto x_height = font->x_height;
-	const auto cap_height = font->cap_height;
+	const auto x_height = scale * font->x_height;
+	const auto cap_height = scale * font->cap_height;
 	const auto median = cap_height * 0.5f;
 	if(all)
 	{
@@ -854,7 +917,7 @@ void text::update_geometry(bool all) const
 
 				}
 
-				if((decorator->match_range.end - 1) == glyphs_processed)
+				if(decorator->unicode_range.at_end(glyphs_processed))
 				{
 					const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 					const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
@@ -877,7 +940,7 @@ void text::update_geometry(bool all) const
 				}
 			}
 
-			auto scale = std::max(decorator->scale, 0.001f);
+			float relative_scale = get_decorator_scale(decorator);
 
 			if(all)
 			{
@@ -887,22 +950,22 @@ void text::update_geometry(bool all) const
 				switch(decorator->script)
 				{
 					case script_line::ascent:
-						pen_y_decorated = metrics.ascent + ascent * scale;
+						pen_y_decorated = metrics.ascent + ascent * relative_scale;
 					break;
 					case script_line::cap_height:
-						pen_y_decorated = metrics.cap_height + cap_height * scale;
+						pen_y_decorated = metrics.cap_height + cap_height * relative_scale;
 					break;
 					case script_line::x_height:
-						pen_y_decorated = metrics.x_height + x_height * scale;
+						pen_y_decorated = metrics.x_height + x_height * relative_scale;
 					break;
 					case script_line::median:
-						pen_y_decorated = metrics.median + median * scale;
+						pen_y_decorated = metrics.median + median * relative_scale;
 					break;
 					case script_line::baseline:
 						pen_y_decorated = metrics.baseline;
 					break;
 					case script_line::descent:
-						pen_y_decorated = metrics.descent + descent * scale;
+						pen_y_decorated = metrics.descent + descent * relative_scale;
 					break;
 					default:
 					break;
@@ -912,7 +975,7 @@ void text::update_geometry(bool all) const
 			}
 
 
-			if(decorator->get_size_on_line || decorator->set_position_on_line || !decorator->visual_range.contains(glyphs_processed))
+			if(decorator->get_size_on_line || decorator->set_position_on_line || !decorator->unicode_visual_range.contains(glyphs_processed))
 			{
 				glyphs_processed++;
 				continue;
@@ -922,7 +985,7 @@ void text::update_geometry(bool all) const
 			if(kerning_enabled)
 			{
 				// modify the pen advance with the kerning from the previous character
-				pen_x += font->get_kerning(last_codepoint, g.codepoint) * scale;
+				pen_x += font->get_kerning(last_codepoint, g.codepoint) * scale * relative_scale;
 				last_codepoint = g.codepoint;
 			}
 
@@ -934,20 +997,20 @@ void text::update_geometry(bool all) const
 
 				if(has_leaning)
 				{
-					const auto y0_offs = g.y0 * scale + ascent;
+					const auto y0_offs = g.y0 * scale * relative_scale + ascent;
 					const auto y0_factor = 1.0f - y0_offs / ascent;
 					leaning0 = leaning * y0_factor;
 
-					const auto y1_offs = g.y1 * scale + ascent;
+					const auto y1_offs = g.y1 * scale * relative_scale + ascent;
 					const auto y1_factor = 1.0f - y1_offs / ascent;
 					leaning1 = leaning * y1_factor;
 				}
 
 
-				auto x0 = pen_x + g.x0 * scale;
-				auto x1 = pen_x + g.x1 * scale;
-				auto y0 = pen_y_decorated + g.y0 * scale;
-				auto y1 = pen_y_decorated + g.y1 * scale;
+				auto x0 = pen_x + g.x0 * scale * relative_scale;
+				auto x1 = pen_x + g.x1 * scale * relative_scale;
+				auto y0 = pen_y_decorated + g.y0 * scale * relative_scale;
+				auto y1 = pen_y_decorated + g.y1 * scale * relative_scale;
 
 				const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top;
 				const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metrics.ascent, height) : color_bot;
@@ -970,7 +1033,7 @@ void text::update_geometry(bool all) const
 				glyhps_to_render++;
 			}
 
-			pen_x += advance_offset_x + g.advance_x * scale;
+			pen_x += advance_offset_x + g.advance_x * scale * relative_scale;
 
 			glyphs_processed++;
 		}
@@ -1103,10 +1166,10 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
 		decorators_.emplace_back(get_decorator());
 		auto& decorator = decorators_.back();
 
-		decorator.match_range.begin = count_glyphs(text.data(), begin);
-		decorator.match_range.end = decorator.match_range.begin + count_glyphs(begin, end);
+		decorator.unicode_range.begin = count_glyphs(text.data(), begin);
+		decorator.unicode_range.end = decorator.unicode_range.begin + count_glyphs(begin, end);
 
-		decorator.visual_range = decorator.match_range;
+		decorator.unicode_visual_range = decorator.unicode_range;
 
 		decorator.utf8_range.begin = size_t(idx);
 		decorator.utf8_range.end = decorator.utf8_range.begin + size_t(sz);
@@ -1125,8 +1188,8 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
 			auto local_begin = begin + local_idx;
 			auto local_end = local_begin + local_sz;
 
-			decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
-			decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
+			decorator.unicode_visual_range.begin = count_glyphs(text.data(), local_begin);
+			decorator.unicode_visual_range.end = decorator.unicode_visual_range.begin + count_glyphs(local_begin, local_end);
 
 			decorator.utf8_range.begin = size_t(idx + local_idx);
 			decorator.utf8_range.end = decorator.utf8_range.begin + size_t(local_sz);
@@ -1146,8 +1209,8 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
 					local_begin = begin + local_idx;
 					local_end = local_begin + local_sz;
 
-					decorator.visual_range.begin = count_glyphs(text.data(), local_begin);
-					decorator.visual_range.end = decorator.visual_range.begin + count_glyphs(local_begin, local_end);
+					decorator.unicode_visual_range.begin = count_glyphs(text.data(), local_begin);
+					decorator.unicode_visual_range.end = decorator.unicode_visual_range.begin + count_glyphs(local_begin, local_end);
 
 					decorator.utf8_range.begin = size_t(idx + local_idx);
 					decorator.utf8_range.end = decorator.utf8_range.begin + size_t(local_sz);
@@ -1161,7 +1224,7 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
 	if(!decorators_.empty())
 	{
 		auto& decorator = decorators_.back();
-		if(!decorator.match_range.end)
+		if(!decorator.unicode_range.end)
 		{
 			decorators_.pop_back();
 		}

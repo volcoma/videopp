@@ -78,34 +78,6 @@ enum align : uint32_t
 
 using align_t = uint32_t;
 
-float get_alignment_x(align_t alignment,
-                      float minx,
-                      float maxx,
-                      bool pixel_snap);
-
-float get_alignment_y(align_t alignment,
-					  float miny,
-					  float maxy,
-					  bool pixel_snap);
-
-
-std::pair<float, float> get_alignment_offsets(align_t alignment,
-											  float minx, float miny,
-											  float maxx, float maxy,
-											  bool pixel_snap);
-
-
-
-float get_alignment_y(align_t alignment,
-					  float miny, float miny_baseline, float miny_cap,
-					  float maxy, float maxy_baseline, float maxy_cap,
-					  bool pixel_snap);
-
-std::pair<float, float> get_alignment_offsets(align_t alignment,
-											  float minx, float miny, float miny_baseline, float miny_cap,
-											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
-											  bool pixel_snap);
-
 
 struct text_decorator
 {
@@ -124,25 +96,28 @@ struct text_decorator
 
     struct range
     {
-        bool contains(size_t idx) const
-        {
-            if(end == 0)
-            {
-                return true;
-            }
-            return idx >= begin && idx < end;
-        }
+		bool contains(size_t idx) const;
+		bool at_end(size_t idx) const;
+		bool empty() const;
         /// Begin glyph (inclusive).
         size_t begin{};
         /// End glyph (exclusive).
         size_t end{};
     };
 
-	range match_range{};
-    range visual_range{};
+	/// The range of unicode symbols to be matched
+	range unicode_range{};
+
+	/// The range of unicode symbols to be rendered (optional)
+	range unicode_visual_range{};
+
+	/// The utf8 range used for callbacks
 	range utf8_range{};
 
+	/// External callback for size on line
 	calc_size_t get_size_on_line;
+
+	/// External callback for positioning something on the text line
 	generate_line_t set_position_on_line;
 
     /// Scale to be used.
@@ -169,9 +144,9 @@ struct text_style
     /// Leaning
     float leaning{};
 
-    /// Color of the text
-    color color_top = color::white();
-    color color_bot = color::white();
+	/// Color of the text
+	color color_top{color::white()};
+	color color_bot{color::white()};
 
     /// Outline color of the text
     color outline_color{color::black()};
@@ -202,8 +177,8 @@ public:
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
     //-----------------------------------------------------------------------------
-    void set_utf8_text(const std::string& t);
-	void set_utf8_text(std::string&& t);
+	void set_utf8_text(const std::string& t, bool clear_decorators = true);
+	void set_utf8_text(std::string&& t, bool clear_decorators = true);
 
     //-----------------------------------------------------------------------------
     /// Set the whole style at once.
@@ -387,7 +362,8 @@ private:
     void update_unicode_text() const;
 
     const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
-    bool get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const;
+	bool get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const;
+	float get_decorator_scale(const text_decorator* current) const;
 
     /// Buffer of quads.
     mutable std::vector<vertex_2d> geometry_;
@@ -436,5 +412,33 @@ private:
 
 };
 
+
+float get_alignment_x(align_t alignment,
+					  float minx,
+					  float maxx,
+					  bool pixel_snap);
+
+float get_alignment_y(align_t alignment,
+					  float miny,
+					  float maxy,
+					  bool pixel_snap);
+
+
+std::pair<float, float> get_alignment_offsets(align_t alignment,
+											  float minx, float miny,
+											  float maxx, float maxy,
+											  bool pixel_snap);
+
+
+
+float get_alignment_y(align_t alignment,
+					  float miny, float miny_baseline, float miny_cap,
+					  float maxy, float maxy_baseline, float maxy_cap,
+					  bool pixel_snap);
+
+std::pair<float, float> get_alignment_offsets(align_t alignment,
+											  float minx, float miny, float miny_baseline, float miny_cap,
+											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
+											  bool pixel_snap);
 
 }

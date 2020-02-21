@@ -194,9 +194,9 @@ static constexpr const char* fs_distance_field =
                     #ifdef HAS_DERIVATIVES
 
                         // Supersample, 4 extra points
-                        float dscale = 0.354; // half of 1/sqrt2; you can play with this
+						float dscale = 0.354; // half of 1/sqrt2; you can play with this
                         vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
-                        vec4 box = vec4(uv-duv, uv+duv);
+						vec4 box = vec4(uv-duv, uv+duv);
                         vec4 box_distances = vec4(
                             texture2D(uTexture, box.xy).r,
                             texture2D(uTexture, box.zw).r,

@@ -13,36 +13,37 @@
 
 static std::string EN =
 R"(style1(FREE SPINS)
-style2(3) img(scatter) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(10 FREE SPINS) + style2(MOVING SYMBOLS).
+style2(3) image(__SCATTER__) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(10 FREE SPINS) + style2(MOVING SYMBOLS).
 During style2(FREE SPINS), if symbol appear on the entire style2(1st) reel and on any position on the style2(3rd), style2(4th) or style2(5th) reel, the positions on the row between them will also be filled with that symbol.
-In case of retriggering style2(FREE SPINS), the player wins style2(10) new style2(FREE SPINS) which are added to the current number of style2(FREE SPINS).
-The winnings from img(scatter) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
+In case of retriggering style2(FREE SPINS), the player wins style2(__FGCOUNT__) new style2(FREE SPINS) which are added to the current number of style2(FREE SPINS).
+The winnings from image(__SCATTER__) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
+Some random text with dynamically styled data style2(__CURRENCY__). Some random text after that for no reason at all. Some random text after that for no reason at all.
 
 style1(WILD)
-img(wild) subtitutes for all symbols except img(scatter).)";
+image(__WILD__) subtitutes for all symbols except image(__SCATTER__).)";
 
 static std::string BG =
 R"(style1(БЕЗПЛАТНИ СПИНОВЕ)
-style2(3) img(scatter) символи навсякъде на style2(2ра), style2(3та) и style2(4та) ролка задействат само style2(10 БЕЗПЛАТНИ СПИНОВЕ) + style2(ДВИЖЕЩИ СИМВОЛИ).
+style2(3) image(__SCATTER__) символи навсякъде на style2(2ра), style2(3та) и style2(4та) ролка задействат само style2(10 БЕЗПЛАТНИ СПИНОВЕ) + style2(ДВИЖЕЩИ СИМВОЛИ).
 По време на style2(БЕЗПЛАТНИ СПИНОВЕ), ако символът се появи на цялата style2(1ва) ролка и на всяка позиция на style2(3та), style2(4та) или style2(5та) ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
 В случай на повторно задействане на style2(БЕЗПЛАТНИ СПИНОВЕ), играчът печели style2(10) нови style2(БЕЗПЛАТНИ СПИНОВЕ), които се добавят към текущия брой style2(БЕЗПЛАТНИ СПИНОВЕ).
-Печалбите от img(scatter) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
+Печалбите от image(__SCATTER__) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
 
 style1(ЖОКЕР)
-img(wild) замества за всички символи, с изключение на img(scatter).)";
+image(__WILD__) замества за всички символи, с изключение на image(__SCATTER__).)";
 
 static std::string ESP =
 R"(style1(GIRAS GRATIS)
-Los símbolos style2(3) img(scatter) en cualquier lugar de los carretes style2(2nd), style2(3rd) y style2(4th) solo activan style2(10 GIRAS GRATIS) + style2(SÍMBOLOS EN MOVIMIENTO).
+Los símbolos style2(3) image(__SCATTER__) en cualquier lugar de los carretes style2(2nd), style2(3rd) y style2(4th) solo activan style2(10 GIRAS GRATIS) + style2(SÍMBOLOS EN MOVIMIENTO).
 Durante style2(GIRAS GRATIS), si el símbolo aparece en todo el carrete style2(1st) y en cualquier posición en el carrete style2(3rd), style2(4th) o style2(5th), las posiciones en la fila entre ellos también se llenarán con ese símbolo.
 En caso de reactivar style2(GIRAS GRATIS), el jugador gana style2(10) nuevos style2(GIRAS GRATIS) que se agregan al número actual de style2(FREE SPINS).
-Las ganancias de los símbolos img(scatter) y los nuevos style3(GIRAS GRATIS) se ganan antes de la expansión de los símbolos móviles. Los style2(GIRAS GRATIS) se juegan en la apuesta de activación y en las líneas. Durante style2(GIRAS GRATIS) se usa un conjunto alternativo de carretes.
+Las ganancias de los símbolos image(__SCATTER__) y los nuevos style3(GIRAS GRATIS) se ganan antes de la expansión de los símbolos móviles. Los style2(GIRAS GRATIS) se juegan en la apuesta de activación y en las líneas. Durante style2(GIRAS GRATIS) se usa un conjunto alternativo de carretes.
 
 style1(SALVAJE)
-img(wild) sustituye a todos los símbolos excepto img(scatter).)";
+image(__WILD__) sustituye a todos los símbolos excepto image(__SCATTER__).)";
 
 
-static std::vector<std::string> texts{EN, BG, ESP};
+static std::vector<std::string> texts{EN, BG, ESP, {}};
 
 int main()
 {
@@ -69,8 +70,8 @@ int main()
 		auto font2 = rend.create_font(std::move(info2));
 
 
-		auto img_symbol = rend.create_texture(DATA"symbol.png");
-        auto img_background = rend.create_texture(DATA"background.png");
+		auto image_symbol = rend.create_texture(DATA"symbol.png");
+		auto image_background = rend.create_texture(DATA"background.png");
 
 
 
@@ -79,14 +80,12 @@ int main()
 
 
         size_t curr_lang = 0;
-		std::string text = texts[curr_lang];
+		std::string text;// = texts[curr_lang];
 		auto valign = gfx::align::top;
 		auto halign = gfx::align::center;
         float scale = 0.5f;
 
         float line_scale = 2.0f;
-
-
 
 
 		gfx::rich_text t;
@@ -132,19 +131,40 @@ int main()
 
 		}
 
-		cfg.image_getter = [&](const std::string& tag) -> gfx::image_data
+
+		cfg.image_getter = [&](const std::string& tag, gfx::image_data& out)
 		{
-			if(tag == "scatter")
+			if(tag == "__SCATTER__")
 			{
-				return {img_symbol->get_rect(), img_symbol};
+				out.src_rect = image_symbol->get_rect();
+				out.image = image_symbol;
 			}
 
-			if(tag == "wild")
+			if(tag == "__WILD__")
 			{
-				return {img_symbol->get_rect(), img_symbol};
+				out.src_rect = image_symbol->get_rect();
+				out.image = image_symbol;
+			}
+		};
+
+		cfg.dynamic_text_getter = [&](const std::string& tag, gfx::text& out)
+		{
+			if(tag == "__CURRENCY__")
+			{
+				static int val = 1;
+				std::string str_val = std::to_string(val++);
+				std::string currency_code = "EUR";
+
+				out.set_utf8_text(str_val + currency_code);
+
+				gfx::text_decorator decorator;
+				decorator.scale = 0.7f;
+				decorator.script = gfx::script_line::baseline;
+				decorator.unicode_range.begin = gfx::text::count_glyphs(str_val);
+				decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(currency_code);
+				out.set_decorators({decorator});
 			}
 
-			return {{0, 0, 256, 256},{}};
 		};
 
 		t.set_config(cfg);
@@ -167,7 +187,7 @@ int main()
 					{
                         curr_lang++;
                         curr_lang %= texts.size();
-                        text = texts[curr_lang];
+						text = texts[curr_lang];
 					}
                     if(e.key.code == os::key::backspace)
 					{
@@ -242,30 +262,29 @@ int main()
                 }
 			}
 
-            float x_percent = 4.0f;
-            float y_percent = 13.0f;
-            float x_off = x_percent / 100.0f * rend.get_rect().w;
-            float y_off = y_percent / 100.0f * rend.get_rect().h;
+			float x_percent = 4.0f;
+			float y_percent = 13.0f;
+			float x_off = x_percent / 100.0f * rend.get_rect().w;
+			float y_off = y_percent / 100.0f * rend.get_rect().h;
 
-            gfx::rect area = rend.get_rect();
-            area.expand(int(-x_off), int(-y_off));
+			gfx::rect area = rend.get_rect();
+			area.expand(int(-x_off), int(-y_off));
 
 			rend.clear(gfx::color::gray());
 
 			gfx::draw_list list;
 
-            list.add_image(img_background, rend.get_rect());
+			list.add_image(image_background, rend.get_rect());
             list.add_rect(area, gfx::color::red(), false);
 
+			t.set_alignment(valign | halign);
+			t.set_utf8_text(text);
+			t.calculate_wrap_fitting(tr, area);
 
-            t.set_utf8_text(text);
-            t.set_alignment(valign | halign);
-
-			t.apply_config();
-			t.draw(list, t.calculate_wrap_fitting(tr, area));
+			t.draw(list, {});
 
 			std::cout << list.to_string() << std::endl;
-            rend.draw_cmd_list(list);
+			rend.draw_cmd_list(list);
 
 			rend.present();
 		}
