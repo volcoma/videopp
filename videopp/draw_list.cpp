@@ -821,133 +821,130 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
 	const auto& geometry = t.get_geometry();
-	if(geometry.empty())
+	if(!geometry.empty())
 	{
-		return;
-	}
-
-    float unit_length_in_pixels_at_font_position = 1.0f;
-    auto sdf_spread = font->sdf_spread;
-    float scale = std::max(transform.get_scale().x, transform.get_scale().y);
-    float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
-    float outline_width = std::max(0.0f, style.outline_width);
-    color outline_color = {0, 0, 0, 0};
-    if(outline_width > 0.0f)
-    {
-        outline_color = style.outline_color;
-    }
-    // cpu_batching is disabled for text rendering with more than X vertices
-    // because there are too many vertices and their matrix multiplication
-    // on the cpu dominates the batching benefits.
-    constexpr size_t max_cpu_transformed_glyhps = 24;
-    auto has_crop = !crop_areas.empty();
-    bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
-    bool has_multiplier = false;
-
-    program_setup setup;
-    auto texture = font->texture;
-    texture_view view = texture;
-    auto blend = view.blending;
-
-    if(sdf_spread > 0)
-    {
-        if(!has_crop)
+        float unit_length_in_pixels_at_font_position = 1.0f;
+        auto sdf_spread = font->sdf_spread;
+        float scale = std::max(transform.get_scale().x, transform.get_scale().y);
+        float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
+        float outline_width = std::max(0.0f, style.outline_width);
+        color outline_color = {0, 0, 0, 0};
+        if(outline_width > 0.0f)
         {
-            setup.program = get_program<programs::distance_field>();
+            outline_color = style.outline_color;
         }
-        else
-        {
-            setup.program = get_program<programs::distance_field_crop>();
-        }
+        // cpu_batching is disabled for text rendering with more than X vertices
+        // because there are too many vertices and their matrix multiplication
+        // on the cpu dominates the batching benefits.
+        constexpr size_t max_cpu_transformed_glyhps = 24;
+        auto has_crop = !crop_areas.empty();
+        bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
+        bool has_multiplier = false;
 
-        has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
-
-        if(cpu_batch)
-        {
-            utils::hash(setup.uniforms_hash,
-                        outline_width,
-                        outline_color,
-                        texture);
-
-            // We have a special case here as this
-            // should only be the case if that shader
-            // doesn't support derivatives. Because this
-            // param is affected by scale it will obstruct
-            // batching, making scaled texts to not be able to
-            // batch.
-            if(has_multiplier)
-            {
-                utils::hash(setup.uniforms_hash, distance_field_multiplier);
-            }
-
-            if(has_crop)
-            {
-                const auto& areas = crop_areas.back();
-                for(const auto& area : areas)
-                {
-                    utils::hash(setup.uniforms_hash, area);
-                }
-            }
-        }
-    }
-
-
-    push_transform(transform);
-    auto& cmd = add_vertices_impl(*this,
-                                  draw_type::elements,
-                                  geometry.data(), geometry.size(),
-                                  primitive_type::triangles,
-                                  view, blend,
-                                  std::move(setup),
-                                  cpu_batch, pixel_snap);
-
-
-    // check if a new command was added
-    if(!cmd.setup.begin)
-    {
+        program_setup setup;
+        auto texture = font->texture;
+        texture_view view = texture;
+        auto blend = view.blending;
 
         if(sdf_spread > 0)
         {
-            cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
-                               setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
-                               texture,
-                               distance_field_multiplier,
-                               outline_width,
-                               outline_color,
-                               has_multiplier](const gpu_context& ctx) mutable
+            if(!has_crop)
             {
-                if(setup_transform)
-                {
-                    setup_transform(ctx);
-                }
+                setup.program = get_program<programs::distance_field>();
+            }
+            else
+            {
+                setup.program = get_program<programs::distance_field_crop>();
+            }
 
-                if(setup_crop_rects)
-                {
-                    setup_crop_rects(ctx);
-                }
+            has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
 
+            if(cpu_batch)
+            {
+                utils::hash(setup.uniforms_hash,
+                            outline_width,
+                            outline_color,
+                            texture);
+
+                // We have a special case here as this
+                // should only be the case if that shader
+                // doesn't support derivatives. Because this
+                // param is affected by scale it will obstruct
+                // batching, making scaled texts to not be able to
+                // batch.
                 if(has_multiplier)
                 {
-                    ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
+                    utils::hash(setup.uniforms_hash, distance_field_multiplier);
                 }
-                ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
-                ctx.program.shader->set_uniform("uOutlineColor", outline_color);
-                ctx.program.shader->set_uniform("uTexture", texture);
 
+                if(has_crop)
+                {
+                    const auto& areas = crop_areas.back();
+                    for(const auto& area : areas)
+                    {
+                        utils::hash(setup.uniforms_hash, area);
+                    }
+                }
+            }
+        }
+
+
+        push_transform(transform);
+        auto& cmd = add_vertices_impl(*this,
+                                      draw_type::elements,
+                                      geometry.data(), geometry.size(),
+                                      primitive_type::triangles,
+                                      view, blend,
+                                      std::move(setup),
+                                      cpu_batch, pixel_snap);
+
+
+        // check if a new command was added
+        if(!cmd.setup.begin)
+        {
+
+            if(sdf_spread > 0)
+            {
+                cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
+                                   setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
+                                   texture,
+                                   distance_field_multiplier,
+                                   outline_width,
+                                   outline_color,
+                                   has_multiplier](const gpu_context& ctx) mutable
+                {
+                    if(setup_transform)
+                    {
+                        setup_transform(ctx);
+                    }
+
+                    if(setup_crop_rects)
+                    {
+                        setup_crop_rects(ctx);
+                    }
+
+                    if(has_multiplier)
+                    {
+                        ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
+                    }
+                    ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
+                    ctx.program.shader->set_uniform("uOutlineColor", outline_color);
+                    ctx.program.shader->set_uniform("uTexture", texture);
+
+                };
+            }
+        }
+
+        if(!cmd.setup.end && !cpu_batch)
+        {
+            cmd.setup.end = [](const gpu_context& ctx)
+            {
+                ctx.rend.pop_transform();
             };
         }
+
+        pop_transform();
     }
-
-    if(!cmd.setup.end && !cpu_batch)
-    {
-        cmd.setup.end = [](const gpu_context& ctx)
-        {
-            ctx.rend.pop_transform();
-        };
-    }
-
-    pop_transform();
-
 	if(debug_draw() && debug)
     {
         debug->add_text_debug_info(t, transform);
@@ -1623,7 +1620,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 
 
-        add_rect(t.get_frect(), transform, color::red(), false, 1.0f);
+        add_rect(t.get_frect(), transform, color::red(), false, 3.0f);
 
         for(const auto& line : lines)
         {

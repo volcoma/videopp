@@ -13,7 +13,7 @@
 
 static std::string EN =
 R"(style1(FREE SPINS)
-style2(3) image(__SCATTER__) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(10 FREE SPINS) + style2(MOVING SYMBOLS).
+style2(3) image(__SCATTER__) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(__FGCOUNT__) style2(FREE SPINS) + style2(MOVING SYMBOLS).
 During style2(FREE SPINS), if symbol appear on the entire style2(1st) reel and on any position on the style2(3rd), style2(4th) or style2(5th) reel, the positions on the row between them will also be filled with that symbol.
 In case of retriggering style2(FREE SPINS), the player wins style2(__FGCOUNT__) new style2(FREE SPINS) which are added to the current number of style2(FREE SPINS).
 The winnings from image(__SCATTER__) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
@@ -79,6 +79,8 @@ int main()
         math::transformf tr;
 
 
+        int currency{100};
+        int fg_count{2};
         size_t curr_lang = 0;
 		std::string text;// = texts[curr_lang];
 		auto valign = gfx::align::top;
@@ -151,8 +153,7 @@ int main()
 		{
 			if(tag == "__CURRENCY__")
 			{
-				static int val = 1;
-				std::string str_val = std::to_string(val++);
+				std::string str_val = std::to_string(currency);
 				std::string currency_code = "EUR";
 
 				out.set_utf8_text(str_val + currency_code);
@@ -164,6 +165,11 @@ int main()
 				decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(currency_code);
 				out.set_decorators({decorator});
 			}
+
+            if(tag == "__FGCOUNT__")
+			{
+                out.set_utf8_text(std::to_string(fg_count));
+            }
 
 		};
 
@@ -250,6 +256,14 @@ int main()
                     {
                         line_scale -= 0.01f;
                     }
+
+                    if(e.key.code == os::key::f8)
+                    {
+                        currency++;
+                        currency %= 101;
+                        fg_count += 1;
+                        fg_count %= 21;
+                    }
 				}
 
                 if(e.type == os::events::mouse_wheel)
@@ -261,6 +275,8 @@ int main()
                     text += e.text.text;
                 }
 			}
+
+
 
 			float x_percent = 4.0f;
 			float y_percent = 13.0f;
@@ -280,7 +296,6 @@ int main()
 			t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 			t.calculate_wrap_fitting(tr, area);
-
 			t.draw(list, {});
 
 			std::cout << list.to_string() << std::endl;

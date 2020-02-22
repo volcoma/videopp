@@ -42,7 +42,7 @@ void rich_text::calculate_wrap_fitting(math::transformf transform,
 	auto line_height = font ? font->line_height : 0.0f;
 
 	auto advance = (calculated_line_height_ - line_height);
-	transform.translate(0.0f, advance * 0.5, 0.0f);
+	transform.translate(0.0f, advance * 0.5f, 0.0f);
 	dst_rect.h -= int(advance);
 
 	wrap_fitting_ = align_wrap_and_fit_text(*this, transform, dst_rect, sz_fit, dim_fit, depth);
@@ -114,27 +114,6 @@ void rich_text::apply_config()
 
 	set_advance({0, advance});
 
-	set_align_line_callback([&](size_t line, float align_x)
-	{
-		for(auto& kvp : embedded_images_)
-		{
-			auto& element = kvp.second.element;
-			if(element.line == line)
-			{
-				element.x_offset += align_x;
-			}
-		}
-
-		for(auto& kvp : embedded_texts_)
-		{
-			auto& element = kvp.second.element;
-			if(element.line == line)
-			{
-				element.x_offset += align_x;
-			}
-		}
-	});
-
 	set_clear_geometry_callback([&]()
 	{
 		embedded_images_.clear();
@@ -148,7 +127,7 @@ void rich_text::apply_config()
 
 		for(const auto& decorator : decorators)
 		{
-			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> float
+			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
 			{
 				key_t key{decorator.unicode_visual_range.begin, decorator.unicode_visual_range.end};
 
@@ -157,7 +136,7 @@ void rich_text::apply_config()
 				{
 					if(!cfg_.image_getter)
 					{
-						return 0.0f;
+                        return {0.0f, 0.0f};
 					}
 
 					auto& embedded = embedded_images_[key];
@@ -174,7 +153,8 @@ void rich_text::apply_config()
 					auto src_rect = embedded.data.src_rect;
 
 					rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-					return float(apply_constraints(dst_rect).w);
+                    dst_rect = apply_constraints(dst_rect);
+                    return {float(dst_rect.w), float(dst_rect.h)};
 				}
 
 				auto& embedded = it->second;
@@ -182,7 +162,8 @@ void rich_text::apply_config()
 				auto src_rect = embedded.data.src_rect;
 				rect dst_rect = {0, 0, src_rect.w, src_rect.h};
 
-				return float(apply_constraints(dst_rect).w);
+                dst_rect = apply_constraints(dst_rect);
+                return {float(dst_rect.w), float(dst_rect.h)};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
@@ -203,12 +184,12 @@ void rich_text::apply_config()
 		}
 	}
 
-	{
+    {
 		auto decorators = add_decorators("video");
 
 		for(const auto& decorator : decorators)
 		{
-			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> float
+			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
 			{
 				key_t key{decorator.unicode_visual_range.begin, decorator.unicode_visual_range.end};
 
@@ -217,7 +198,7 @@ void rich_text::apply_config()
 				{
 					if(!cfg_.image_getter)
 					{
-						return 0.0f;
+                        return {0.0f, 0.0f};
 					}
 
 					auto& embedded = embedded_images_[key];
@@ -232,8 +213,10 @@ void rich_text::apply_config()
 
 					auto texture = embedded.data.image.lock();
 					auto src_rect = embedded.data.src_rect;
+
 					rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-					return float(apply_constraints(dst_rect).w);
+                    dst_rect = apply_constraints(dst_rect);
+                    return {float(dst_rect.w), float(dst_rect.h)};
 				}
 
 				auto& embedded = it->second;
@@ -241,14 +224,15 @@ void rich_text::apply_config()
 				auto src_rect = embedded.data.src_rect;
 				rect dst_rect = {0, 0, src_rect.w, src_rect.h};
 
-				return float(apply_constraints(dst_rect).w);
+                dst_rect = apply_constraints(dst_rect);
+                return {float(dst_rect.w), float(dst_rect.h)};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
-												  float line_offset_x,
-												  size_t line,
-												  const line_metrics& metrics,
-												  const char* /*str_begin*/, const char* /*str_end*/)
+					float line_offset_x,
+					size_t line,
+					const line_metrics& metrics,
+					const char* /*str_begin*/, const char* /*str_end*/)
 			{
 				key_t key{decorator.unicode_visual_range.begin, decorator.unicode_visual_range.end};
 
@@ -270,7 +254,7 @@ void rich_text::apply_config()
 
 		for(const auto& decorator : decorators)
 		{
-			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) ->float
+			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
 			{
 				key_t key{decorator.unicode_visual_range.begin, decorator.unicode_visual_range.end};
 
@@ -298,12 +282,11 @@ void rich_text::apply_config()
 					}
 
 
-					return embedded.text.get_width();
+                    return {embedded.text.get_width(), embedded.text.get_height()};
 				}
 
 				auto& embedded = it->second;
-				auto& text = embedded.text;
-				return text.get_width();
+                return {embedded.text.get_width(), embedded.text.get_height()};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,

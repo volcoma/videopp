@@ -28,6 +28,10 @@ struct line_metrics
     float minx{};
     /// Max x of the line.
     float maxx{};
+    /// Min y of the line.
+    float miny{};
+    /// Max y of the line.
+    float maxy{};
 };
 
 
@@ -81,7 +85,7 @@ using align_t = uint32_t;
 
 struct text_decorator
 {
-    using calc_size_t = std::function<float(
+    using calc_size_t = std::function<std::pair<float, float>(
                         const text_decorator& decorator,
                         const char* str_begin,
                         const char* str_end)>;
@@ -104,6 +108,8 @@ struct text_decorator
         /// End glyph (exclusive).
         size_t end{};
     };
+
+    bool is_visible(size_t idx) const;
 
 	/// The range of unicode symbols to be matched
 	range unicode_range{};
@@ -324,7 +330,6 @@ public:
     //-----------------------------------------------------------------------------
     /// Sets callbacks
     //-----------------------------------------------------------------------------
-    void set_align_line_callback(const std::function<void(size_t, float)>& callback);
     void set_clear_geometry_callback(const std::function<void()>& callback);
 
     //-----------------------------------------------------------------------------
@@ -358,7 +363,7 @@ private:
     void clear_geometry();
     void clear_lines();
     void update_lines() const;
-    void update_geometry(bool all) const;
+    void update_geometry() const;
     void update_unicode_text() const;
 
     const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
