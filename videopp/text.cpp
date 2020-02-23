@@ -313,9 +313,9 @@ void text::set_style(const text_style& style)
 	clear_geometry();
 }
 
-void text::set_font(const font_weak_ptr& f)
+void text::set_font(const font_ptr& f)
 {
-	if(style_.font.lock() == f.lock())
+	if(style_.font == f)
 	{
 		return;
 	}
@@ -447,18 +447,18 @@ const std::vector<line_metrics>& text::get_lines_metrics() const
 
 bool text::is_valid() const
 {
-	return !utf8_text_.empty() && !style_.font.expired();
+	return !utf8_text_.empty() && style_.font;
 }
 
-void text::set_clear_geometry_callback(const std::function<void ()> &callback)
+void text::set_clear_lines_callback(const std::function<void ()> &callback)
 {
-	clear_geometry_callback_ = callback;
+	clear_lines_callback_ = callback;
 }
 
 
 float text::get_advance_offset_x() const
 {
-	auto font = style_.font.lock();
+	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
 		return style_.advance.x + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
@@ -468,7 +468,7 @@ float text::get_advance_offset_x() const
 }
 float text::get_advance_offset_y() const
 {
-	auto font = style_.font.lock();
+	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
 		return style_.advance.y + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
@@ -582,11 +582,6 @@ const std::string& text::get_utf8_text() const
 void text::clear_geometry()
 {
 	geometry_.clear();
-
-	if(clear_geometry_callback_)
-	{
-		clear_geometry_callback_();
-	}
 }
 
 void text::clear_lines()
@@ -597,6 +592,10 @@ void text::clear_lines()
     lines_metrics_.clear();
 	rect_ = {};
 
+	if(clear_lines_callback_)
+	{
+		clear_lines_callback_();
+	}
 }
 
 
@@ -690,7 +689,7 @@ void text::update_lines() const
 		return;
 	}
 
-	auto font = style_.font.lock();
+	auto font = style_.font;
 
 	if(!font)
 	{
@@ -756,19 +755,10 @@ void text::update_lines() const
 	{
 		uint32_t c = unicode_text[i];
 
-		// check if is a break possible character
-		if(is_space(c))
-		{
-			last_space = i;
-            pen_x_last_space = metrics->maxx;
-		}
-
 		const auto& g = font->get_glyph(c);
 		// decorator begin
 		{
-			if(get_decorator(chars_, decorator, next_decorator))
-			{
-			}
+			get_decorator(chars_, decorator, next_decorator);
 
 			if(decorator->get_size_on_line && decorator->unicode_range.at_end(chars_))
 			{
@@ -777,7 +767,6 @@ void text::update_lines() const
 				auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
                 metrics->maxx += external_size.first;
             }
-
 		}
 
         float relative_scale = get_decorator_scale(decorator);
@@ -786,12 +775,18 @@ void text::update_lines() const
         if(!decorator->is_visible(chars_))
         {
             glyph_advance = 0;
-        }
+        } 
+        // check if is a break possible character
+		else if(is_space(c))
+		{
+			last_space = i;
+            pen_x_last_space = metrics->maxx;
+		}
 		// decorator end
 
 		bool exceedsmax_width = max_width > 0 && (metrics->maxx + glyph_advance) > max_width;
 
-		if(is_newline(c) || (exceedsmax_width && (last_space != size_t(-1))))
+		if((decorator->is_visible(chars_) && is_newline(c)) || (exceedsmax_width && (last_space != size_t(-1))))
 		{
             metrics->maxx = pen_x_last_space;
 
@@ -897,7 +892,7 @@ void text::update_lines() const
 
 void text::update_geometry() const
 {
-	auto font = style_.font.lock();
+	auto font = style_.font;
 
 	if(!font)
 	{
@@ -948,9 +943,9 @@ void text::update_geometry() const
     }
 
 	auto vptr = geometry_.data();
+    size_t vtx_count{};
 
-	size_t glyphs_processed = 0;
-	size_t glyhps_generated = 0;
+	size_t i = 0;
 	for(size_t line_idx = 0; line_idx < lines.size(); ++line_idx)
 	{
         const auto& line = lines[line_idx];
@@ -961,29 +956,23 @@ void text::update_geometry() const
         auto pen_y = metrics.baseline;
         auto pen_x = metrics.minx;
 
-		size_t vtx_count{};
 		auto last_codepoint = char_t(-1);
 
 		for(auto c : line)
 		{
 			const auto& g = font->get_glyph(c);
+            auto glyph_idx = i++;
 
 			if(is_newline(c))
 			{
-				glyphs_processed++;
 				continue;
 			}
 
 			auto pen_y_decorated = pen_y;
-
-			// decorator begin
 			{
-				if(get_decorator(glyphs_processed, decorator, next_decorator))
-				{
+				get_decorator(glyph_idx, decorator, next_decorator);
 
-				}
-
-				if(decorator->unicode_range.at_end(glyphs_processed))
+				if(decorator->unicode_range.at_end(glyph_idx))
 				{
 					const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 					const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
@@ -1030,9 +1019,8 @@ void text::update_geometry() const
                 break;
             }
 
-			if(!decorator->is_visible(glyphs_processed))
+			if(!decorator->is_visible(glyph_idx))
 			{
-				glyphs_processed++;
 				continue;
 			}
 
@@ -1042,7 +1030,6 @@ void text::update_geometry() const
 				pen_x += font->get_kerning(last_codepoint, g.codepoint) * scale * relative_scale;
 				last_codepoint = g.codepoint;
 			}
-
 
             float leaning0 = 0.0f;
             float leaning1 = 0.0f;
@@ -1058,7 +1045,6 @@ void text::update_geometry() const
                 leaning1 = leaning * y1_factor;
             }
 
-
             auto x0 = pen_x + g.x0 * scale * relative_scale;
             auto x1 = pen_x + g.x1 * scale * relative_scale;
             auto y0 = pen_y_decorated + g.y0 * scale * relative_scale;
@@ -1066,8 +1052,8 @@ void text::update_geometry() const
 
             if(pixel_snap)
             {
-                x0 = int(x0);
-                x1 = int(x1);
+                x0 = float(int(x0));
+                x1 = float(int(x1));
             }
 
             const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top;
@@ -1090,13 +1076,10 @@ void text::update_geometry() const
             vtx_count += vertices_per_quad;
 
 			pen_x += advance_offset_x + g.advance_x * scale * relative_scale;
-
-            glyhps_generated++;
-			glyphs_processed++;
 		}
 
 	}
-    geometry_.resize(glyhps_generated * vertices_per_quad);
+    geometry_.resize(vtx_count);
 }
 
 float text::get_width() const

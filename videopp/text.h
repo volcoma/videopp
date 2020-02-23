@@ -134,12 +134,15 @@ struct text_decorator
     /// = median - normal (center based)
     /// < median - subscript
 	script_line script{script_line::baseline};
+
+	float w{};
+	float h{};
 };
 
 struct text_style
 {
     /// The font
-	font_weak_ptr font{};
+	font_ptr font{};
 
     /// Shadow offsets of the text in pixels
     math::vec2 shadow_offsets{0.0f, 0.0f};
@@ -193,7 +196,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Set the font to be used.
     //-----------------------------------------------------------------------------
-	void set_font(const font_weak_ptr& f);
+	void set_font(const font_ptr& f);
 
     //-----------------------------------------------------------------------------
     /// Sets the color of the text
@@ -330,15 +333,15 @@ public:
     //-----------------------------------------------------------------------------
     /// Sets callbacks
     //-----------------------------------------------------------------------------
-    void set_clear_geometry_callback(const std::function<void()>& callback);
+    void set_clear_lines_callback(const std::function<void()>& callback);
 
     //-----------------------------------------------------------------------------
     /// Adds/sets text decorators
     //-----------------------------------------------------------------------------
 	void set_decorators(const std::vector<text_decorator>& decorators);
     void set_decorators(std::vector<text_decorator>&& decorators);
-    void add_decorator(const text_decorator& decorators);
-    void add_decorator(text_decorator&& decorators);
+    void add_decorator(const text_decorator& decorator);
+    void add_decorator(text_decorator&& decorator);
 
     //-----------------------------------------------------------------------------
     /// Adds text decorators
@@ -382,11 +385,8 @@ private:
     /// Unicode text
     mutable std::vector<uint32_t> unicode_text_;
 
-    /// Align line callback
-    std::function<void(size_t, float)> align_line_callback_{};
-
     /// clear_geometry_callback
-    std::function<void()> clear_geometry_callback_{};
+    std::function<void()> clear_lines_callback_{};
 
     /// Utf8 text
     std::string utf8_text_{};
@@ -410,7 +410,7 @@ private:
     mutable uint32_t chars_{0};
 
     /// Origin alignment
-    align_t alignment_ = align::left | align::baseline_top;
+    align_t alignment_ = align::left | align::baseline;
 
     /// Max width
 	float max_width_{};

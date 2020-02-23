@@ -5,7 +5,7 @@ namespace gfx
 {
 
 
-static constexpr const char* fs_begin =
+static constexpr const char* version =
                 #if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
                 R"(
                     #version 130
@@ -78,6 +78,7 @@ static constexpr const char* fs_multi_channel =
 
                     void main()
                     {
+
                 #ifdef HAS_CROP_RECTS
 						for( int i = 0; i < uRectsCount; ++i)
                         {
@@ -93,7 +94,6 @@ static constexpr const char* fs_multi_channel =
                             }
 						}
                 #endif
-
                         gl_FragColor = texture2D(uTexture, vTexCoord.xy) * vColor;
                     }
                 )";

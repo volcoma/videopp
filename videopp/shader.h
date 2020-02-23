@@ -24,6 +24,7 @@ namespace gfx
         void disable() const;
 
         void set_uniform(const char* uniform, const texture_view& tex, uint32_t slot = 0) const;
+        void set_uniform(const char* uniform, const std::array<texture_view, 32>& texures) const;
 
         void set_uniform(const char* uniform, int data) const;
         void set_uniform(const char* uniform, float data) const;
@@ -69,7 +70,7 @@ namespace gfx
         uint32_t fragment_shader_id_ = 0;
         uint32_t vertex_shader_id_ = 0;
         mutable int32_t max_bound_slot_ = -1;
-        mutable std::array<texture_view, 16> bound_textures_{{}};
+        mutable std::array<texture_view, 32> bound_textures_{{}};
 
         const renderer &rend_;
     };

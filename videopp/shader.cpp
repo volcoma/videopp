@@ -174,6 +174,33 @@ namespace gfx
         }
     }
 
+    void shader::set_uniform(const char* uniform, const std::array<texture_view, 32>& textures) const
+    {
+        max_bound_slot_ = std::max(max_bound_slot_, int32_t(textures.size() - 1));
+
+        int samplers[32];
+        for(uint32_t slot = 0; slot < textures.size(); ++slot)
+        {
+            const auto& tex = textures[slot];
+            rend_.bind_texture(tex, slot);
+            if( tex.custom_sampler )
+            {
+                rend_.bind_sampler(tex, slot);
+            }
+
+            bound_textures_[slot] = tex;
+
+            samplers[slot] = slot;
+        }
+
+
+        auto location = get_uniform_location(uniform);
+        if(location >= 0)
+        {
+            gl_call(glUniform1iv(location, 32, samplers));
+        }
+    }
+
     void shader::set_uniform(const char* uniform, const math::vec<2, int>& data) const
     {
         auto location = get_uniform_location(uniform);

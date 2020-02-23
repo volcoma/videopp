@@ -82,7 +82,7 @@ int main()
         int currency{100};
         int fg_count{2};
         size_t curr_lang = 0;
-		std::string text;// = texts[curr_lang];
+		std::string text = texts[curr_lang];
 		auto valign = gfx::align::top;
 		auto halign = gfx::align::center;
         float scale = 0.5f;
@@ -109,20 +109,18 @@ int main()
 			style.outline_color = gfx::color::red();
 			style.outline_width = 0.3f;
 		}
-
 		{
 			auto& style = cfg.styles["style2"];
 			style.font = font;
 			style.color_top = gfx::color::blue();
 			style.color_bot = gfx::color::cyan();
-			style.shadow_color_top = gfx::color::blue();
-			style.shadow_color_bot = gfx::color::cyan();
-			style.shadow_offsets = {-2.0f, -2.0f};
+//			style.shadow_color_top = gfx::color::blue();
+//			style.shadow_color_bot = gfx::color::cyan();
+//			style.shadow_offsets = {-2.0f, -2.0f};
 			style.outline_color = gfx::color::green();
 			style.outline_width = 0.2f;
 			style.scale = 1.4f;
 		}
-
 		{
 			auto& style = cfg.styles["style3"];
 			style.font = font2;
@@ -130,28 +128,23 @@ int main()
 			style.color_bot = gfx::color::blue();
 			style.outline_color = gfx::color::green();
 			style.outline_width = 0.2f;
-
 		}
-
-
-		cfg.image_getter = [&](const std::string& tag, gfx::image_data& out)
+		cfg.image_getter = [&](const std::string& content, gfx::image_data& out)
 		{
-			if(tag == "__SCATTER__")
+			if(content == "__SCATTER__")
 			{
 				out.src_rect = image_symbol->get_rect();
 				out.image = image_symbol;
 			}
-
-			if(tag == "__WILD__")
+			else if(content == "__WILD__")
 			{
 				out.src_rect = image_symbol->get_rect();
 				out.image = image_symbol;
 			}
 		};
-
-		cfg.dynamic_text_getter = [&](const std::string& tag, gfx::text& out)
+		cfg.text_getter = [&](const std::string& content, gfx::text& out)
 		{
-			if(tag == "__CURRENCY__")
+			if(content == "__CURRENCY__")
 			{
 				std::string str_val = std::to_string(currency);
 				std::string currency_code = "EUR";
@@ -165,17 +158,15 @@ int main()
 				decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(currency_code);
 				out.set_decorators({decorator});
 			}
-
-            if(tag == "__FGCOUNT__")
+            else if(content == "__FGCOUNT__")
 			{
                 out.set_utf8_text(std::to_string(fg_count));
             }
-
 		};
 
 		t.set_config(cfg);
 
-
+        int fitting_tolerance = 0;
 		while(running)
 		{
 			os::event e{};
@@ -245,18 +236,14 @@ int main()
                             halign = gfx::align::left;
                         }
                     }
-
                     if(e.key.code == os::key::f6)
                     {
-                        line_scale += 0.01f;
+                        fitting_tolerance += 1;
                     }
-
-
                     if(e.key.code == os::key::f7)
                     {
-                        line_scale -= 0.01f;
+                        fitting_tolerance -= 1;
                     }
-
                     if(e.key.code == os::key::f8)
                     {
                         currency++;
@@ -275,8 +262,7 @@ int main()
                     text += e.text.text;
                 }
 			}
-
-
+            rend.clear(gfx::color::gray());
 
 			float x_percent = 4.0f;
 			float y_percent = 13.0f;
@@ -286,19 +272,24 @@ int main()
 			gfx::rect area = rend.get_rect();
 			area.expand(int(-x_off), int(-y_off));
 
-			rend.clear(gfx::color::gray());
-
-			gfx::draw_list list;
-
+            gfx::draw_list list;
 			list.add_image(image_background, rend.get_rect());
             list.add_rect(area, gfx::color::red(), false);
 
-			t.set_alignment(valign | halign);
+//			gfx::rich_text_builder b;
+//			b.append("some random text");
+//			b.append("__WILD__", "image");
+//			b.append("some random text");
+//			b.append_formatted("10");
+//			t.set_builder_results(std::move(b));
+
+            t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
-			t.calculate_wrap_fitting(tr, area);
+			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform, fitting_tolerance);
 			t.draw(list, {});
 
 			std::cout << list.to_string() << std::endl;
+
 			rend.draw_cmd_list(list);
 
 			rend.present();

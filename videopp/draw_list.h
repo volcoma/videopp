@@ -51,7 +51,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 										 rect dst_rect,
 										 size_fit sz_fit = size_fit::shrink_to_fit,
 										 dimension_fit dim_fit = dimension_fit::uniform,
-										 size_t depth = 16);
+										 int tolerance = 0);
 
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list

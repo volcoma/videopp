@@ -177,8 +177,6 @@ renderer::renderer(os::window& win, bool vsync)
     gl_call(glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS));
     gl_call(glDebugMessageCallback(MessageCallback, nullptr));
 
-    //rect_.x = win_.get_position().x;
-    //rect_.y = win_.get_position().y;
     rect_.w = win_.get_size().w;
     rect_.h = win_.get_size().h;
 
@@ -229,35 +227,35 @@ renderer::renderer(os::window& win, bool vsync)
             layout.template add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
             layout.template add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
             layout.template add<uint8_t>(4, offsetof(vertex_2d, col) , "aColor", stride, true);
-            layout.template add<uint8_t>(1, offsetof(vertex_2d, tex_idx), "aTexIdx", stride);
+//            layout.template add<uint8_t>(1, offsetof(vertex_2d, tex_idx), "aTexIdx", stride);
         }
     };
 
-//    GLint texture_units = 0;
-//    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
+    GLint texture_units = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &texture_units);
 
     create_program(get_program<programs::simple>(),
-                   std::string(fs_begin).append(fs_simple).c_str(), vs_simple);
+                   std::string(version).append(fs_simple).c_str(), std::string(version).append(vs_simple).c_str());
 
     create_program(get_program<programs::multi_channel>(),
-                   std::string(fs_begin).append(fs_multi_channel).c_str(), vs_simple);
+                   std::string(version).append(fs_multi_channel).c_str(), std::string(version).append(vs_simple).c_str());
     create_program(get_program<programs::multi_channel_crop>(),
-                   std::string(fs_begin).append(user_defines).append(fs_multi_channel).c_str(), vs_simple);
+                   std::string(version).append(user_defines).append(fs_multi_channel).c_str(), std::string(version).append(vs_simple).c_str());
 
     create_program(get_program<programs::single_channel>(),
-                   std::string(fs_begin).append(fs_single_channel).c_str(), vs_simple);
+                   std::string(version).append(fs_single_channel).c_str(), std::string(version).append(vs_simple).c_str());
     create_program(get_program<programs::single_channel_crop>(),
-                   std::string(fs_begin).append(user_defines).append(fs_single_channel).c_str(), vs_simple);
+                   std::string(version).append(user_defines).append(fs_single_channel).c_str(), std::string(version).append(vs_simple).c_str());
 
     create_program(get_program<programs::distance_field>(),
-                   std::string(fs_begin).append(fs_derivatives).append(fs_distance_field).c_str(), vs_simple);
+                   std::string(version).append(fs_derivatives).append(fs_distance_field).c_str(), std::string(version).append(vs_simple).c_str());
     create_program(get_program<programs::distance_field_crop>(),
-                   std::string(fs_begin).append(fs_derivatives).append(user_defines).append(fs_distance_field).c_str(), vs_simple);
+                   std::string(version).append(fs_derivatives).append(user_defines).append(fs_distance_field).c_str(), std::string(version).append(vs_simple).c_str());
 
     create_program(get_program<programs::blur>(),
-                   std::string(fs_begin).append(fs_blur).c_str(), vs_simple);
+                   std::string(version).append(fs_blur).c_str(), std::string(version).append(vs_simple).c_str());
     create_program(get_program<programs::fxaa>(),
-                   std::string(fs_begin).append(fs_fxaa).c_str(), vs_simple);
+                   std::string(version).append(fs_fxaa).c_str(), std::string(version).append(vs_simple).c_str());
     if(!default_font())
     {
         default_font() = create_font(create_default_font(13, 2));

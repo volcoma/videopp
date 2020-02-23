@@ -27,7 +27,7 @@ list(APPEND libsrc ${egl_src})
 list(APPEND libsrc ${glx_src})
 
 add_library(${target_name} ${libsrc})
-target_link_libraries(${target_name} PUBLIC ospp fontpp glm litehtml)
+target_link_libraries(${target_name} PUBLIC ospp fontpp glm)
 
 target_link_libraries(${target_name} PUBLIC ${OPENGL_LIBRARIES})
 target_include_directories(${target_name} PUBLIC ${OPENGL_INCLUDE_DIR})

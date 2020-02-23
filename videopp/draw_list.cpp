@@ -4,7 +4,7 @@
 #include <locale>
 #include <sstream>
 #include <iomanip>
-
+#include <chrono>
 #include "font.h"
 #include "logger.h"
 #include "renderer.h"
@@ -520,26 +520,45 @@ math::transformf align_item(align_t align, float minx, float miny, float maxx, f
 }
 
 
-math::transformf align_wrap_and_fit_text(text& t, const math::transformf& transform, rect dst_rect, size_fit sz_fit, dimension_fit dim_fit, size_t depth)
+math::transformf align_wrap_and_fit_text(text& t,
+                                        const math::transformf& transform,
+                                        rect dst_rect,
+                                        size_fit sz_fit,
+                                        dimension_fit dim_fit,
+                                        int tolerance)
 {
-	auto max_w = dst_rect.w;
+    using clock_t = std::chrono::steady_clock;
+    auto start = clock_t::now();
 
-	math::transformf world;
-	size_t loop{0};
-	while(loop < depth)
-	{
-		t.set_max_width(max_w);
-		world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
-		auto w = int(float(dst_rect.w) / world.get_scale().x);
+    auto max_w = dst_rect.w;
 
-		if(std::abs(w - max_w) < (dst_rect.w /20))
-		{
-			break;
-		}
+    t.set_max_width(float(max_w));
+    auto world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+    auto w = int(float(dst_rect.w) / world.get_scale().y);
 
-		max_w = w;
-		loop++;
-	}
+    size_t iterations{0};
+    if(w != max_w)
+    {
+    	max_w = w;
+        while(iterations < 128)
+        {
+            t.set_max_width(float(max_w));
+            world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+            w = int(float(dst_rect.w) / world.get_scale().y);
+
+            if(w - max_w + std::max(0, tolerance) >= 0)
+            {
+                break;
+            }
+
+            max_w = w;
+            iterations++;
+        }
+    }
+
+	auto end = clock_t::now();
+    auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
 	return world;
 }
 
@@ -801,7 +820,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 
 	const auto& style = t.get_style();
-	auto font = style.font.lock();
+	auto font = style.font;
 	auto pixel_snap = font->pixel_snap;
 
 	const auto& offsets = style.shadow_offsets * style.scale;
@@ -1670,7 +1689,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
         }
 
-		auto font = t.get_style().font.lock();
+		auto font = t.get_style().font;
 		if(font)
 		{
 			for(const auto& line : lines)
