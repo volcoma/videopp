@@ -134,9 +134,6 @@ struct text_decorator
     /// = median - normal (center based)
     /// < median - subscript
 	script_line script{script_line::baseline};
-
-	float w{};
-	float h{};
 };
 
 struct text_style
