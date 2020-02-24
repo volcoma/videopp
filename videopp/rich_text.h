@@ -7,46 +7,6 @@
 namespace gfx
 {
 
-struct rich_text_builder
-{
-	void append(const std::string& text)
-	{
-		if(!result.empty())
-		{
-			result.append(" ");
-		}
-		result.append(text);
-	}
-
-	void append(const std::string& text, const std::string& tag)
-	{
-		if(!result.empty())
-		{
-			result.append(" ");
-		}
-		result.append(tag).append("(").append(text).append(")");
-	}
-
-	void append_formatted(const std::string& text)
-	{
-		if(!result.empty())
-		{
-			result.append(" ");
-		}
-
-        decorators.emplace_back();
-        auto& decorator = decorators.back();
-		decorator.scale = 0.4f;
-		decorator.script = gfx::script_line::cap_height;
-		decorator.unicode_range.begin = gfx::text::count_glyphs(result);
-		decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(text);
-
-		result.append(text);
-	}
-
-	std::string result;
-	std::vector<text_decorator> decorators;
-};
 
 struct line_element
 {
@@ -78,11 +38,11 @@ struct rich_config
 	using image_getter_t = std::function<void(const std::string&, image_data& out)>;
 	using text_getter_t = std::function<void(const std::string&, text& out)>;
 
+	std::string image_tag{"image"};
+	std::string video_tag{"video"};
+
 	image_getter_t image_getter;
 	text_getter_t text_getter;
-
-    std::string image_tag{"image"};
-    std::string video_tag{"video"};
 
 	std::map<std::string, text_style> styles{};
 	float line_height_scale = 1.0f;
@@ -91,22 +51,23 @@ struct rich_config
 class rich_text : public text
 {
 public:
-	void calculate_wrap_fitting(math::transformf transform,
-                                rect dst_rect,
-                                size_fit sz_fit = size_fit::shrink_to_fit,
-                                dimension_fit dim_fit = dimension_fit::uniform,
-                                int tolerance = 0);
-
-	void draw(draw_list& list, const math::transformf& transform) const;
-
 	void set_config(const rich_config& cfg);
-	void apply_config();
-
 	bool set_utf8_text(const std::string& t);
 	bool set_utf8_text(std::string&& t);
-	void set_builder_results(rich_text_builder&& builder);
 
+	void calculate_wrap_fitting(math::transformf transform,
+								rect dst_rect,
+								size_fit sz_fit = size_fit::shrink_to_fit,
+								dimension_fit dim_fit = dimension_fit::uniform,
+								int tolerance = 0);
+
+	void draw(draw_list& list, const math::transformf& transform = {}) const;
+	void draw(draw_list& list, const math::transformf& transform,
+			  const rect& dst_rect,
+			  size_fit sz_fit = size_fit::shrink_to_fit,
+			  dimension_fit dim_fit = dimension_fit::uniform);
 private:
+	void apply_config();
 	rect apply_constraints(const rect& r) const;
 	void clear_embedded_elements();
 
@@ -123,6 +84,44 @@ private:
 	math::transformf wrap_fitting_{};
     float calculated_line_height_{};
 };
+
+
+struct text_builder
+{
+	void append(const std::string& text)
+	{
+		if(!result.empty())
+		{
+			result.append(" ");
+		}
+		result.append(text);
+	}
+
+	void append(const std::string& text, const std::string& tag)
+	{
+		if(!result.empty())
+		{
+			result.append(" ");
+		}
+		result.append(tag).append("(").append(text).append(")");
+	}
+
+
+	std::string result;
+	std::vector<text_decorator> decorators;
+};
+
+template<typename T>
+inline void apply_builder(const text_builder& builder, T& text)
+{
+	if(text.set_utf8_text(builder.result))
+	{
+		for(auto& decorator : builder.decorators)
+		{
+			text.add_decorator(decorator);
+		}
+	}
+}
 
 
 }

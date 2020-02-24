@@ -68,17 +68,6 @@ bool rich_text::set_utf8_text(std::string&& t)
 	return true;
 }
 
-void rich_text::set_builder_results(rich_text_builder&& builder)
-{
-	if(set_utf8_text(std::move(builder.result)))
-	{
-		for(auto& decorator : builder.decorators)
-		{
-			add_decorator(std::move(decorator));
-		}
-	}
-}
-
 void rich_text::draw(draw_list& list, const math::transformf& transform) const
 {
 	auto world = transform * wrap_fitting_;
@@ -122,6 +111,11 @@ void rich_text::draw(draw_list& list, const math::transformf& transform) const
 
 		list.add_image(image, img_src_rect, img_dst_rect, world);
 	}
+}
+void rich_text::draw(draw_list& list, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
+					 dimension_fit dim_fit)
+{
+	draw(list, align_and_fit_item(get_alignment(), get_width(), get_height(), transform, dst_rect, sz_fit, dim_fit));
 }
 
 void rich_text::set_config(const rich_config& cfg)
@@ -182,11 +176,11 @@ void rich_text::apply_config()
 					}
 
 
-                    return {embedded.text.get_width(), embedded.text.get_height()};
+					return {embedded.text.get_width(), embedded.text.get_height()};
 				}
 
 				auto& embedded = it->second;
-                return {embedded.text.get_width(), embedded.text.get_height()};
+				return {embedded.text.get_width(), embedded.text.get_height()};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,

@@ -276,18 +276,21 @@ int main()
 			list.add_image(image_background, rend.get_rect());
             list.add_rect(area, gfx::color::red(), false);
 
-//			gfx::rich_text_builder b;
+//			gfx::text_builder b;
 //			b.append("some random text");
 //			b.append("__WILD__", "image");
 //			b.append("__CURRENCY__", "style3");
 //			b.append("some random text:", "style2");
 //			b.append_formatted("10");
-//			t.set_builder_results(std::move(b));
+//			gfx::apply_builder(b, t);
 
             t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
+
 			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform, fitting_tolerance);
-			t.draw(list, {});
+			t.draw(list);
+
+			//t.draw(list, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);
 
 			//std::cout << list.to_string() << std::endl;
 

@@ -273,7 +273,7 @@ text::~text()
 
 }
 
-bool text::set_utf8_text(const std::string& t, bool clear_decorators)
+bool text::set_utf8_text(const std::string& t)
 {
 	if(t == utf8_text_)
 	{
@@ -281,16 +281,12 @@ bool text::set_utf8_text(const std::string& t, bool clear_decorators)
 	}
 	utf8_text_ = t;
 	clear_lines();
-
-	if(clear_decorators)
-	{
-		decorators_.clear();
-	}
+	decorators_.clear();
 
 	return true;
 }
 
-bool text::set_utf8_text(std::string&& t, bool clear_decorators)
+bool text::set_utf8_text(std::string&& t)
 {
 	if(t == utf8_text_)
 	{
@@ -298,11 +294,7 @@ bool text::set_utf8_text(std::string&& t, bool clear_decorators)
 	}
 	utf8_text_ = std::move(t);
 	clear_lines();
-
-	if(clear_decorators)
-	{
-		decorators_.clear();
-	}
+	decorators_.clear();
 
 	return true;
 }
@@ -708,7 +700,7 @@ void text::update_lines() const
 
 
     float scale = decorator->scale;
-	auto line_height = scale * font->line_height + advance_offset_y;
+	auto line_height = scale * (font->line_height + advance_offset_y);
 	const auto pixel_snap = font->pixel_snap;
 	const auto ascent = scale * font->ascent;
 	const auto descent = scale * font->descent;
@@ -753,8 +745,8 @@ void text::update_lines() const
             }
 		}
 
-        float relative_scale = get_decorator_scale(decorator);
-        float glyph_advance = advance_offset_x + g.advance_x * scale * relative_scale;
+		float relative_scale = get_decorator_scale(decorator);
+		float glyph_advance = (advance_offset_x + g.advance_x) * scale * relative_scale;
 
 		if(!decorator->is_visible(chars_))
         {
@@ -807,9 +799,9 @@ void text::update_lines() const
             metrics->baseline = pen_y;
             metrics->descent = pen_y - descent;
             metrics->miny = metrics->ascent;
-            metrics->maxy = metrics->descent;
+			metrics->maxy = metrics->descent;
 
-            line_height = scale * font->line_height + advance_offset_y;
+			line_height = scale * (font->line_height + advance_offset_y);
 		}
 		else
 		{
@@ -856,7 +848,7 @@ void text::update_lines() const
                                        line_metrics.maxx,
                                        pixel_snap);
 
-        if(line_path_.empty())
+		if(line_path_.empty())
         {
             line_metrics.minx += align_x;
             line_metrics.maxx += align_x;
@@ -964,7 +956,7 @@ void text::update_geometry() const
 					float external_advance = 0.0f;
 					if(decorator->get_size_on_line)
 					{
-                        auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
+						auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
 						external_advance = external_size.first;
 					}
 
@@ -1059,7 +1051,7 @@ void text::update_geometry() const
             vptr += vertices_per_quad;
             vtx_count += vertices_per_quad;
 
-			pen_x += advance_offset_x + g.advance_x * scale * relative_scale;
+			pen_x += (advance_offset_x + g.advance_x) * scale * relative_scale;
 		}
 
 	}

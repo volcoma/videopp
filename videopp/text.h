@@ -88,7 +88,7 @@ struct text_decorator
     using calc_size_t = std::function<std::pair<float, float>(
                         const text_decorator& decorator,
                         const char* str_begin,
-                        const char* str_end)>;
+						const char* str_end)>;
 
     using generate_line_t = std::function<void(
                             const text_decorator& decorator,
@@ -183,10 +183,14 @@ public:
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
     //-----------------------------------------------------------------------------
-	bool set_utf8_text(const std::string& t, bool clear_decorators = true);
-	bool set_utf8_text(std::string&& t, bool clear_decorators = true);
+	bool set_utf8_text(const std::string& t);
+	bool set_utf8_text(std::string&& t);
 
-
+	void set_font_scale(float scale)
+	{
+		main_decorator_.scale = scale;
+		clear_lines();
+	}
 	void clear_lines();
 	//-----------------------------------------------------------------------------
     /// Set the whole style at once.
@@ -349,7 +353,7 @@ public:
     const text_decorator& get_decorator() const;
 
     static size_t count_glyphs(const std::string& utf8_text);
-    static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
+	static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
 
 private:
 
@@ -386,8 +390,8 @@ private:
     /// Rect of the text relative to the aligned origin.
     mutable frect rect_{};
 
-    /// main decorator
-    text_decorator main_decorator_{};
+	/// main decorator
+	text_decorator main_decorator_{};
 
     /// user decorators
 	std::vector<text_decorator> decorators_{};
