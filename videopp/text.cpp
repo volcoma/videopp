@@ -280,7 +280,7 @@ bool text::set_utf8_text(const std::string& t, bool clear_decorators)
 		return false;
 	}
 	utf8_text_ = t;
-	clear_lines_and_geometry();
+	clear_lines();
 
 	if(clear_decorators)
 	{
@@ -297,7 +297,7 @@ bool text::set_utf8_text(std::string&& t, bool clear_decorators)
 		return false;
 	}
 	utf8_text_ = std::move(t);
-	clear_lines_and_geometry();
+	clear_lines();
 
 	if(clear_decorators)
 	{
@@ -307,17 +307,11 @@ bool text::set_utf8_text(std::string&& t, bool clear_decorators)
 	return true;
 }
 
-void text::clear_lines_and_geometry()
-{
-	clear_lines();
-	clear_geometry();
-}
-
 void text::set_style(const text_style& style)
 {
 	style_ = style;
 	main_decorator_.scale = style.scale;
-	clear_lines_and_geometry();
+	clear_lines();
 }
 
 void text::set_font(const font_ptr& f)
@@ -327,7 +321,7 @@ void text::set_font(const font_ptr& f)
 		return;
 	}
 	style_.font = f;
-	clear_lines_and_geometry();
+	clear_lines();
 }
 
 align_t text::get_alignment() const
@@ -369,7 +363,7 @@ void text::set_outline_width(float owidth)
 		return;
 	}
 	style_.outline_width = std::max(0.0f, owidth);
-	clear_lines_and_geometry();
+	clear_lines();
 }
 
 void text::set_shadow_color(color c)
@@ -405,7 +399,7 @@ void text::set_advance(const math::vec2& advance)
 	}
 
 	style_.advance = advance;
-	clear_lines_and_geometry();
+	clear_lines();
 }
 
 
@@ -416,7 +410,7 @@ void text::set_alignment(align_t a)
 		return;
 	}
 	alignment_ = a;
-	clear_lines_and_geometry();
+	clear_lines();
 }
 
 const std::vector<vertex_2d>& text::get_geometry() const
@@ -495,24 +489,24 @@ void text::set_leaning(float leaning)
 
 void text::set_wrap_width(float max_width)
 {
-	if(math::epsilonEqual(max_width_, max_width, math::epsilon<float>()))
+	if(math::epsilonEqual(max_wrap_width_, max_width, math::epsilon<float>()))
 	{
 		return;
 	}
-	max_width_ = max_width;
-	clear_lines_and_geometry();
+	max_wrap_width_ = max_width;
+	clear_lines();
 }
 
 void text::set_line_path(const polyline& line)
 {
 	line_path_ = line;
-	clear_geometry();
+	clear_lines();
 }
 
 void text::set_line_path(polyline&& line)
 {
 	line_path_ = std::move(line);
-	clear_geometry();
+	clear_lines();
 }
 
 void text::set_decorators(const std::vector<text_decorator>& decorators)
@@ -526,7 +520,7 @@ void text::set_decorators(const std::vector<text_decorator>& decorators)
 			dec.unicode_visual_range = dec.unicode_range;
 		}
 	}
-	clear_lines_and_geometry();
+	clear_lines();
 }
 void text::set_decorators(std::vector<text_decorator>&& decorators)
 {
@@ -539,7 +533,7 @@ void text::set_decorators(std::vector<text_decorator>&& decorators)
 			dec.unicode_visual_range = dec.unicode_range;
 		}
 	}
-	clear_lines_and_geometry();
+	clear_lines();
 }
 void text::add_decorator(const text_decorator& decorator)
 {
@@ -550,7 +544,7 @@ void text::add_decorator(const text_decorator& decorator)
 	{
 		dec.unicode_visual_range = dec.unicode_range;
 	}
-	clear_lines_and_geometry();
+	clear_lines();
 }
 void text::add_decorator(text_decorator&& decorator)
 {
@@ -561,7 +555,7 @@ void text::add_decorator(text_decorator&& decorator)
 		dec.unicode_visual_range = dec.unicode_range;
 	}
 
-	clear_lines_and_geometry();
+	clear_lines();
 }
 const polyline& text::get_line_path() const
 {
@@ -585,6 +579,8 @@ void text::clear_lines()
 	unicode_text_.clear();
     lines_metrics_.clear();
 	rect_ = {};
+
+	clear_geometry();
 }
 
 void text::update_unicode_text() const
@@ -705,7 +701,7 @@ void text::update_lines() const
 	auto decorator = &main_decorator_;
 	auto next_decorator = get_next_decorator(0, decorator);
 
-	auto max_width = float(max_width_) - font->get_glyph(' ').advance_x * decorator->scale;
+	auto max_width = float(max_wrap_width_) - font->get_glyph(' ').advance_x * decorator->scale;
 
     auto advance_offset_x = get_advance_offset_x();
 	auto advance_offset_y = get_advance_offset_y();
@@ -1224,7 +1220,7 @@ std::vector<text_decorator*> text::add_decorators(const std::regex& matcher, con
 		}
 	}
 
-	clear_geometry();
+	clear_lines();
 
 	return result;
 }

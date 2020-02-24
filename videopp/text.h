@@ -187,8 +187,8 @@ public:
 	bool set_utf8_text(std::string&& t, bool clear_decorators = true);
 
 
-	void clear_lines_and_geometry();
-    //-----------------------------------------------------------------------------
+	void clear_lines();
+	//-----------------------------------------------------------------------------
     /// Set the whole style at once.
     //-----------------------------------------------------------------------------
     void set_style(const text_style& style);
@@ -347,7 +347,6 @@ public:
     /// Returns the main decorator
     //-----------------------------------------------------------------------------
     const text_decorator& get_decorator() const;
-    std::vector<text_decorator>& acess_decorators() { return decorators_; }
 
     static size_t count_glyphs(const std::string& utf8_text);
     static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
@@ -358,7 +357,6 @@ private:
     float get_advance_offset_y() const;
 
     void clear_geometry();
-    void clear_lines();
     void update_lines() const;
     void update_geometry() const;
     void update_unicode_text() const;
@@ -404,7 +402,7 @@ private:
     align_t alignment_ = align::left | align::baseline;
 
     /// Max width
-	float max_width_{};
+	float max_wrap_width_{};
 
 };
 
