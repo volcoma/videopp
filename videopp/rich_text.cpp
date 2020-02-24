@@ -48,25 +48,35 @@ void rich_text::calculate_wrap_fitting(math::transformf transform,
 	wrap_fitting_ = align_wrap_and_fit_text(*this, transform, dst_rect, sz_fit, dim_fit, tolerance);
 }
 
-void rich_text::set_utf8_text(const std::string& t)
+bool rich_text::set_utf8_text(const std::string& t)
 {
-	static_cast<text&>(*this).set_utf8_text(t);
+	if(!static_cast<text&>(*this).set_utf8_text(t))
+	{
+		return false;
+	}
 	apply_config();
+	return true;
 }
 
-void rich_text::set_utf8_text(std::string&& t)
+bool rich_text::set_utf8_text(std::string&& t)
 {
-	static_cast<text&>(*this).set_utf8_text(std::move(t));
-    apply_config();
+	if(!static_cast<text&>(*this).set_utf8_text(std::move(t)))
+	{
+		return false;
+	}
+	apply_config();
+	return true;
 }
 
 void rich_text::set_builder_results(rich_text_builder&& builder)
 {
-    set_utf8_text(std::move(builder.result));
-    for(auto& decorator : builder.decorators)
-    {
-        add_decorator(std::move(decorator));
-    }
+	if(set_utf8_text(std::move(builder.result)))
+	{
+		for(auto& decorator : builder.decorators)
+		{
+			add_decorator(std::move(decorator));
+		}
+	}
 }
 
 void rich_text::draw(draw_list& list, const math::transformf& transform) const
@@ -131,11 +141,6 @@ void rich_text::apply_config()
 	auto advance = (calculated_line_height_ - line_height);
 
 	set_advance({0, advance});
-
-	set_clear_lines_callback([&]()
-	{
-		clear_embedded_elements();
-	});
 
 	set_decorators({});
 

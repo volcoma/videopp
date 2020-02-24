@@ -273,44 +273,51 @@ text::~text()
 
 }
 
-void text::set_utf8_text(const std::string& t, bool clear_decorators)
+bool text::set_utf8_text(const std::string& t, bool clear_decorators)
 {
 	if(t == utf8_text_)
 	{
-		return;
+		return false;
 	}
 	utf8_text_ = t;
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 
 	if(clear_decorators)
 	{
 		decorators_.clear();
 	}
+
+	return true;
 }
 
-void text::set_utf8_text(std::string&& t, bool clear_decorators)
+bool text::set_utf8_text(std::string&& t, bool clear_decorators)
 {
 	if(t == utf8_text_)
 	{
-		return;
+		return false;
 	}
 	utf8_text_ = std::move(t);
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 
 	if(clear_decorators)
 	{
 		decorators_.clear();
 	}
+
+	return true;
+}
+
+void text::clear_lines_and_geometry()
+{
+	clear_lines();
+	clear_geometry();
 }
 
 void text::set_style(const text_style& style)
 {
 	style_ = style;
 	main_decorator_.scale = style.scale;
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 void text::set_font(const font_ptr& f)
@@ -320,8 +327,7 @@ void text::set_font(const font_ptr& f)
 		return;
 	}
 	style_.font = f;
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 align_t text::get_alignment() const
@@ -363,8 +369,7 @@ void text::set_outline_width(float owidth)
 		return;
 	}
 	style_.outline_width = std::max(0.0f, owidth);
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 void text::set_shadow_color(color c)
@@ -390,8 +395,6 @@ void text::set_shadow_offsets(const math::vec2& offsets)
 	}
 
 	style_.shadow_offsets = offsets;
-	clear_lines();
-	clear_geometry();
 }
 
 void text::set_advance(const math::vec2& advance)
@@ -402,8 +405,7 @@ void text::set_advance(const math::vec2& advance)
 	}
 
 	style_.advance = advance;
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 
@@ -414,8 +416,7 @@ void text::set_alignment(align_t a)
 		return;
 	}
 	alignment_ = a;
-    clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 const std::vector<vertex_2d>& text::get_geometry() const
@@ -449,12 +450,6 @@ bool text::is_valid() const
 {
 	return !utf8_text_.empty() && style_.font;
 }
-
-void text::set_clear_lines_callback(const std::function<void ()> &callback)
-{
-	clear_lines_callback_ = callback;
-}
-
 
 float text::get_advance_offset_x() const
 {
@@ -498,15 +493,14 @@ void text::set_leaning(float leaning)
 	clear_geometry();
 }
 
-void text::set_max_width(float max_width)
+void text::set_wrap_width(float max_width)
 {
 	if(math::epsilonEqual(max_width_, max_width, math::epsilon<float>()))
 	{
 		return;
 	}
 	max_width_ = max_width;
-	clear_lines();
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 
 void text::set_line_path(const polyline& line)
@@ -532,7 +526,7 @@ void text::set_decorators(const std::vector<text_decorator>& decorators)
 			dec.unicode_visual_range = dec.unicode_range;
 		}
 	}
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 void text::set_decorators(std::vector<text_decorator>&& decorators)
 {
@@ -545,7 +539,7 @@ void text::set_decorators(std::vector<text_decorator>&& decorators)
 			dec.unicode_visual_range = dec.unicode_range;
 		}
 	}
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 void text::add_decorator(const text_decorator& decorator)
 {
@@ -556,7 +550,7 @@ void text::add_decorator(const text_decorator& decorator)
 	{
 		dec.unicode_visual_range = dec.unicode_range;
 	}
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 void text::add_decorator(text_decorator&& decorator)
 {
@@ -567,7 +561,7 @@ void text::add_decorator(text_decorator&& decorator)
 		dec.unicode_visual_range = dec.unicode_range;
 	}
 
-	clear_geometry();
+	clear_lines_and_geometry();
 }
 const polyline& text::get_line_path() const
 {
@@ -591,13 +585,7 @@ void text::clear_lines()
 	unicode_text_.clear();
     lines_metrics_.clear();
 	rect_ = {};
-
-	if(clear_lines_callback_)
-	{
-		clear_lines_callback_();
-	}
 }
-
 
 void text::update_unicode_text() const
 {
@@ -772,7 +760,7 @@ void text::update_lines() const
         float relative_scale = get_decorator_scale(decorator);
         float glyph_advance = advance_offset_x + g.advance_x * scale * relative_scale;
 
-        if(!decorator->is_visible(chars_))
+		if(!decorator->is_visible(chars_))
         {
             glyph_advance = 0;
         } 

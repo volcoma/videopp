@@ -186,9 +186,11 @@ public:
     //-----------------------------------------------------------------------------
     /// Set the utf8 text.
     //-----------------------------------------------------------------------------
-	void set_utf8_text(const std::string& t, bool clear_decorators = true);
-	void set_utf8_text(std::string&& t, bool clear_decorators = true);
+	bool set_utf8_text(const std::string& t, bool clear_decorators = true);
+	bool set_utf8_text(std::string&& t, bool clear_decorators = true);
 
+
+	void clear_lines_and_geometry();
     //-----------------------------------------------------------------------------
     /// Set the whole style at once.
     //-----------------------------------------------------------------------------
@@ -254,7 +256,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Sets the max with for wrapping
     //-----------------------------------------------------------------------------
-    void set_max_width(float max_width);
+	void set_wrap_width(float max_width);
 
 	//-----------------------------------------------------------------------------
     /// Sets the path of the line
@@ -331,11 +333,6 @@ public:
     bool is_valid() const;
 
     //-----------------------------------------------------------------------------
-    /// Sets callbacks
-    //-----------------------------------------------------------------------------
-    void set_clear_lines_callback(const std::function<void()>& callback);
-
-    //-----------------------------------------------------------------------------
     /// Adds/sets text decorators
     //-----------------------------------------------------------------------------
 	void set_decorators(const std::vector<text_decorator>& decorators);
@@ -384,9 +381,6 @@ private:
 
     /// Unicode text
     mutable std::vector<uint32_t> unicode_text_;
-
-    /// clear_geometry_callback
-    std::function<void()> clear_lines_callback_{};
 
     /// Utf8 text
     std::string utf8_text_{};

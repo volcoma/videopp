@@ -11,24 +11,37 @@ struct rich_text_builder
 {
 	void append(const std::string& text)
 	{
+		if(!result.empty())
+		{
+			result.append(" ");
+		}
 		result.append(text);
 	}
 
 	void append(const std::string& text, const std::string& tag)
 	{
+		if(!result.empty())
+		{
+			result.append(" ");
+		}
 		result.append(tag).append("(").append(text).append(")");
 	}
 
 	void append_formatted(const std::string& text)
 	{
+		if(!result.empty())
+		{
+			result.append(" ");
+		}
+
         decorators.emplace_back();
         auto& decorator = decorators.back();
 		decorator.scale = 0.4f;
-		decorator.script = gfx::script_line::baseline;
+		decorator.script = gfx::script_line::cap_height;
 		decorator.unicode_range.begin = gfx::text::count_glyphs(result);
 		decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(text);
 
-		append(text);
+		result.append(text);
 	}
 
 	std::string result;
@@ -89,8 +102,8 @@ public:
 	void set_config(const rich_config& cfg);
 	void apply_config();
 
-	void set_utf8_text(const std::string& t);
-	void set_utf8_text(std::string&& t);
+	bool set_utf8_text(const std::string& t);
+	bool set_utf8_text(std::string&& t);
 	void set_builder_results(rich_text_builder&& builder);
 
 private:

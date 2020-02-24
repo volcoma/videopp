@@ -114,9 +114,9 @@ int main()
 			style.font = font;
 			style.color_top = gfx::color::blue();
 			style.color_bot = gfx::color::cyan();
-//			style.shadow_color_top = gfx::color::blue();
-//			style.shadow_color_bot = gfx::color::cyan();
-//			style.shadow_offsets = {-2.0f, -2.0f};
+			style.shadow_color_top = gfx::color::blue();
+			style.shadow_color_bot = gfx::color::cyan();
+			style.shadow_offsets = {-2.0f, -2.0f};
 			style.outline_color = gfx::color::green();
 			style.outline_width = 0.2f;
 			style.scale = 1.4f;
@@ -158,7 +158,7 @@ int main()
 				decorator.unicode_range.end = decorator.unicode_range.begin + gfx::text::count_glyphs(currency_code);
 				out.set_decorators({decorator});
 			}
-            else if(content == "__FGCOUNT__")
+			else if(content == "__FGCOUNT__")
 			{
                 out.set_utf8_text(std::to_string(fg_count));
             }
@@ -279,7 +279,8 @@ int main()
 //			gfx::rich_text_builder b;
 //			b.append("some random text");
 //			b.append("__WILD__", "image");
-//			b.append("some random text");
+//			b.append("__CURRENCY__", "style3");
+//			b.append("some random text:", "style2");
 //			b.append_formatted("10");
 //			t.set_builder_results(std::move(b));
 
@@ -288,7 +289,7 @@ int main()
 			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform, fitting_tolerance);
 			t.draw(list, {});
 
-			std::cout << list.to_string() << std::endl;
+			//std::cout << list.to_string() << std::endl;
 
 			rend.draw_cmd_list(list);
 

@@ -532,7 +532,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 
     auto max_w = dst_rect.w;
 
-    t.set_max_width(float(max_w));
+	t.set_wrap_width(float(max_w));
     auto world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
     auto w = int(float(dst_rect.w) / world.get_scale().y);
 
@@ -542,9 +542,9 @@ math::transformf align_wrap_and_fit_text(text& t,
     	max_w = w;
         while(iterations < 128)
         {
-            t.set_max_width(float(max_w));
+			t.set_wrap_width(float(max_w));
             world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
-            w = int(float(dst_rect.w) / world.get_scale().y);
+			w = int(float(dst_rect.w) / world.get_scale().y);
 
             if(w - max_w + std::max(0, tolerance) >= 0)
             {
