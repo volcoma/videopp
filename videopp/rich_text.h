@@ -54,6 +54,7 @@ public:
 	void set_config(const rich_config& cfg);
 	bool set_utf8_text(const std::string& t);
 	bool set_utf8_text(std::string&& t);
+    void clear_lines();
 
 	void calculate_wrap_fitting(math::transformf transform,
 								rect dst_rect,

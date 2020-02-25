@@ -250,6 +250,8 @@ int main()
                         currency %= 101;
                         fg_count += 1;
                         fg_count %= 21;
+
+                        t.clear_lines();
                     }
 				}
 

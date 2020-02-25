@@ -65,7 +65,13 @@ bool rich_text::set_utf8_text(std::string&& t)
 		return false;
 	}
 	apply_config();
-	return true;
+    return true;
+}
+
+void rich_text::clear_lines()
+{
+    static_cast<text&>(*this).clear_lines();
+    clear_embedded_elements();
 }
 
 void rich_text::draw(draw_list& list, const math::transformf& transform) const

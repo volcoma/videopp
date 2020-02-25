@@ -698,10 +698,8 @@ void text::update_lines() const
     auto advance_offset_x = get_advance_offset_x();
 	auto advance_offset_y = get_advance_offset_y();
 
-
     float scale = decorator->scale;
 	auto line_height = scale * (font->line_height + advance_offset_y);
-	const auto pixel_snap = font->pixel_snap;
 	const auto ascent = scale * font->ascent;
 	const auto descent = scale * font->descent;
 	const auto x_height = scale * font->x_height;
@@ -710,22 +708,18 @@ void text::update_lines() const
     auto pen_y = ascent;
     auto pen_x_last_space = 0.0f;
 
-    float min_y = 0.0f;
-	float max_y = std::numeric_limits<float>::lowest();
-
-
     lines_metrics_.emplace_back();
-    auto metrics = &lines_metrics_.back();
-    metrics->minx = 0.0f;
-    metrics->maxx = 0.0f;
-    metrics->ascent = pen_y - ascent;
-    metrics->cap_height = pen_y - cap_height;
-    metrics->x_height = pen_y - x_height;
-    metrics->median = pen_y - cap_height * 0.5f;
-    metrics->baseline = pen_y;
-    metrics->descent = pen_y - descent;
-    metrics->miny = metrics->ascent;
-    metrics->maxy = metrics->descent;
+    auto metric = &lines_metrics_.back();
+    metric->minx = 0.0f;
+    metric->maxx = 0.0f;
+    metric->ascent = pen_y - ascent;
+    metric->cap_height = pen_y - cap_height;
+    metric->x_height = pen_y - x_height;
+    metric->median = pen_y - cap_height * 0.5f;
+    metric->baseline = pen_y;
+    metric->descent = pen_y - descent;
+    metric->miny = metric->ascent;
+    metric->maxy = metric->descent;
 
 	for(size_t i = 0; i < unicode_text_size; ++i)
 	{
@@ -741,7 +735,7 @@ void text::update_lines() const
 				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
 				auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-                metrics->maxx += external_size.first;
+                metric->maxx += external_size.first;
             }
 		}
 
@@ -756,15 +750,15 @@ void text::update_lines() const
 		else if(is_space(c))
 		{
 			last_space = i;
-            pen_x_last_space = metrics->maxx;
+            pen_x_last_space = metric->maxx;
 		}
 		// decorator end
 
-		bool exceedsmax_width = max_width > 0 && (metrics->maxx + glyph_advance) > max_width;
+		bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
 
 		if((decorator->is_visible(chars_) && is_newline(c)) || (exceedsmax_width && (last_space != size_t(-1))))
 		{
-            metrics->maxx = pen_x_last_space;
+            metric->maxx = pen_x_last_space;
 
 			if(is_blank(c) || is_newline(c))
 			{
@@ -789,17 +783,17 @@ void text::update_lines() const
             pen_y += line_height;
 
             lines_metrics_.emplace_back();
-            metrics = &lines_metrics_.back();
-            metrics->minx = 0.0f;
-            metrics->maxx = 0.0f;
-            metrics->ascent = pen_y - ascent;
-            metrics->cap_height = pen_y - cap_height;
-            metrics->x_height = pen_y - x_height;
-            metrics->median = pen_y - cap_height * 0.5f;
-            metrics->baseline = pen_y;
-            metrics->descent = pen_y - descent;
-            metrics->miny = metrics->ascent;
-			metrics->maxy = metrics->descent;
+            metric = &lines_metrics_.back();
+            metric->minx = 0.0f;
+            metric->maxx = 0.0f;
+            metric->ascent = pen_y - ascent;
+            metric->cap_height = pen_y - cap_height;
+            metric->x_height = pen_y - x_height;
+            metric->median = pen_y - cap_height * 0.5f;
+            metric->baseline = pen_y;
+            metric->descent = pen_y - descent;
+            metric->miny = metric->ascent;
+			metric->maxy = metric->descent;
 
 			line_height = scale * (font->line_height + advance_offset_y);
 		}
@@ -807,63 +801,64 @@ void text::update_lines() const
 		{
 			lines_.back().push_back(c);
 			++chars_;
-			metrics->maxx += glyph_advance;
+			metric->maxx += glyph_advance;
 		}
-
-        min_y = std::min(metrics->miny, min_y);
-        max_y = std::max(metrics->maxy, max_y);
 	}
 
-    float min_y_baseline = min_y + ascent;
-    float max_y_baseline = max_y + descent;
-    float min_y_cap = min_y_baseline - cap_height;
-    float max_y_cap = max_y_baseline - cap_height;
+    update_alignment();
+}
 
+void text::update_alignment() const
+{
+    const auto pixel_snap = style_.font->pixel_snap;
+
+    const auto& first_line = lines_metrics_.front();
+    const auto& last_line = lines_metrics_.back();
 
     float align_y = get_alignment_y(alignment_,
-                                    min_y, min_y_baseline, min_y_cap,
-                                    max_y, max_y_baseline, max_y_cap,
+                                    first_line.miny, first_line.baseline, first_line.cap_height,
+                                    last_line.maxy, last_line.baseline, last_line.cap_height,
                                     pixel_snap);
 
 
     float min_x = std::numeric_limits<float>::max();
-	float max_x = std::numeric_limits<float>::lowest();
+    float max_x = std::numeric_limits<float>::lowest();
 
-    min_y = std::numeric_limits<float>::max();
-    max_y = std::numeric_limits<float>::lowest();
+    float min_y = std::numeric_limits<float>::max();
+    float max_y = std::numeric_limits<float>::lowest();
 
-    for(auto& line_metrics : lines_metrics_)
+    for(auto& metric : lines_metrics_)
     {
-        line_metrics.miny += align_y;
-        line_metrics.maxy += align_y;
-        line_metrics.ascent += align_y;
-        line_metrics.cap_height += align_y;
-        line_metrics.x_height += align_y;
-        line_metrics.median += align_y;
-        line_metrics.baseline += align_y;
-        line_metrics.descent += align_y;
+        metric.miny += align_y;
+        metric.maxy += align_y;
+        metric.ascent += align_y;
+        metric.cap_height += align_y;
+        metric.x_height += align_y;
+        metric.median += align_y;
+        metric.baseline += align_y;
+        metric.descent += align_y;
 
-        auto align_x = get_alignment_x(alignment_,
-                                       line_metrics.minx,
-                                       line_metrics.maxx,
-                                       pixel_snap);
-
-		if(line_path_.empty())
+        if(line_path_.empty())
         {
-            line_metrics.minx += align_x;
-            line_metrics.maxx += align_x;
-        }
-        min_x = std::min(line_metrics.minx, min_x);
-        max_x = std::max(line_metrics.maxx, max_x);
-        min_y = std::min(line_metrics.miny, min_y);
-        max_y = std::max(line_metrics.maxy, max_y);
+            auto align_x = get_alignment_x(alignment_,
+                                           metric.minx,
+                                           metric.maxx,
+                                           pixel_snap);
 
+            metric.minx += align_x;
+            metric.maxx += align_x;
+        }
+
+        min_x = std::min(metric.minx, min_x);
+        max_x = std::max(metric.maxx, max_x);
+        min_y = std::min(metric.miny, min_y);
+        max_y = std::max(metric.maxy, max_y);
     }
 
-	rect_.y = min_y;
+    rect_.y = min_y;
     rect_.x = min_x;
-	rect_.h = max_y - min_y;
-	rect_.w = max_x - min_x;
+    rect_.h = max_y - min_y;
+    rect_.w = max_x - min_x;
 }
 
 void text::update_geometry() const
@@ -925,12 +920,12 @@ void text::update_geometry() const
 	for(size_t line_idx = 0; line_idx < lines.size(); ++line_idx)
 	{
         const auto& line = lines[line_idx];
-        const auto& metrics = lines_metrics_[line_idx];
+        const auto& metric = lines_metrics_[line_idx];
 
         // Set glyph positions on a (0,0) baseline.
         // (x0,y0) for a glyph is the bottom-lefts
-        auto pen_y = metrics.baseline;
-        auto pen_x = metrics.minx;
+        auto pen_y = metric.baseline;
+        auto pen_x = metric.minx;
 
 		auto last_codepoint = char_t(-1);
 
@@ -944,7 +939,6 @@ void text::update_geometry() const
 				continue;
 			}
 
-			auto pen_y_decorated = pen_y;
 			{
 				get_decorator(glyph_idx, decorator, next_decorator);
 
@@ -962,7 +956,7 @@ void text::update_geometry() const
 
                     if(decorator->set_position_on_line)
                     {
-                        decorator->set_position_on_line(*decorator, pen_x, line_idx, metrics, str_begin, str_end);
+                        decorator->set_position_on_line(*decorator, pen_x, line_idx, metric, str_begin, str_end);
                     }
 
 					pen_x += external_advance;
@@ -971,25 +965,26 @@ void text::update_geometry() const
 
 			float relative_scale = get_decorator_scale(decorator);
 
+            auto pen_y_script_line = pen_y;
             switch(decorator->script)
             {
                 case script_line::ascent:
-                    pen_y_decorated = metrics.ascent + ascent * relative_scale;
+                    pen_y_script_line = metric.ascent + ascent * relative_scale;
                 break;
                 case script_line::cap_height:
-                    pen_y_decorated = metrics.cap_height + cap_height * relative_scale;
+                    pen_y_script_line = metric.cap_height + cap_height * relative_scale;
                 break;
                 case script_line::x_height:
-                    pen_y_decorated = metrics.x_height + x_height * relative_scale;
+                    pen_y_script_line = metric.x_height + x_height * relative_scale;
                 break;
                 case script_line::median:
-                    pen_y_decorated = metrics.median + median * relative_scale;
+                    pen_y_script_line = metric.median + median * relative_scale;
                 break;
                 case script_line::baseline:
-                    pen_y_decorated = metrics.baseline;
+                    pen_y_script_line = metric.baseline;
                 break;
                 case script_line::descent:
-                    pen_y_decorated = metrics.descent + descent * relative_scale;
+                    pen_y_script_line = metric.descent + descent * relative_scale;
                 break;
                 default:
                 break;
@@ -1023,8 +1018,8 @@ void text::update_geometry() const
 
             auto x0 = pen_x + g.x0 * scale * relative_scale;
             auto x1 = pen_x + g.x1 * scale * relative_scale;
-            auto y0 = pen_y_decorated + g.y0 * scale * relative_scale;
-            auto y1 = pen_y_decorated + g.y1 * scale * relative_scale;
+            auto y0 = pen_y_script_line + g.y0 * scale * relative_scale;
+            auto y1 = pen_y_script_line + g.y1 * scale * relative_scale;
 
             if(pixel_snap)
             {
@@ -1032,8 +1027,8 @@ void text::update_geometry() const
                 x1 = float(int(x1));
             }
 
-            const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metrics.ascent, height) : color_top;
-            const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metrics.ascent, height) : color_bot;
+            const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metric.ascent, height) : color_top;
+            const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metric.ascent, height) : color_bot;
 
             std::array<vertex_2d, 4> quad =
             {{

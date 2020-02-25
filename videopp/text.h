@@ -362,6 +362,7 @@ private:
 
     void clear_geometry();
     void update_lines() const;
+    void update_alignment() const;
     void update_geometry() const;
     void update_unicode_text() const;
 
