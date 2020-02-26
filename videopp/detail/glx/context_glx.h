@@ -7,7 +7,7 @@ namespace gfx
 {
 struct context_glx : context
 {
-    context_glx(void* native_handle, void* native_display);
+	context_glx(void* native_handle, void* native_display, int major = 1, int minor = 0);
     ~context_glx() override;
 
     bool set_vsync(bool vsync) override;

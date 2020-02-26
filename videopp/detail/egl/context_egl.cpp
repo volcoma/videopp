@@ -7,7 +7,7 @@ namespace
 context_egl* master_ctx{};
 }
 
-context_egl::context_egl(void* native_handle, void* native_display)
+context_egl::context_egl(void* native_handle, void* native_display, int major, int minor)
 {
     display_ = eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(native_display));
     if (display_ == EGL_NO_DISPLAY)
@@ -61,7 +61,7 @@ context_egl::context_egl(void* native_handle, void* native_display)
         throw gfx::exception("Cannot create EGL Surface.");
     }
 
-    EGLint context_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+	EGLint context_attribs[] = { EGL_CONTEXT_MAJOR_VERSION, major, EGL_CONTEXT_MINOR_VERSION, minor, EGL_NONE };
     if(master_ctx)
     {
         context_ = eglCreateContext(display_, config, master_ctx->context_, context_attribs);
@@ -73,8 +73,8 @@ context_egl::context_egl(void* native_handle, void* native_display)
 
     if (context_ == EGL_NO_CONTEXT)
     {
-        throw gfx::exception("Cannot create EGL Context.");
-    }
+		throw gfx::exception("Failed to create OpenGL ES context " + std::to_string(major) + "." + std::to_string(minor));
+	}
 
     if(!master_ctx)
     {

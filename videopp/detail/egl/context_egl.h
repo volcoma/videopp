@@ -17,7 +17,7 @@ namespace gfx
 {
 struct context_egl : context
 {
-    context_egl(void* native_handle, void* native_display);
+	context_egl(void* native_handle, void* native_display, int major = 2, int minor = 0);
     ~context_egl() override;
 
     bool set_vsync(bool vsync) override;
