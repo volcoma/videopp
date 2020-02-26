@@ -87,8 +87,6 @@ int main()
 		auto halign = gfx::align::center;
         float scale = 0.5f;
 
-        float line_scale = 2.0f;
-
 
 		gfx::rich_text t;
 		t.set_font(font);
@@ -98,7 +96,7 @@ int main()
 		t.set_shadow_color(gfx::color::black());
 
 		gfx::rich_config cfg;
-		cfg.line_height_scale = line_scale;
+		cfg.line_height_scale = 2.0f;
 
 		{
 			auto& style = cfg.styles["style1"];
@@ -166,7 +164,6 @@ int main()
 
 		t.set_config(cfg);
 
-        int fitting_tolerance = 0;
 		while(running)
 		{
 			os::event e{};
@@ -236,14 +233,7 @@ int main()
                             halign = gfx::align::left;
                         }
                     }
-                    if(e.key.code == os::key::f6)
-                    {
-                        fitting_tolerance += 1;
-                    }
-                    if(e.key.code == os::key::f7)
-                    {
-                        fitting_tolerance -= 1;
-                    }
+
                     if(e.key.code == os::key::f8)
                     {
                         currency++;
@@ -289,7 +279,7 @@ int main()
             t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 
-			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform, fitting_tolerance);
+			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);
 			t.draw(list);
 
 			//t.draw(list, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);

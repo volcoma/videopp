@@ -59,8 +59,7 @@ public:
 	void calculate_wrap_fitting(math::transformf transform,
 								rect dst_rect,
 								size_fit sz_fit = size_fit::shrink_to_fit,
-								dimension_fit dim_fit = dimension_fit::uniform,
-								int tolerance = 0);
+								dimension_fit dim_fit = dimension_fit::uniform);
 
 	void draw(draw_list& list, const math::transformf& transform = {}) const;
 	void draw(draw_list& list, const math::transformf& transform,

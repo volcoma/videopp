@@ -524,34 +524,47 @@ math::transformf align_wrap_and_fit_text(text& t,
 										const math::transformf& transform,
                                         rect dst_rect,
                                         size_fit sz_fit,
-                                        dimension_fit dim_fit,
-                                        int tolerance)
+                                        dimension_fit dim_fit)
 {
     using clock_t = std::chrono::steady_clock;
 	auto start = clock_t::now();
 
 	auto max_w = dst_rect.w;
-
 	t.set_wrap_width(float(max_w));
 	auto world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
 	auto w = int(float(dst_rect.w) / world.get_scale().y);
 
-	size_t iterations{0};
+    size_t iterations{0};
 	if(w != max_w)
 	{
 		max_w = w;
+
+        auto fit = dim_fit;
+        dim_fit = dimension_fit::y;
 		while(iterations < 128)
 		{
 			t.set_wrap_width(float(max_w));
 			world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
-			w = int(float(dst_rect.w) / world.get_scale().y);
+            w = int(float(dst_rect.w) / world.get_scale().y);
 
-			if(w - max_w + std::max(0, tolerance) >= 0)
+            auto diff = w - max_w;
+
+            if(diff >= 0)
 			{
-				break;
+                if(fit != dim_fit)
+                {
+                    //we hit the upper bounds, so return to
+                    //the preferred method
+                    dim_fit = fit;
+                    w -= diff / 2;
+                }
+                else
+                {
+                    break;
+                }
 			}
 
-			max_w = w;
+            max_w = w;
 			iterations++;
 		}
 	}

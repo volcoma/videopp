@@ -32,10 +32,9 @@ bool ends_with(const std::string& s, const std::string& suffix)
 
 
 void rich_text::calculate_wrap_fitting(math::transformf transform,
-										rect dst_rect,
-										size_fit sz_fit,
-										dimension_fit dim_fit,
-										int tolerance)
+                                        rect dst_rect,
+                                        size_fit sz_fit,
+                                        dimension_fit dim_fit)
 {
 	const auto& style = get_style();
 	auto font = style.font;
@@ -45,7 +44,7 @@ void rich_text::calculate_wrap_fitting(math::transformf transform,
 	transform.translate(0.0f, advance * 0.5f, 0.0f);
 	dst_rect.h -= int(advance);
 
-	wrap_fitting_ = align_wrap_and_fit_text(*this, transform, dst_rect, sz_fit, dim_fit, tolerance);
+	wrap_fitting_ = align_wrap_and_fit_text(*this, transform, dst_rect, sz_fit, dim_fit);
 }
 
 bool rich_text::set_utf8_text(const std::string& t)

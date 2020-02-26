@@ -50,8 +50,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 										 const math::transformf& transform,
 										 rect dst_rect,
 										 size_fit sz_fit = size_fit::shrink_to_fit,
-										 dimension_fit dim_fit = dimension_fit::uniform,
-										 int tolerance = 0);
+										 dimension_fit dim_fit = dimension_fit::uniform);
 
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
