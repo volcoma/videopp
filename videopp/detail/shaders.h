@@ -41,16 +41,22 @@ static constexpr const char* vs_simple =
                     attribute vec2 aPosition;
                     attribute vec2 aTexCoord;
                     attribute vec4 aColor;
+                    attribute vec4 aExtraColor;
+                    attribute vec2 aExtraData;
 
 					uniform mat4 uProjection;
 
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
+                    varying vec4 vExtraColor;
+                    varying vec2 vExtraData;
 
                     void main() {
 						gl_Position = uProjection * vec4(aPosition, 0.0, 1.0);
                         vTexCoord = aTexCoord;
                         vColor = aColor;
+                        vExtraColor = aExtraColor;
+                        vExtraData = aExtraData;
                     }
                 )";
 
@@ -142,8 +148,9 @@ static constexpr const char* fs_distance_field =
                     varying vec2 vTexCoord;
                     varying vec4 vColor;
 
-                    uniform float uOutlineWidth;
-                    uniform vec4 uOutlineColor;
+                    varying vec4 vExtraColor;
+                    varying vec2 vExtraData;
+
                     uniform sampler2D uTexture;
 
                 #ifdef HAS_CROP_RECTS
@@ -186,8 +193,8 @@ static constexpr const char* fs_distance_field =
                     {
                         vec4 master_color = vColor;
                         float master_alpha = master_color.a;
-                        vec4 outline_color = uOutlineColor;
-                        float outline_width = uOutlineWidth;
+                        vec4 outline_color = vExtraColor;
+                        float outline_width = max(0.0, vExtraData.x);
                         vec2 uv = vTexCoord.xy;
                         float dist = texture2D(uTexture, uv).r;
 

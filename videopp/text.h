@@ -34,7 +34,6 @@ struct line_metrics
     float maxy{};
 };
 
-
 enum class script_line : uint32_t
 {
     // ascender line.
@@ -155,7 +154,8 @@ struct text_style
 	color color_bot{color::white()};
 
     /// Outline color of the text
-    color outline_color{color::black()};
+    color outline_color_top{color::black()};
+    color outline_color_bot{color::black()};
 
     /// Outline width of the text
     float outline_width{0.0f};
@@ -189,6 +189,7 @@ public:
 	void set_font_scale(float scale)
 	{
 		main_decorator_.scale = scale;
+        style_.scale = scale;
 		clear_lines();
 	}
 	void clear_lines();
@@ -212,6 +213,7 @@ public:
     /// if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------
     void set_outline_color(color c);
+    void set_outline_vgradient_colors(color top, color bot);
 
     //-----------------------------------------------------------------------------
     /// Set outline width of the text in range [0.0f, 0.4f]. Max outline width (0.4)

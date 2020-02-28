@@ -338,13 +338,21 @@ void text::set_vgradient_colors(color top, color bot)
 	clear_geometry();
 }
 
-void text::set_outline_color(color c)
+void text::set_outline_vgradient_colors(color top, color bot)
 {
-	if(style_.outline_color == c)
+	if(style_.outline_color_top == top && style_.outline_color_bot == bot)
 	{
 		return;
 	}
-	style_.outline_color = c;
+	style_.outline_color_top = top;
+	style_.outline_color_bot = bot;
+
+	clear_geometry();
+}
+
+void text::set_outline_color(color c)
+{
+	set_outline_vgradient_colors(c, c);
 }
 
 void text::set_outline_width(float owidth)
@@ -735,7 +743,7 @@ void text::update_lines() const
 				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
 				auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-                metric->maxx += external_size.first;
+                metric->maxx += external_size.first * scale;
             }
 		}
 
@@ -882,7 +890,6 @@ void text::update_geometry() const
 
 	auto decorator = &main_decorator_;
 	auto next_decorator = get_next_decorator(0, decorator);
-
 	auto advance_offset_x = get_advance_offset_x();
 
 	const auto color_top = style_.color_top;
@@ -891,6 +898,14 @@ void text::update_geometry() const
 	const math::vec4 vcolor_bot{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
 	const bool has_gradient = color_top != color_bot;
 	const bool kerning_enabled = style_.kerning_enabled;
+
+    const auto sdf_font = font->sdf_spread > 0;
+    const auto outline_width = style_.outline_width;
+    const auto outline_color_top = style_.outline_color_top;
+	const auto outline_color_bot = style_.outline_color_bot;
+	const math::vec4 outline_vcolor_top{outline_color_top.r, outline_color_top.g, outline_color_top.b, outline_color_top.a};
+	const math::vec4 outline_vcolor_bot{outline_color_bot.r, outline_color_bot.g, outline_color_bot.b, outline_color_bot.a};
+	const bool outline_has_gradient = sdf_font && outline_color_top != outline_color_bot;
 
 	float leaning = 0.0f;
 	bool has_leaning = false;
@@ -951,7 +966,7 @@ void text::update_geometry() const
 					if(decorator->get_size_on_line)
 					{
 						auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-						external_advance = external_size.first;
+						external_advance = external_size.first * scale;
 					}
 
                     if(decorator->set_position_on_line)
@@ -1030,12 +1045,16 @@ void text::update_geometry() const
             const auto coltop = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y0 - metric.ascent, height) : color_top;
             const auto colbot = has_gradient ? get_gradient(vcolor_top, vcolor_bot, y1 - metric.ascent, height) : color_bot;
 
+            const auto outline_coltop = outline_has_gradient ? get_gradient(outline_vcolor_top, outline_vcolor_bot, y0 - metric.ascent, height) : outline_color_top;
+            const auto outline_colbot = outline_has_gradient ? get_gradient(outline_vcolor_top, outline_vcolor_bot, y1 - metric.ascent, height) : outline_color_bot;
+
+
             std::array<vertex_2d, 4> quad =
             {{
-                {{x0, y0}, {g.u0, g.v0}, coltop},
-                {{x1, y0}, {g.u1, g.v0}, coltop},
-                {{x1, y1}, {g.u1, g.v1}, colbot},
-                {{x0, y1}, {g.u0, g.v1}, colbot}
+                {{x0, y0}, {g.u0, g.v0}, coltop, outline_coltop, {outline_width, 0}},
+                {{x1, y0}, {g.u1, g.v0}, coltop, outline_coltop, {outline_width, 0}},
+                {{x1, y1}, {g.u1, g.v1}, colbot, outline_colbot, {outline_width, 0}},
+                {{x0, y1}, {g.u0, g.v1}, colbot, outline_colbot, {outline_width, 0}}
             }};
 
             if(!apply_line_path(quad, line_path_, x0, pen_x, leaning0, leaning1))

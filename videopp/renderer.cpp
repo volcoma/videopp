@@ -227,6 +227,9 @@ renderer::renderer(os::window& win, bool vsync)
             layout.template add<float>(2, offsetof(vertex_2d, pos), "aPosition", stride);
             layout.template add<float>(2, offsetof(vertex_2d, uv), "aTexCoord", stride);
             layout.template add<uint8_t>(4, offsetof(vertex_2d, col) , "aColor", stride, true);
+            layout.template add<uint8_t>(4, offsetof(vertex_2d, extra_col) , "aExtraColor", stride, true);
+            layout.template add<float>(2, offsetof(vertex_2d, extra_data), "aExtraData", stride);
+
 //            layout.template add<uint8_t>(1, offsetof(vertex_2d, tex_idx), "aTexIdx", stride);
         }
     };

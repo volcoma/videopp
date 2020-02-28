@@ -104,7 +104,9 @@ int main()
 			style.color_top = gfx::color::green();
 			style.color_bot = gfx::color::yellow();
 			style.scale = 2.5f;
-			style.outline_color = gfx::color::red();
+			style.outline_color_top = gfx::color::red();
+            style.outline_color_bot = gfx::color::green();
+
 			style.outline_width = 0.3f;
 		}
 		{
@@ -115,7 +117,8 @@ int main()
 			style.shadow_color_top = gfx::color::blue();
 			style.shadow_color_bot = gfx::color::cyan();
 			style.shadow_offsets = {-2.0f, -2.0f};
-			style.outline_color = gfx::color::green();
+			style.outline_color_top = gfx::color::green();
+            style.outline_color_bot = gfx::color::green();
 			style.outline_width = 0.2f;
 			style.scale = 1.4f;
 		}
@@ -124,7 +127,8 @@ int main()
 			style.font = font2;
 			style.color_top = gfx::color::red();
 			style.color_bot = gfx::color::blue();
-			style.outline_color = gfx::color::green();
+			style.outline_color_top = gfx::color::green();
+            style.outline_color_bot = gfx::color::green();
 			style.outline_width = 0.2f;
 		}
 		cfg.image_getter = [&](const std::string& content, gfx::image_data& out)

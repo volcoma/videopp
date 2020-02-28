@@ -61,7 +61,6 @@ context_wgl::context_wgl(void* native_handle)
         }
     }
 
-
     make_current();
 
 	// must be called after context was made current

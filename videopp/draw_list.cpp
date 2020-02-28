@@ -841,7 +841,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 	{
 		auto shadow = t;
 		shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
-		shadow.set_outline_color(style.shadow_color_top);
+		shadow.set_outline_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
 		shadow.set_shadow_offsets({0.0f, 0.0f});
 		math::transformf shadow_transform{};
 		shadow_transform.translate(offsets.x, offsets.y, 0.0f);
@@ -859,12 +859,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         auto sdf_spread = font->sdf_spread;
         float scale = std::max(transform.get_scale().x, transform.get_scale().y);
         float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
-        float outline_width = std::max(0.0f, style.outline_width);
-        color outline_color = {0, 0, 0, 0};
-        if(outline_width > 0.0f)
-        {
-            outline_color = style.outline_color;
-        }
+
         // cpu_batching is disabled for text rendering with more than X vertices
         // because there are too many vertices and their matrix multiplication
         // on the cpu dominates the batching benefits.
@@ -894,8 +889,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
             if(cpu_batch)
             {
                 utils::hash(setup.uniforms_hash,
-                            outline_width,
-                            outline_color,
                             texture);
 
                 // We have a special case here as this
@@ -941,8 +934,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                                    setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
                                    texture,
                                    distance_field_multiplier,
-                                   outline_width,
-                                   outline_color,
                                    has_multiplier](const gpu_context& ctx) mutable
                 {
                     if(setup_transform)
@@ -959,8 +950,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                     {
                         ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
                     }
-                    ctx.program.shader->set_uniform("uOutlineWidth", outline_width);
-                    ctx.program.shader->set_uniform("uOutlineColor", outline_color);
                     ctx.program.shader->set_uniform("uTexture", texture);
 
                 };
