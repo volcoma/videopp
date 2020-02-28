@@ -504,6 +504,12 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
     return parent * local;
 }
 
+math::transformf align_and_fit_text(const text& t, const math::transformf &transform,
+									const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+{
+	return align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+}
+
 math::transformf align_item(align_t align, const rect& item)
 {
     return align_item(align, float(item.x), float(item.y), float(item.x + item.w), float(item.y + item.h), true);
@@ -531,7 +537,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 
 	auto max_w = dst_rect.w;
 	t.set_wrap_width(float(max_w));
-	auto world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+	auto world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
 	auto w = int(float(dst_rect.w) / world.get_scale().y);
 
     size_t iterations{0};
@@ -544,7 +550,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 		while(iterations < 128)
 		{
 			t.set_wrap_width(float(max_w));
-			world = align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+			world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
             w = int(float(dst_rect.w) / world.get_scale().y);
 
             auto diff = w - max_w;
@@ -574,6 +580,23 @@ math::transformf align_wrap_and_fit_text(text& t,
 	std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
 	return world;
 }
+
+
+math::transformf align_wrap_and_fit_text(rich_text& t, const math::transformf& transform, rect dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+{
+	auto modified_transform = transform;
+
+	const auto& style = t.get_style();
+	auto font = style.font;
+	auto line_height = font ? font->line_height : 0.0f;
+
+	auto advance = (t.get_calculated_line_height() - line_height);
+	modified_transform.translate(0.0f, advance * 0.5f, 0.0f);
+	dst_rect.h -= int(advance);
+
+	return align_wrap_and_fit_text(static_cast<text&>(t), modified_transform, dst_rect, sz_fit, dim_fit);
+}
+
 
 const program_setup& empty_setup() noexcept
 {
@@ -858,7 +881,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         float unit_length_in_pixels_at_font_position = 1.0f;
         auto sdf_spread = font->sdf_spread;
         float scale = std::max(transform.get_scale().x, transform.get_scale().y);
-        float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
+		float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
 
         // cpu_batching is disabled for text rendering with more than X vertices
         // because there are too many vertices and their matrix multiplication
@@ -975,7 +998,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
-    add_text(t, align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit));
+	add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
 
 	if(debug_draw() && debug)
     {
@@ -983,6 +1006,57 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
         tr.set_scale(1.0f, 1.0f, 1.0f);
         debug->add_rect(dst_rect, tr, color::cyan(), false);
     }
+}
+
+void draw_list::add_text(const rich_text& t, const math::transformf& transform)
+{
+	add_text(static_cast<const text&>(t), transform);
+
+	auto sorted_texts = t.get_embedded_texts();
+	std::sort(std::begin(sorted_texts), std::end(sorted_texts), [](const auto& lhs, const auto& rhs)
+	{
+		return lhs->text.get_style().font < rhs->text.get_style().font;
+	});
+
+	for(const auto& ptr : sorted_texts)
+	{
+		const auto& embedded = *ptr;
+		const auto& element = embedded.element;
+		const auto& text = embedded.text;
+
+		math::transformf offset;
+		offset.translate(element.x_offset, element.y_offset, 0);
+		add_text(text, transform * offset);
+	}
+	auto sorted_images = t.get_embedded_images();
+
+	std::sort(std::begin(sorted_images), std::end(sorted_images), [](const auto& lhs, const auto& rhs)
+	{
+		return lhs->data.image.lock() < rhs->data.image.lock();
+	});
+
+	for(const auto& ptr : sorted_images)
+	{
+		const auto& embedded = *ptr;
+		const auto& element = embedded.element;
+		auto image = embedded.data.image.lock();
+
+		const auto& img_src_rect = embedded.data.src_rect;
+		rect img_dst_rect = {0, 0, img_src_rect.w, img_src_rect.h};
+		img_dst_rect = t.apply_line_constraints(img_dst_rect);
+
+		img_dst_rect.x += int(element.x_offset);
+		img_dst_rect.y += int(element.y_offset);
+		img_dst_rect.y -= img_dst_rect.h / 2;
+
+		add_image(image, img_src_rect, img_dst_rect, transform);
+	}
+}
+
+void draw_list::add_text(const rich_text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
+						 dimension_fit dim_fit)
+{
+	add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
 }
 
 std::string draw_list::to_string() const

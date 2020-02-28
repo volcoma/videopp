@@ -2,7 +2,6 @@
 
 #include "text.h"
 #include "texture.h"
-#include "draw_list.h"
 
 namespace gfx
 {
@@ -56,19 +55,12 @@ public:
 	bool set_utf8_text(std::string&& t);
     void clear_lines();
 
-	void calculate_wrap_fitting(math::transformf transform,
-								rect dst_rect,
-								size_fit sz_fit = size_fit::shrink_to_fit,
-								dimension_fit dim_fit = dimension_fit::uniform);
-
-	void draw(draw_list& list, const math::transformf& transform = {}) const;
-	void draw(draw_list& list, const math::transformf& transform,
-			  const rect& dst_rect,
-			  size_fit sz_fit = size_fit::shrink_to_fit,
-			  dimension_fit dim_fit = dimension_fit::uniform);
+	std::vector<embedded_image*> get_embedded_images() const;
+	std::vector<embedded_text*> get_embedded_texts() const;
+	rect apply_line_constraints(const rect& r) const;
+	float get_calculated_line_height() const;
 private:
 	void apply_config();
-	rect apply_constraints(const rect& r) const;
 	void clear_embedded_elements();
 
 	// begin-end pair

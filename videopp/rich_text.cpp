@@ -1,4 +1,5 @@
 #include "rich_text.h"
+#include "font.h"
 
 namespace gfx
 {
@@ -31,20 +32,14 @@ bool ends_with(const std::string& s, const std::string& suffix)
 }
 
 
-void rich_text::calculate_wrap_fitting(math::transformf transform,
-                                        rect dst_rect,
-                                        size_fit sz_fit,
-                                        dimension_fit dim_fit)
+std::vector<embedded_image*> rich_text::get_embedded_images() const
 {
-	const auto& style = get_style();
-	auto font = style.font;
-	auto line_height = font ? font->line_height : 0.0f;
+	return sorted_images_;
+}
 
-	auto advance = (calculated_line_height_ - line_height);
-	transform.translate(0.0f, advance * 0.5f, 0.0f);
-	dst_rect.h -= int(advance);
-
-	wrap_fitting_ = align_wrap_and_fit_text(*this, transform, dst_rect, sz_fit, dim_fit);
+std::vector<embedded_text*> rich_text::get_embedded_texts() const
+{
+	return sorted_texts_;
 }
 
 bool rich_text::set_utf8_text(const std::string& t)
@@ -73,56 +68,6 @@ void rich_text::clear_lines()
     clear_embedded_elements();
 }
 
-void rich_text::draw(draw_list& list, const math::transformf& transform) const
-{
-	auto world = transform * wrap_fitting_;
-
-	list.add_text(*this, world);
-
-    std::sort(std::begin(sorted_texts_), std::end(sorted_texts_), [](const auto& lhs, const auto& rhs)
-    {
-        return lhs->text.get_style().font < rhs->text.get_style().font;
-    });
-
-	for(const auto& ptr : sorted_texts_)
-	{
-		const auto& embedded = *ptr;
-		const auto& element = embedded.element;
-		const auto& text = embedded.text;
-
-		math::transformf offset;
-		offset.translate(element.x_offset, element.y_offset, 0);
-		list.add_text(text, world * offset);
-	}
-
-    std::sort(std::begin(sorted_images_), std::end(sorted_images_), [](const auto& lhs, const auto& rhs)
-    {
-        return lhs->data.image.lock() < rhs->data.image.lock();
-    });
-
-	for(const auto& ptr : sorted_images_)
-	{
-		const auto& embedded = *ptr;
-		const auto& element = embedded.element;
-		auto image = embedded.data.image.lock();
-
-		const auto& img_src_rect = embedded.data.src_rect;
-		rect img_dst_rect = {0, 0, img_src_rect.w, img_src_rect.h};
-		img_dst_rect = apply_constraints(img_dst_rect);
-
-		img_dst_rect.x += int(element.x_offset);
-		img_dst_rect.y += int(element.y_offset);
-		img_dst_rect.y -= img_dst_rect.h / 2;
-
-		list.add_image(image, img_src_rect, img_dst_rect, world);
-	}
-}
-void rich_text::draw(draw_list& list, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
-					 dimension_fit dim_fit)
-{
-	draw(list, align_and_fit_item(get_alignment(), get_width(), get_height(), transform, dst_rect, sz_fit, dim_fit));
-}
-
 void rich_text::set_config(const rich_config& cfg)
 {
 	cfg_ = cfg;
@@ -131,7 +76,6 @@ void rich_text::set_config(const rich_config& cfg)
 void rich_text::apply_config()
 {
 	clear_embedded_elements();
-	wrap_fitting_ = {};
 
 	const auto& style = get_style();
 	auto font = style.font;
@@ -238,7 +182,7 @@ void rich_text::apply_config()
 					auto src_rect = embedded.data.src_rect;
 
 					rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-                    dst_rect = apply_constraints(dst_rect);
+					dst_rect = apply_line_constraints(dst_rect);
                     return {float(dst_rect.w), float(dst_rect.h)};
 				}
 
@@ -247,7 +191,7 @@ void rich_text::apply_config()
 				auto src_rect = embedded.data.src_rect;
 				rect dst_rect = {0, 0, src_rect.w, src_rect.h};
 
-                dst_rect = apply_constraints(dst_rect);
+				dst_rect = apply_line_constraints(dst_rect);
                 return {float(dst_rect.w), float(dst_rect.h)};
 			};
 
@@ -276,7 +220,7 @@ void rich_text::apply_config()
 	}
 }
 
-rect rich_text::apply_constraints(const rect& r) const
+rect rich_text::apply_line_constraints(const rect& r) const
 {
 	float aspect = float(r.w) / float(r.h);
 	auto result = r;
@@ -285,10 +229,15 @@ rect rich_text::apply_constraints(const rect& r) const
     return result;
 }
 
+float rich_text::get_calculated_line_height() const
+{
+	return calculated_line_height_;
+}
+
 void rich_text::clear_embedded_elements()
 {
-    embedded_images_.clear();
-    sorted_images_.clear();
+	embedded_images_.clear();
+	sorted_images_.clear();
     embedded_texts_.clear();
     sorted_texts_.clear();
 }

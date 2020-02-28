@@ -101,12 +101,11 @@ int main()
 		{
 			auto& style = cfg.styles["style1"];
 			style.font = font1;
-			style.color_top = gfx::color::green();
-			style.color_bot = gfx::color::yellow();
+			style.color_top = gfx::color::red();
+			style.color_bot = gfx::color::green();
 			style.scale = 2.5f;
 			style.outline_color_top = gfx::color::red();
             style.outline_color_bot = gfx::color::green();
-
 			style.outline_width = 0.3f;
 		}
 		{
@@ -275,7 +274,7 @@ int main()
 //			gfx::text_builder b;
 //			b.append("some random text");
 //			b.append("__WILD__", "image");
-//			b.append("__CURRENCY__", "style3");
+//			b.append("__WIN_AMOUNT__", "style3");
 //			b.append("some random text:", "style2");
 //			b.append_formatted("10");
 //			gfx::apply_builder(b, t);
@@ -283,8 +282,9 @@ int main()
             t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 
-			t.calculate_wrap_fitting(tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);
-			t.draw(list);
+			list.add_text(t, tr);
+			//list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
+			//list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 
 			//t.draw(list, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);
 

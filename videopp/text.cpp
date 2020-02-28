@@ -899,7 +899,8 @@ void text::update_geometry() const
 	const bool has_gradient = color_top != color_bot;
 	const bool kerning_enabled = style_.kerning_enabled;
 
-    const auto sdf_font = font->sdf_spread > 0;
+	const auto sdf_spread = font->sdf_spread;
+	const auto sdf_font = sdf_spread > 0;
     const auto outline_width = style_.outline_width;
     const auto outline_color_top = style_.outline_color_top;
 	const auto outline_color_bot = style_.outline_color_bot;
@@ -1051,10 +1052,10 @@ void text::update_geometry() const
 
             std::array<vertex_2d, 4> quad =
             {{
-                {{x0, y0}, {g.u0, g.v0}, coltop, outline_coltop, {outline_width, 0}},
-                {{x1, y0}, {g.u1, g.v0}, coltop, outline_coltop, {outline_width, 0}},
-                {{x1, y1}, {g.u1, g.v1}, colbot, outline_colbot, {outline_width, 0}},
-                {{x0, y1}, {g.u0, g.v1}, colbot, outline_colbot, {outline_width, 0}}
+				{{x0, y0}, {g.u0, g.v0}, coltop, outline_coltop, {outline_width, sdf_spread}},
+				{{x1, y0}, {g.u1, g.v0}, coltop, outline_coltop, {outline_width, sdf_spread}},
+				{{x1, y1}, {g.u1, g.v1}, colbot, outline_colbot, {outline_width, sdf_spread}},
+				{{x0, y1}, {g.u0, g.v1}, colbot, outline_colbot, {outline_width, sdf_spread}}
             }};
 
             if(!apply_line_path(quad, line_path_, x0, pen_x, leaning0, leaning1))

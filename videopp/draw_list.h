@@ -2,6 +2,7 @@
 
 #include "draw_cmd.h"
 #include "text.h"
+#include "rich_text.h"
 #include "polyline.h"
 
 namespace gfx
@@ -9,16 +10,16 @@ namespace gfx
 
 enum class size_fit
 {
-    shrink_to_fit,
-    stretch_to_fit,
-    auto_fit
+	shrink_to_fit,
+	stretch_to_fit,
+	auto_fit
 };
 
 enum class dimension_fit
 {
-    x,
-    y,
-    uniform
+	x,
+	y,
+	uniform
 };
 
 const program_setup& empty_setup() noexcept;
@@ -46,12 +47,24 @@ math::transformf align_and_fit_item(align_t align,
 									size_fit sz_fit = size_fit::shrink_to_fit,
 									dimension_fit dim_fit = dimension_fit::uniform);
 
+
+math::transformf align_and_fit_text(const text& t,
+									const math::transformf& transform,
+									const rect& dst_rect,
+									size_fit sz_fit = size_fit::shrink_to_fit,
+									dimension_fit dim_fit = dimension_fit::uniform);
+
 math::transformf align_wrap_and_fit_text(text& t,
 										 const math::transformf& transform,
 										 rect dst_rect,
 										 size_fit sz_fit = size_fit::shrink_to_fit,
 										 dimension_fit dim_fit = dimension_fit::uniform);
 
+math::transformf align_wrap_and_fit_text(rich_text& t,
+										 const math::transformf& transform,
+										 rect dst_rect,
+										 size_fit sz_fit = size_fit::shrink_to_fit,
+										 dimension_fit dim_fit = dimension_fit::uniform);
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
 {
@@ -195,11 +208,6 @@ struct draw_list
     void add_list(const draw_list& list);
 
 
-    math::transformf calc_fitting(const text& t,
-                                  const math::transformf& transform,
-                                  const rect& dst_rect,
-                                  size_fit sz_fit = size_fit::shrink_to_fit,
-                                  dimension_fit dim_fit = dimension_fit::uniform);
     //-----------------------------------------------------------------------------
     /// Adds a text which will be fitted into the destination rect.
     /// Position inside the rect is affected by the text's alignment and transform.
@@ -214,8 +222,25 @@ struct draw_list
     /// Adds a text to the list.
     /// The script part lies on the ascent of the whole part.
     //-----------------------------------------------------------------------------
-    void add_text(const text& t,
+	void add_text(const rich_text& t,
                   const math::transformf& transform);
+
+	//-----------------------------------------------------------------------------
+	/// Adds a text which will be fitted into the destination rect.
+	/// Position inside the rect is affected by the text's alignment and transform.
+	//-----------------------------------------------------------------------------
+	void add_text(const rich_text& t,
+				  const math::transformf& transform,
+				  const rect& dst_rect,
+				  size_fit sz_fit = size_fit::shrink_to_fit,
+				  dimension_fit dim_fit = dimension_fit::uniform);
+
+	//-----------------------------------------------------------------------------
+	/// Adds a text to the list.
+	/// The script part lies on the ascent of the whole part.
+	//-----------------------------------------------------------------------------
+	void add_text(const text& t,
+				  const math::transformf& transform);
 
     //-----------------------------------------------------------------------------
     /// Adds a polyline to the list.
