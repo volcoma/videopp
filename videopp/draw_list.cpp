@@ -1025,7 +1025,7 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 		const auto& text = embedded.text;
 
 		math::transformf offset;
-		offset.translate(element.x_offset, element.y_offset, 0);
+		offset.translate(element.rect.x, element.rect.y, 0);
 		add_text(text, transform * offset);
 	}
 	auto sorted_images = t.get_embedded_images();
@@ -1042,14 +1042,9 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 		auto image = embedded.data.image.lock();
 
 		const auto& img_src_rect = embedded.data.src_rect;
-		rect img_dst_rect = {0, 0, img_src_rect.w, img_src_rect.h};
-		img_dst_rect = t.apply_line_constraints(img_dst_rect);
-
-		img_dst_rect.x += int(element.x_offset);
-		img_dst_rect.y += int(element.y_offset);
-		img_dst_rect.y -= img_dst_rect.h / 2;
-
-		add_image(image, img_src_rect, img_dst_rect, transform);
+        rect dst_rect = {int(element.rect.x), int(element.rect.y),
+                         int(element.rect.w), int(element.rect.h)};
+		add_image(image, img_src_rect, dst_rect, transform);
 	}
 }
 

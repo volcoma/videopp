@@ -10,8 +10,7 @@ namespace gfx
 struct line_element
 {
 	size_t line{};
-	float x_offset{};
-	float y_offset{};
+    frect rect{};
 };
 
 struct image_data
@@ -57,9 +56,9 @@ public:
 
 	std::vector<embedded_image*> get_embedded_images() const;
 	std::vector<embedded_text*> get_embedded_texts() const;
-	rect apply_line_constraints(const rect& r) const;
 	float get_calculated_line_height() const;
 private:
+    frect apply_line_constraints(const frect& r) const;
 	void apply_config();
 	void clear_embedded_elements();
 

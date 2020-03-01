@@ -235,7 +235,7 @@ namespace gfx
 
             gl_call(glBindTexture(GL_TEXTURE_2D, 0));
 
-            format_type_ = format_type::immutable;
+            format_type_ = format_type::target;
         }
         else if (surface.surface_type_ == surface::surface_type::compressed)
         {
@@ -303,7 +303,7 @@ namespace gfx
     ///     @return true on success
     bool texture::generate_mipmap() noexcept
     {
-        if (format_type_ != format_type::target || generated_mipmap_ || !rend_.set_current_context())
+        if (format_type_ != format_type::target || !rend_.set_current_context())
         {
             return false;
         }
@@ -313,8 +313,7 @@ namespace gfx
         gl_call(glGenerateMipmap(GL_TEXTURE_2D));
         gl_call(glBindTexture(GL_TEXTURE_2D, 0));
 
-        generated_mipmap_ = true;
-        return generated_mipmap_;
+        return true;
     }
 
 

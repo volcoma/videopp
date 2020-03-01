@@ -19,6 +19,7 @@ In case of retriggering style2(FREE SPINS), the player wins style2(__FGCOUNT__) 
 The winnings from image(__SCATTER__) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
 Some random text with dynamically styled data style2(__CURRENCY__). Some random text after that for no reason at all. Some random text after that for no reason at all.
 
+
 style1(WILD)
 image(__WILD__) subtitutes for all symbols except image(__SCATTER__).)";
 
@@ -29,6 +30,7 @@ style2(3) image(__SCATTER__) символи навсякъде на style2(2ра
 В случай на повторно задействане на style2(БЕЗПЛАТНИ СПИНОВЕ), играчът печели style2(10) нови style2(БЕЗПЛАТНИ СПИНОВЕ), които се добавят към текущия брой style2(БЕЗПЛАТНИ СПИНОВЕ).
 Печалбите от image(__SCATTER__) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
 
+
 style1(ЖОКЕР)
 image(__WILD__) замества за всички символи, с изключение на image(__SCATTER__).)";
 
@@ -38,6 +40,7 @@ Los símbolos style2(3) image(__SCATTER__) en cualquier lugar de los carretes st
 Durante style2(GIRAS GRATIS), si el símbolo aparece en todo el carrete style2(1st) y en cualquier posición en el carrete style2(3rd), style2(4th) o style2(5th), las posiciones en la fila entre ellos también se llenarán con ese símbolo.
 En caso de reactivar style2(GIRAS GRATIS), el jugador gana style2(10) nuevos style2(GIRAS GRATIS) que se agregan al número actual de style2(FREE SPINS).
 Las ganancias de los símbolos image(__SCATTER__) y los nuevos style3(GIRAS GRATIS) se ganan antes de la expansión de los símbolos móviles. Los style2(GIRAS GRATIS) se juegan en la apuesta de activación y en las líneas. Durante style2(GIRAS GRATIS) se usa un conjunto alternativo de carretes.
+
 
 style1(SALVAJE)
 image(__WILD__) sustituye a todos los símbolos excepto image(__SCATTER__).)";
@@ -88,28 +91,34 @@ int main()
         float scale = 0.5f;
 
 
-		gfx::rich_text t;
-		t.set_font(font);
-		t.set_outline_color(gfx::color::black());
-		t.set_outline_width(0.1f);
-		t.set_shadow_offsets({3, 3});
-		t.set_shadow_color(gfx::color::black());
-
 		gfx::rich_config cfg;
 		cfg.line_height_scale = 2.0f;
 
+        {
+			auto& style = cfg.styles["style"];
+			style.font = font;
+//			style.color_top = gfx::color::red();
+//			style.color_bot = gfx::color::green();
+			style.shadow_color_top = gfx::color::black();
+			style.shadow_color_bot = gfx::color::black();
+			style.shadow_offsets = {2.0f, 2.0f};
+
+            style.outline_color_top = gfx::color::magenta();
+			style.outline_color_bot = gfx::color::black();
+			style.outline_width = 0.4f;
+		}
 		{
 			auto& style = cfg.styles["style1"];
 			style.font = font1;
 			style.color_top = gfx::color::red();
 			style.color_bot = gfx::color::green();
-			style.scale = 2.5f;
+			style.scale = 4.0f;
 			style.shadow_color_top = gfx::color::black();
 			style.shadow_color_bot = gfx::color::black();
 			style.shadow_offsets = {2.0f, 2.0f};
 
-			style.outline_color_top = gfx::color::green();
-			style.outline_color_bot = gfx::color::red();
+			style.outline_color_bot = gfx::color::green();
+			style.outline_color_top = gfx::color::red();
 			style.outline_width = 0.3f;
 		}
 		{
@@ -169,6 +178,8 @@ int main()
             }
 		};
 
+        gfx::rich_text t;
+        t.set_style(cfg.styles["style"]);
 		t.set_config(cfg);
 
 		while(running)
@@ -287,10 +298,8 @@ int main()
 			t.set_utf8_text(text);
 
 //			list.add_text(t, tr);
-			//list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
+//			list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 			list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
-
-			//t.draw(list, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform);
 
 			std::cout << list.to_string() << std::endl;
 

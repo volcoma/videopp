@@ -186,12 +186,6 @@ public:
 	bool set_utf8_text(const std::string& t);
 	bool set_utf8_text(std::string&& t);
 
-	void set_font_scale(float scale)
-	{
-		main_decorator_.scale = scale;
-        style_.scale = scale;
-		clear_lines();
-	}
 	void clear_lines();
 	//-----------------------------------------------------------------------------
     /// Set the whole style at once.

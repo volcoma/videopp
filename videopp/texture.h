@@ -85,7 +85,6 @@ namespace gfx
         blending_mode blending_ = blending_mode::blend_normal;
 
         rect rect_ {};
-        bool generated_mipmap_ = false;
 
         texture(const renderer &rend) noexcept;
         texture(const renderer &rend, int width, int height, pix_type pixel_type, format_type format_type);

@@ -124,12 +124,15 @@ void rich_text::apply_config()
 						embedded.text.set_utf8_text(std::move(tag));
 					}
 
-
-					return {embedded.text.get_width(), embedded.text.get_height()};
+                    auto& element = embedded.element;
+                    element.rect = {0, 0, embedded.text.get_width(), embedded.text.get_height()};
+					return {element.rect.w, element.rect.h};
 				}
 
 				auto& embedded = it->second;
-				return {embedded.text.get_width(), embedded.text.get_height()};
+                auto& element = embedded.element;
+
+                return {element.rect.w, element.rect.h};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
@@ -143,8 +146,8 @@ void rich_text::apply_config()
 				auto& embedded = embedded_texts_[key];
 				auto& element = embedded.element;
 				element.line = line;
-				element.x_offset = line_offset_x;
-				element.y_offset = metrics.baseline;
+				element.rect.x = line_offset_x;
+				element.rect.y = metrics.baseline;
 			};
 
 		}
@@ -178,21 +181,18 @@ void rich_text::apply_config()
 						embedded.data.src_rect = {0, 0, int(calculated_line_height_), int(calculated_line_height_)};
 					}
 
+                    auto& element = embedded.element;
 					auto texture = embedded.data.image.lock();
-					auto src_rect = embedded.data.src_rect;
+					auto& src_rect = embedded.data.src_rect;
+					element.rect = {0.0f, 0.0f, float(src_rect.w), float(src_rect.h)};
+					element.rect = apply_line_constraints(element.rect);
 
-					rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-					dst_rect = apply_line_constraints(dst_rect);
-                    return {float(dst_rect.w), float(dst_rect.h)};
+                    return {element.rect.w, element.rect.h};
 				}
 
 				auto& embedded = it->second;
-				auto image = embedded.data.image;
-				auto src_rect = embedded.data.src_rect;
-				rect dst_rect = {0, 0, src_rect.w, src_rect.h};
-
-				dst_rect = apply_line_constraints(dst_rect);
-                return {float(dst_rect.w), float(dst_rect.h)};
+                auto& element = embedded.element;
+                return {float(element.rect.w), float(element.rect.h)};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
@@ -211,21 +211,23 @@ void rich_text::apply_config()
 
 				auto& embedded = it->second;
 				auto& element = embedded.element;
+
 				element.line = line;
-				element.x_offset = line_offset_x;
-				element.y_offset = metrics.median;
+				element.rect.x = line_offset_x;
+				element.rect.y = metrics.median;
+                element.rect.y -= float(element.rect.h) * 0.5f;
 			};
 
 		}
 	}
 }
 
-rect rich_text::apply_line_constraints(const rect& r) const
+frect rich_text::apply_line_constraints(const frect& r) const
 {
-	float aspect = float(r.w) / float(r.h);
+	float aspect = r.w / r.h;
 	auto result = r;
-	result.h = int(calculated_line_height_);
-	result.w = int(aspect * calculated_line_height_);
+	result.h = calculated_line_height_;
+	result.w = aspect * calculated_line_height_;
     return result;
 }
 

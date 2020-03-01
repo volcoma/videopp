@@ -516,6 +516,10 @@ font_ptr renderer::create_font(font_info&& info) const noexcept
         slice = std::move(info);
 
         r->texture = texture_ptr(new texture(*this, *r->surface));
+        if(r->sdf_spread == 0)
+        {
+            r->texture->generate_mipmap();
+        }
         r->surface.reset();
         return r;
     }

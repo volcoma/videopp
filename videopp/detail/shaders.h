@@ -173,9 +173,13 @@ static constexpr const char* fs_distance_field =
                                     + contour( box_samples.z, width )
                                     + contour( box_samples.w, width );
 
-                         float weight = 0.5;  // scale value to apply to neighbours
-                         // weighted average, with 4 extra points
-                         return (alpha + weight * asum) / (1.0 + 4.0 * weight);
+//                         float weight = 0.5;  // scale value to apply to neighbours
+//                         // weighted average, with 4 extra points
+//                         return (alpha + weight * asum) / (1.0 + 4.0 * weight);
+
+                        // Correct would dividing by 5 for calculate average, but
+                        // when multisampling brightness is lost. Therefore divide by 3.
+                        return (alpha + asum) * 0.3333;
                     }
 
                     float aastep(in float dist, in vec4 box_samples)
@@ -191,10 +195,12 @@ static constexpr const char* fs_distance_field =
 
                     void main()
                     {
+
+
                         vec4 master_color = vColor;
                         float master_alpha = master_color.a;
                         vec4 outline_color = vExtraColor;
-                        float outline_width = max(0.0, vExtraData.x);
+                        float outline_width = clamp(vExtraData.x, 0.0, 0.5);
                         vec2 uv = vTexCoord.xy;
                         float dist = texture2D(uTexture, uv).r;
 

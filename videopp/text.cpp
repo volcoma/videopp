@@ -301,8 +301,8 @@ bool text::set_utf8_text(std::string&& t)
 
 void text::set_style(const text_style& style)
 {
+    main_decorator_.scale = style.scale;
 	style_ = style;
-	main_decorator_.scale = style.scale;
 	clear_lines();
 }
 
@@ -743,7 +743,7 @@ void text::update_lines() const
 				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
 				auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-                metric->maxx += external_size.first * scale;
+                metric->maxx += external_size.first;
             }
 		}
 
