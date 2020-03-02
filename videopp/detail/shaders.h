@@ -19,7 +19,7 @@ static constexpr const char* version =
 static constexpr const char* fs_derivatives =
 				#if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
 				R"(
-					#define HAS_DERIVATIVES
+//					#define HAS_DERIVATIVES
 				)";
 				#elif defined(EGL_CONTEXT)
 				R"(
@@ -158,23 +158,20 @@ static constexpr const char* fs_distance_field =
 					uniform int uRectsCount;
 				#endif
 
-				#ifndef HAS_DERIVATIVES
-					uniform float uDFMultiplier;
-				#endif
-
+                #define SUPERSAMPLE
 				#define THRESHOLD 0.5
 				#define WEIGHT 0.5
-				#define SUPERSAMPLE
-
+                #define SQRT2H 0.70710678118654757
+                #define SMOOTH 32.0
 
 					float derivative_width(in float dist)
 					{
-						// fwidth helps keep outlines a constant width irrespective of scaling
-						// Stefan Gustavson's fwidth
 				#ifdef HAS_DERIVATIVES
-						float width = length(vec2(dFdx(dist), dFdy(dist))) * 0.70710678118654757;
+                        // fwidth helps keep outlines a constant width irrespective of scaling
+                        // Stefan Gustavson's fwidth
+						float width = length(vec2(dFdx(dist), dFdy(dist))) * SQRT2H;
 				#else
-						float width = (1.0 / 16.0) * (1.4142135623730951 / (2.0 * gl_FragCoord.w));
+						float width = SQRT2H/ (SMOOTH * gl_FragCoord.w);
 				#endif
 						return width;
 					}
@@ -199,17 +196,13 @@ static constexpr const char* fs_distance_field =
 					float aastep_simple(in float dist, in float multiplier)
 					{
 						return (dist - THRESHOLD) * multiplier + THRESHOLD;
-//						return step(THRESHOLD, dist) * dist * multiplier;
 					}
 
 					float aastep_supersample(in float dist, in vec4 box_samples)
 					{
-						// fwidth helps keep outlines a constant width irrespective of scaling
-						// Stefan Gustavson's fwidth
 						float width = derivative_width(dist);
 						float alpha = contour( dist, width );
-						alpha = supersample(alpha, box_samples, width);
-						return alpha;
+						return supersample(alpha, box_samples, width);
 					}
 
 					float aastep(in float dist)
@@ -222,15 +215,13 @@ static constexpr const char* fs_distance_field =
 					void main()
 					{
 						vec4 master_color = vColor;
-						float master_alpha = master_color.a;
 						vec4 outline_color = vExtraColor;
 						float outline_width = clamp(vExtraData.x, 0.0, 0.5);
 						vec2 uv = vTexCoord.xy;
 						float dist = texture2D(uTexture, uv).r;
 						float odist = dist + outline_width;
 
-				#ifdef HAS_DERIVATIVES
-					#ifdef SUPERSAMPLE
+				#if defined(HAS_DERIVATIVES) && defined(SUPERSAMPLE)
 						// Supersample, 4 extra points
 						float dscale = 0.354; // half of 1/sqrt2; you can play with this
 						vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
@@ -245,22 +236,19 @@ static constexpr const char* fs_distance_field =
 
 						float alpha  = aastep_supersample(dist, box_distances);
 						float oalpha = aastep_supersample(odist, obox_distances);
-					#else
-						float alpha  = aastep(dist);
-						float oalpha = aastep(odist);
-					#endif
+
 				#else
-						float alpha  = aastep_simple(dist, uDFMultiplier);
-						float oalpha = aastep_simple(odist, uDFMultiplier);
+                        float alpha  = aastep(dist);
+                        float oalpha = aastep(odist);
 				#endif
-						vec4 color = vec4(master_color.rgb, alpha);
-						vec4 ocolor = vec4(outline_color.rgb, oalpha * outline_color.a);
+						vec4 color = vec4(master_color.rgb, 1.0);
+						vec4 ocolor = vec4(outline_color.rgb, outline_color.a * oalpha);
 
 						// Alpha blend foreground.
 						vec4 rcolor = mix(
 							color,
 							ocolor,
-							clamp(1.0 - alpha, 0.0, 1.0) * outline_color.a
+							clamp(1.0 - alpha, 0.0, 1.0)
 						);
 
 						// Master alpha.

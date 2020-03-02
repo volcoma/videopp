@@ -119,6 +119,10 @@ int main()
 
 			style.outline_color_bot = gfx::color::green();
 			style.outline_color_top = gfx::color::red();
+//            style.outline_color_bot.a = 127;
+//            style.outline_color_top.a = 127;
+//            style.color_bot.a = 127;
+//            style.color_top.a = 127;
 			style.outline_width = 0.3f;
 		}
 		{

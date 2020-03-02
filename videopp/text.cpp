@@ -902,8 +902,8 @@ void text::update_geometry() const
 	const auto sdf_spread = font->sdf_spread;
 	const auto sdf_font = sdf_spread > 0;
     const auto outline_width = style_.outline_width;
-    const auto outline_color_top = style_.outline_color_top;
-	const auto outline_color_bot = style_.outline_color_bot;
+    const auto outline_color_top = outline_width > 0 ? style_.outline_color_top : color_top;
+	const auto outline_color_bot = outline_width > 0 ? style_.outline_color_bot : color_bot;
 	const math::vec4 outline_vcolor_top{outline_color_top.r, outline_color_top.g, outline_color_top.b, outline_color_top.a};
 	const math::vec4 outline_vcolor_bot{outline_color_bot.r, outline_color_bot.g, outline_color_bot.b, outline_color_bot.a};
 	const bool outline_has_gradient = sdf_font && outline_color_top != outline_color_bot;

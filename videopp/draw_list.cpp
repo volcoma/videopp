@@ -878,10 +878,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 	const auto& geometry = t.get_geometry();
 	if(!geometry.empty())
 	{
-        float unit_length_in_pixels_at_font_position = 1.0f;
         auto sdf_spread = font->sdf_spread;
-		float scale = t.get_style().scale * std::max(transform.get_scale().x, transform.get_scale().y);
-		float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
 
         // cpu_batching is disabled for text rendering with more than X vertices
         // because there are too many vertices and their matrix multiplication
@@ -889,7 +886,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         constexpr size_t max_cpu_transformed_glyhps = 24;
         auto has_crop = !crop_areas.empty();
         bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
-        bool has_multiplier = false;
 
         program_setup setup;
         auto texture = font->texture;
@@ -907,23 +903,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                 setup.program = get_program<programs::distance_field_crop>();
             }
 
-            has_multiplier = setup.program.shader->has_uniform("uDFMultiplier");
 
             if(cpu_batch)
             {
                 utils::hash(setup.uniforms_hash,
                             texture);
-
-                // We have a special case here as this
-                // should only be the case if that shader
-                // doesn't support derivatives. Because this
-                // param is affected by scale it will obstruct
-                // batching, making scaled texts to not be able to
-                // batch.
-                if(has_multiplier)
-                {
-                    utils::hash(setup.uniforms_hash, distance_field_multiplier);
-                }
 
                 if(has_crop)
                 {
@@ -955,9 +939,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
             {
                 cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
                                    setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
-                                   texture,
-                                   distance_field_multiplier,
-                                   has_multiplier](const gpu_context& ctx) mutable
+                                   texture](const gpu_context& ctx) mutable
                 {
                     if(setup_transform)
                     {
@@ -969,10 +951,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                         setup_crop_rects(ctx);
                     }
 
-                    if(has_multiplier)
-                    {
-                        ctx.program.shader->set_uniform("uDFMultiplier", distance_field_multiplier);
-                    }
                     ctx.program.shader->set_uniform("uTexture", texture);
 
                 };
