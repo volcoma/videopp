@@ -59,13 +59,13 @@ bool rich_text::set_utf8_text(std::string&& t)
 		return false;
 	}
 	apply_config();
-    return true;
+	return true;
 }
 
 void rich_text::clear_lines()
 {
-    static_cast<text&>(*this).clear_lines();
-    clear_embedded_elements();
+	static_cast<text&>(*this).clear_lines();
+	clear_embedded_elements();
 }
 
 void rich_text::set_config(const rich_config& cfg)
@@ -124,22 +124,22 @@ void rich_text::apply_config()
 						embedded.text.set_utf8_text(std::move(tag));
 					}
 
-                    auto& element = embedded.element;
-                    element.rect = {0, 0, embedded.text.get_width(), embedded.text.get_height()};
+					auto& element = embedded.element;
+					element.rect = {0, 0, embedded.text.get_width(), embedded.text.get_height()};
 					return {element.rect.w, element.rect.h};
 				}
 
 				auto& embedded = it->second;
-                auto& element = embedded.element;
+				auto& element = embedded.element;
 
-                return {element.rect.w, element.rect.h};
+				return {element.rect.w, element.rect.h};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
-					float line_offset_x,
-					size_t line,
-					const line_metrics& metrics,
-					const char* /*str_begin*/, const char* /*str_end*/)
+												  float line_offset_x,
+												  size_t line,
+												  const line_metrics& metrics,
+												  const char* /*str_begin*/, const char* /*str_end*/)
 			{
 				key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
 
@@ -167,11 +167,11 @@ void rich_text::apply_config()
 				{
 					if(!cfg_.image_getter)
 					{
-                        return {0.0f, 0.0f};
+						return {0.0f, 0.0f};
 					}
 
 					auto& embedded = embedded_images_[key];
-                    sorted_images_.emplace_back(&embedded);
+					sorted_images_.emplace_back(&embedded);
 
 					std::string utf8_str(str_begin, str_end);
 					cfg_.image_getter(utf8_str, embedded.data);
@@ -181,32 +181,32 @@ void rich_text::apply_config()
 						embedded.data.src_rect = {0, 0, int(calculated_line_height_), int(calculated_line_height_)};
 					}
 
-                    auto& element = embedded.element;
+					auto& element = embedded.element;
 					auto texture = embedded.data.image.lock();
 					auto& src_rect = embedded.data.src_rect;
 					element.rect = {0.0f, 0.0f, float(src_rect.w), float(src_rect.h)};
 					element.rect = apply_line_constraints(element.rect);
 
-                    return {element.rect.w, element.rect.h};
+					return {element.rect.w, element.rect.h};
 				}
 
 				auto& embedded = it->second;
-                auto& element = embedded.element;
-                return {float(element.rect.w), float(element.rect.h)};
+				auto& element = embedded.element;
+				return {float(element.rect.w), float(element.rect.h)};
 			};
 
 			decorator->set_position_on_line = [&](const text_decorator& decorator,
-					float line_offset_x,
-					size_t line,
-					const line_metrics& metrics,
-					const char* /*str_begin*/, const char* /*str_end*/)
+												  float line_offset_x,
+												  size_t line,
+												  const line_metrics& metrics,
+												  const char* /*str_begin*/, const char* /*str_end*/)
 			{
 				key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
 
-                auto it = embedded_images_.find(key);
+				auto it = embedded_images_.find(key);
 				if(it == std::end(embedded_images_))
 				{
-                    return;
+					return;
 				}
 
 				auto& embedded = it->second;
@@ -215,7 +215,7 @@ void rich_text::apply_config()
 				element.line = line;
 				element.rect.x = line_offset_x;
 				element.rect.y = metrics.median;
-                element.rect.y -= float(element.rect.h) * 0.5f;
+				element.rect.y -= float(element.rect.h) * 0.5f;
 			};
 
 		}
@@ -228,7 +228,7 @@ frect rich_text::apply_line_constraints(const frect& r) const
 	auto result = r;
 	result.h = calculated_line_height_;
 	result.w = aspect * calculated_line_height_;
-    return result;
+	return result;
 }
 
 float rich_text::get_calculated_line_height() const
@@ -240,8 +240,8 @@ void rich_text::clear_embedded_elements()
 {
 	embedded_images_.clear();
 	sorted_images_.clear();
-    embedded_texts_.clear();
-    sorted_texts_.clear();
+	embedded_texts_.clear();
+	sorted_texts_.clear();
 }
 
 }

@@ -11,6 +11,84 @@ int ctx_error_handler(Display* /*dpy*/, XErrorEvent* /*ev*/)
 	ctx_error = true;
 	return 0;
 }
+
+//int visual_attribs[] = {
+//	GLX_RENDER_TYPE, GLX_RGBA_BIT,
+//	GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+//	GLX_DOUBLEBUFFER, true,
+//	GLX_RED_SIZE, 1,
+//	GLX_GREEN_SIZE, 1,
+//	GLX_BLUE_SIZE, 1,
+//	None
+//};
+
+const int visual_attribs[] = {
+	GLX_X_RENDERABLE    , true,
+	GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+	GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+	GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+	GLX_RED_SIZE        , 8,
+	GLX_GREEN_SIZE      , 8,
+	GLX_BLUE_SIZE       , 8,
+	GLX_ALPHA_SIZE      , 8,
+	GLX_DEPTH_SIZE      , 24,
+	GLX_STENCIL_SIZE    , 8,
+	GLX_DOUBLEBUFFER    , true,
+	//GLX_SAMPLE_BUFFERS  , 1,
+	//GLX_SAMPLES         , 4,
+	None
+};
+void check_glx_version(Display* display)
+{
+	int glx_major, glx_minor;
+	// FBConfigs were added in GLX version 1.3.
+	if (!glXQueryVersion(display, &glx_major, &glx_minor) ||
+	   ((glx_major == 1) && (glx_minor < 3)) || (glx_major < 1))
+	{
+		throw gfx::exception("Invalid GLX version");
+	}
+}
+GLXFBConfig choose_fb_config(Display* display)
+{
+	check_glx_version(display);
+	printf("Getting matching framebuffer configs\n");
+	int fbcount;
+	GLXFBConfig* fbc = glXChooseFBConfig(display, DefaultScreen(display),
+										 visual_attribs, &fbcount);
+	if (!fbc)
+	{
+		throw gfx::exception("glXChooseFBConfig() failed. Failed to retrieve a framebuffer config");
+	}
+	printf("Found %d matching FB configs.\n", fbcount);
+
+	// Pick the FB config/visual with the most samples per pixel
+	printf("Getting XVisualInfos\n");
+	int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
+
+	for (int i = 0; i < fbcount; ++i)
+	{
+		XVisualInfo *vi = glXGetVisualFromFBConfig(display, fbc[i]);
+		if (vi) {
+			int samp_buf, samples;
+			glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLE_BUFFERS,
+								 &samp_buf);
+			glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLES, &samples);
+			printf("\tMatching fbconfig %d, visual ID 0x%2lx: "
+				   "SAMPLE_BUFFERS = %d, SAMPLES = %d\n",
+				   i, vi -> visualid, samp_buf, samples);
+
+			if (best_fbc < 0 || (samp_buf && samples) > best_num_samp)
+				best_fbc = i, best_num_samp = samples;
+			if (worst_fbc < 0 || !samp_buf || samples < worst_num_samp)
+				worst_fbc = i, worst_num_samp = samples;
+		}
+		XFree(vi);
+	}
+	GLXFBConfig best = fbc[best_fbc];
+	XFree(fbc);
+	return best;
+}
+
 context_glx* master_ctx{};
 }
 
@@ -25,57 +103,7 @@ context_glx::context_glx(void* native_handle, void* native_display, int major, i
         throw gfx::exception("Cannot load glx.");
     }
 
-    static int visual_attribs[] = {
-            GLX_RENDER_TYPE, GLX_RGBA_BIT,
-            GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-            GLX_DOUBLEBUFFER, true,
-            GLX_RED_SIZE, 1,
-            GLX_GREEN_SIZE, 1,
-            GLX_BLUE_SIZE, 1,
-            None
-        };
-
-    int num_fbc = 0;
-    GLXFBConfig *fbc = glXChooseFBConfig(display_,
-                                         DefaultScreen(display_),
-                                         visual_attribs, &num_fbc);
-    if (!fbc)
-    {
-		throw gfx::exception("glXChooseFBConfig() failed. Failed to retrieve a framebuffer config");
-    }
-
-	printf( "Found %d matching FB configs.\n", num_fbc );
-
-	// Pick the FB config/visual with the most samples per pixel
-	printf( "Getting XVisualInfos\n" );
-	int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
-
-	for (int i=0; i< num_fbc; ++i)
-	{
-		XVisualInfo *vi = glXGetVisualFromFBConfig( display_, fbc[i] );
-		if ( vi )
-		{
-			int samp_buf, samples;
-			glXGetFBConfigAttrib( display_, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
-			glXGetFBConfigAttrib( display_, fbc[i], GLX_SAMPLES       , &samples  );
-
-			printf( "  Matching fbconfig %d, visual ID 0x%2x: SAMPLE_BUFFERS = %d,"
-				   " SAMPLES = %d\n",
-				   i, unsigned(vi -> visualid), samp_buf, samples );
-
-			if ( best_fbc < 0 || (samp_buf && samples > best_num_samp) )
-				best_fbc = i, best_num_samp = samples;
-			if ( worst_fbc < 0 || (!samp_buf || samples < worst_num_samp) )
-				worst_fbc = i, worst_num_samp = samples;
-		}
-		XFree( vi );
-	}
-
-	GLXFBConfig bestFbc = fbc[ best_fbc ];
-
-	// Be sure to free the FBConfig list allocated by glXChooseFBConfig()
-	XFree( fbc );
-
+	auto best_fbc = choose_fb_config(display_);
 
 	int context_attribs[] =
 	{
@@ -98,11 +126,11 @@ context_glx::context_glx(void* native_handle, void* native_display, int major, i
     //XVisualInfo* vi = glXGetVisualFromFBConfig(display_, fbc[0]);
     if(master_ctx)
     {
-		context_ = glXCreateContextAttribsARB(display_, bestFbc, master_ctx->context_, True, context_attribs);
+		context_ = glXCreateContextAttribsARB(display_, best_fbc, master_ctx->context_, True, context_attribs);
     }
     else
     {
-		context_ = glXCreateContextAttribsARB(display_, bestFbc, nullptr, True, context_attribs);
+		context_ = glXCreateContextAttribsARB(display_, best_fbc, nullptr, True, context_attribs);
     }
 	if (ctx_error || !context_)
 	{

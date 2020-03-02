@@ -880,7 +880,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 	{
         float unit_length_in_pixels_at_font_position = 1.0f;
         auto sdf_spread = font->sdf_spread;
-        float scale = std::max(transform.get_scale().x, transform.get_scale().y);
+		float scale = t.get_style().scale * std::max(transform.get_scale().x, transform.get_scale().y);
 		float distance_field_multiplier = float(2 * sdf_spread + 1) * unit_length_in_pixels_at_font_position * scale;
 
         // cpu_batching is disabled for text rendering with more than X vertices
