@@ -19,7 +19,7 @@ static constexpr const char* version =
 static constexpr const char* fs_derivatives =
 				#if defined(GLX_CONTEXT) || defined(WGL_CONTEXT)
 				R"(
-//					#define HAS_DERIVATIVES
+					#define HAS_DERIVATIVES
 				)";
 				#elif defined(EGL_CONTEXT)
 				R"(
@@ -162,7 +162,7 @@ static constexpr const char* fs_distance_field =
 				#define THRESHOLD 0.5
 				#define WEIGHT 0.5
                 #define SQRT2H 0.70710678118654757
-                #define SMOOTH 32.0
+                #define SMOOTHING 32.0
 
 					float derivative_width(in float dist)
 					{
@@ -171,7 +171,7 @@ static constexpr const char* fs_distance_field =
                         // Stefan Gustavson's fwidth
 						float width = length(vec2(dFdx(dist), dFdy(dist))) * SQRT2H;
 				#else
-						float width = SQRT2H/ (SMOOTH * gl_FragCoord.w);
+						float width = SQRT2H / (SMOOTHING * gl_FragCoord.w);
 				#endif
 						return width;
 					}
@@ -241,6 +241,7 @@ static constexpr const char* fs_distance_field =
                         float alpha  = aastep(dist);
                         float oalpha = aastep(odist);
 				#endif
+
 						vec4 color = vec4(master_color.rgb, 1.0);
 						vec4 ocolor = vec4(outline_color.rgb, outline_color.a * oalpha);
 

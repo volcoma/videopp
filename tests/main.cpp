@@ -97,15 +97,14 @@ int main()
         {
 			auto& style = cfg.styles["style"];
 			style.font = font;
-//			style.color_top = gfx::color::red();
-//			style.color_bot = gfx::color::green();
-//			style.shadow_color_top = gfx::color::black();
-//			style.shadow_color_bot = gfx::color::black();
-//			style.shadow_offsets = {2.0f, 2.0f};
+
+			style.shadow_color_top = gfx::color::black();
+			style.shadow_color_bot = gfx::color::black();
+			style.shadow_offsets = {2.0f, 2.0f};
 
 //            style.outline_color_top = gfx::color::magenta();
 //			style.outline_color_bot = gfx::color::black();
-//			style.outline_width = 0.4f;
+//			style.outline_width = 0.2f;
 		}
 		{
 			auto& style = cfg.styles["style1"];
@@ -117,12 +116,11 @@ int main()
 			style.shadow_color_bot = gfx::color::black();
 			style.shadow_offsets = {2.0f, 2.0f};
 
-			style.outline_color_bot = gfx::color::green();
-			style.outline_color_top = gfx::color::red();
-//            style.outline_color_bot.a = 127;
-//            style.outline_color_top.a = 127;
-//            style.color_bot.a = 127;
-//            style.color_top.a = 127;
+			style.outline_color_bot = gfx::color::magenta();
+			style.outline_color_top = gfx::color::black();
+            style.outline_color_bot.a = 127;
+            style.outline_color_top.a = 127;
+
 			style.outline_width = 0.3f;
 		}
 		{
@@ -301,9 +299,9 @@ int main()
             t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 
-			list.add_text(t, tr);
+//			list.add_text(t, tr);
 //			list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
-//			list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
+			list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 
 			std::cout << list.to_string() << std::endl;
 
