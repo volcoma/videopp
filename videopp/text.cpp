@@ -357,12 +357,23 @@ void text::set_outline_color(color c)
 
 void text::set_outline_width(float owidth)
 {
-	owidth = std::min(0.4f, owidth);
+	owidth = math::clamp(owidth, 0.0f, 0.4f);
 	if(math::epsilonEqual(style_.outline_width, owidth, math::epsilon<float>()))
 	{
 		return;
 	}
-	style_.outline_width = std::max(0.0f, owidth);
+	style_.outline_width = owidth;
+	clear_lines();
+}
+
+void text::set_outline_softness(float softness)
+{
+	softness = math::clamp(softness, 0.0f, 1.0f);
+	if(math::epsilonEqual(style_.outline_softness, softness, math::epsilon<float>()))
+	{
+		return;
+	}
+	style_.outline_softness = softness;
 	clear_lines();
 }
 
@@ -902,6 +913,7 @@ void text::update_geometry() const
 	const auto sdf_spread = font->sdf_spread;
 	const auto sdf_font = sdf_spread > 0;
     const auto outline_width = style_.outline_width;
+    const auto outline_softness = style_.outline_softness;
     const auto outline_color_top = outline_width > 0 ? style_.outline_color_top : color_top;
 	const auto outline_color_bot = outline_width > 0 ? style_.outline_color_bot : color_bot;
 	const math::vec4 outline_vcolor_top{outline_color_top.r, outline_color_top.g, outline_color_top.b, outline_color_top.a};
@@ -1052,10 +1064,10 @@ void text::update_geometry() const
 
             std::array<vertex_2d, 4> quad =
             {{
-				{{x0, y0}, {g.u0, g.v0}, coltop, outline_coltop, {outline_width, sdf_spread}},
-				{{x1, y0}, {g.u1, g.v0}, coltop, outline_coltop, {outline_width, sdf_spread}},
-				{{x1, y1}, {g.u1, g.v1}, colbot, outline_colbot, {outline_width, sdf_spread}},
-				{{x0, y1}, {g.u0, g.v1}, colbot, outline_colbot, {outline_width, sdf_spread}}
+				{{x0, y0}, {g.u0, g.v0}, coltop, outline_coltop, {outline_width, outline_softness}},
+				{{x1, y0}, {g.u1, g.v0}, coltop, outline_coltop, {outline_width, outline_softness}},
+				{{x1, y1}, {g.u1, g.v1}, colbot, outline_colbot, {outline_width, outline_softness}},
+				{{x0, y1}, {g.u0, g.v1}, colbot, outline_colbot, {outline_width, outline_softness}}
             }};
 
             if(!apply_line_path(quad, line_path_, x0, pen_x, leaning0, leaning1))

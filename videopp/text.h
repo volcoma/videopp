@@ -159,6 +159,7 @@ struct text_style
 
     /// Outline width of the text
     float outline_width{0.0f};
+    float outline_softness{0.0};
 
     /// Shadow color of the text
     color shadow_color_top{color::black()};
@@ -215,6 +216,12 @@ public:
     /// have any effect if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------
     void set_outline_width(float owidth);
+
+    //-----------------------------------------------------------------------------
+    /// Set outline softness of the text in range [0.0f, 1.0f]. Note this will only
+    /// have any effect if the used font is vectorized(signed distance)
+    //-----------------------------------------------------------------------------
+    void set_outline_softness(float softness);
 
     //-----------------------------------------------------------------------------
     /// Set shadow color of the text. Note this will only have any effect

@@ -217,6 +217,7 @@ static constexpr const char* fs_distance_field =
 						vec4 master_color = vColor;
 						vec4 outline_color = vExtraColor;
 						float outline_width = clamp(vExtraData.x, 0.0, 0.5);
+                        float outline_softness = clamp(vExtraData.y, 0.0, 1.0);
 						vec2 uv = vTexCoord.xy;
 						float dist = texture2D(uTexture, uv).r;
 						float odist = dist + outline_width;
@@ -244,6 +245,9 @@ static constexpr const char* fs_distance_field =
 
 						vec4 color = vec4(master_color.rgb, 1.0);
 						vec4 ocolor = vec4(outline_color.rgb, outline_color.a * oalpha);
+
+                        float glow = dist * 2.0;
+                        ocolor.a = mix(ocolor.a, outline_color.a * glow, outline_softness);
 
 						// Alpha blend foreground.
 						vec4 rcolor = mix(

@@ -116,12 +116,13 @@ int main()
 			style.shadow_color_bot = gfx::color::black();
 			style.shadow_offsets = {2.0f, 2.0f};
 
-			style.outline_color_bot = gfx::color::magenta();
-			style.outline_color_top = gfx::color::black();
-            style.outline_color_bot.a = 127;
-            style.outline_color_top.a = 127;
+			style.outline_color_top = gfx::color::yellow();
+			style.outline_color_bot = gfx::color::yellow();
+            //style.outline_color_bot.a = 127;
+           //style.outline_color_top.a = 127;
 
 			style.outline_width = 0.3f;
+            style.outline_softness = 1.0f;
 		}
 		{
 			auto& style = cfg.styles["style2"];
