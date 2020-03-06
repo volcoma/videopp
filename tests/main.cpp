@@ -104,7 +104,7 @@ int main()
 //            style.outline_color_top = gfx::color::green();
 //			style.outline_color_bot = gfx::color::green();
 //			style.outline_width = 0.4f;
-//            style.outline_softness = 1.0f;
+//            style.softness = 1.0f;
 //            style.outline_color_top = gfx::color::magenta();
 //			style.outline_color_bot = gfx::color::black();
 //			style.outline_width = 0.2f;
@@ -121,8 +121,8 @@ int main()
 
 			style.outline_color_top = gfx::color::green();
 			style.outline_color_bot = gfx::color::green();
-			style.outline_width = 0.4f;
-            style.outline_softness = 1.0f;
+//			style.outline_width = 0.4f;
+			style.softness = 1.0f;
 		}
 		{
 			auto& style = cfg.styles["style2"];
