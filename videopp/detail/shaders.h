@@ -246,7 +246,7 @@ static constexpr const char* fs_distance_field =
 						vec4 color = vec4(master_color.rgb, 1.0);
 						vec4 ocolor = vec4(outline_color.rgb, outline_color.a * oalpha);
 
-                        float glow = dist * 2.0;
+                        float glow = pow(pow(dist, 0.75) * 2.0, 2.0);
                         ocolor.a = mix(ocolor.a, outline_color.a * glow, outline_softness);
 
 						// Alpha blend foreground.

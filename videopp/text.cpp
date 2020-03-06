@@ -979,7 +979,7 @@ void text::update_geometry() const
 					if(decorator->get_size_on_line)
 					{
 						auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-						external_advance = external_size.first * scale;
+						external_advance = external_size.first;
 					}
 
                     if(decorator->set_position_on_line)
