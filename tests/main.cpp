@@ -88,8 +88,6 @@ int main()
 		std::string text = texts[curr_lang];
 		auto valign = gfx::align::top;
 		auto halign = gfx::align::center;
-        float scale = 0.5f;
-
 
 		gfx::rich_config cfg;
 		cfg.line_height_scale = 2.0f;
@@ -114,15 +112,17 @@ int main()
 			style.font = font1;
 			style.color_top = gfx::color::red();
 			style.color_bot = gfx::color::green();
+            style.color_top.a = 0;
+            style.color_bot.a = 0;
 			style.scale = 4.0f;
-			style.shadow_color_top = gfx::color::black();
-			style.shadow_color_bot = gfx::color::black();
-			style.shadow_offsets = {2.0f, 2.0f};
+//			style.shadow_color_top = gfx::color::black();
+//			style.shadow_color_bot = gfx::color::black();
+//			style.shadow_offsets = {2.0f, 2.0f};
 
 			style.outline_color_top = gfx::color::green();
 			style.outline_color_bot = gfx::color::green();
-//			style.outline_width = 0.4f;
-			style.softness = 1.0f;
+			style.outline_width = 0.1f;
+			style.softness = 0.0f;
 		}
 		{
 			auto& style = cfg.styles["style2"];
@@ -224,11 +224,20 @@ int main()
 					}
                     if(e.key.code == os::key::f1)
                     {
-                        scale += 0.01f;
+                        {
+                            auto& style = cfg.styles["style1"];
+                            style.softness += 0.05f;
+                            t.set_config(cfg);
+
+                        }
                     }
                     if(e.key.code == os::key::f2)
                     {
-                        scale -= 0.01f;
+                        {
+                            auto& style = cfg.styles["style1"];
+                            style.softness -= 0.05f;
+                            t.set_config(cfg);
+                        }
                     }
                     if(e.key.code == os::key::f3)
                     {
@@ -275,6 +284,24 @@ int main()
                     text += e.text.text;
                 }
 			}
+            static int dir = 1;
+            {
+                auto& style = cfg.styles["style1"];
+                style.softness += 0.05f * dir;
+                if(style.softness > 1.0)
+                {
+                    dir = -1;
+                }
+                if(style.softness < 0.0)
+                {
+                    dir = 1;
+                }
+
+                t.set_config(cfg);
+
+            }
+
+
             rend.clear(gfx::color::gray());
 
 			float x_percent = 4.0f;
@@ -304,7 +331,7 @@ int main()
 //			list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 			list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 
-			std::cout << list.to_string() << std::endl;
+//			std::cout << list.to_string() << std::endl;
 
 			rend.draw_cmd_list(list);
 

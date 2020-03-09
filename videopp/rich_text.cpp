@@ -71,6 +71,7 @@ void rich_text::clear_lines()
 void rich_text::set_config(const rich_config& cfg)
 {
 	cfg_ = cfg;
+    set_utf8_text({});
 }
 
 void rich_text::apply_config()

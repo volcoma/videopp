@@ -357,7 +357,7 @@ void text::set_outline_color(color c)
 
 void text::set_outline_width(float owidth)
 {
-	owidth = math::clamp(owidth, 0.0f, 0.4f);
+	owidth = math::clamp(owidth, 0.0f, 0.5f);
 	if(math::epsilonEqual(style_.outline_width, owidth, math::epsilon<float>()))
 	{
 		return;

@@ -212,7 +212,7 @@ public:
     void set_outline_vgradient_colors(color top, color bot);
 
     //-----------------------------------------------------------------------------
-    /// Set outline width of the text in range [0.0f, 0.4f]. Max outline width (0.4)
+    /// Set outline width of the text in range [0.0f, 0.5f]. Max outline width (0.5)
     /// will be the font's 'sdf_spread' thick in pixels.  Note this will only
     /// have any effect if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------

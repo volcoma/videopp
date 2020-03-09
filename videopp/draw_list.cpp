@@ -577,7 +577,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 
 	auto end = clock_t::now();
     auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
+	//std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
 	return world;
 }
 

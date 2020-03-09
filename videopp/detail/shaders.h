@@ -220,7 +220,9 @@ static constexpr const char* fs_distance_field =
 						float softness = clamp(vExtraData.y, 0.0, 1.0);
 						vec2 uv = vTexCoord.xy;
 						float dist = texture2D(uTexture, uv).r;
+
 						float odist = dist + outline_width;
+                        odist = clamp((odist + softness * 0.5)/(1.0 + softness), 0.0, dist * 2.0);
 
 				#if defined(HAS_DERIVATIVES) && defined(SUPERSAMPLE)
 						// Supersample, 4 extra points
@@ -234,6 +236,7 @@ static constexpr const char* fs_distance_field =
 							texture2D(uTexture, box.zy).r
 						);
 						vec4 obox_distances = box_distances + outline_width;
+                        obox_distances = clamp((obox_distances + softness * 0.5)/(1.0 + softness), vec4(0.0), vec4(dist * 2.0));
 
 						float alpha  = aastep_supersample(dist, box_distances);
 						float oalpha = aastep_supersample(odist, obox_distances);
@@ -243,21 +246,21 @@ static constexpr const char* fs_distance_field =
                         float oalpha = aastep(odist);
 				#endif
 
-						vec4 color = vec4(master_color.rgb, 1.0);
-						vec4 ocolor = vec4(outline_color.rgb, outline_color.a * oalpha);
+						vec4 color = master_color;
+						vec4 ocolor = outline_color;
 
 						float glow = pow(pow(dist, 0.75) * 2.0, 2.0);
-						ocolor.a = mix(ocolor.a, outline_color.a * glow, softness);
+						ocolor.a = mix(outline_color.a * oalpha, outline_color.a * glow, softness);
 
 						// Alpha blend foreground.
 						vec4 rcolor = mix(
 							color,
 							ocolor,
-							clamp(1.0 - alpha, 0.0, 1.0)
+							1.0 - alpha//clamp(1.0 - alpha, 0.0, 1.0)
 						);
 
 						// Master alpha.
-						rcolor.a = clamp(rcolor.a, 0.0, 1.0) * master_color.a;
+						//rcolor.a = clamp(rcolor.a, 0.0, 1.0);
 
 						// Done!
 						gl_FragColor = rcolor;
