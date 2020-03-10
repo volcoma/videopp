@@ -61,15 +61,15 @@ int main()
 
 
         gfx::glyphs_builder builder;
-        builder.add(gfx::get_all_glyph_range());
-
-		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 30, 2);
+        //builder.add(gfx::get_all_glyph_range());
+        builder.add(gfx::parse_glyph_range("[A]"));
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 230, 4);
         auto font = rend.create_font(std::move(info));
 
-		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 46, 2);
+		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 246, 4);
 		auto font1 = rend.create_font(std::move(info1));
 
-		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 46, 2);
+		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 246, 4);
 		auto font2 = rend.create_font(std::move(info2));
 
 
@@ -80,7 +80,7 @@ int main()
 
 		bool running = true;
         math::transformf tr;
-
+tr.set_scale(4.0f, 4.0f, 1.0f);
 
         int currency{100};
         int fg_count{2};
@@ -302,7 +302,7 @@ int main()
             }
 
 
-            rend.clear(gfx::color::gray());
+            rend.clear(gfx::color::black());
 
 			float x_percent = 4.0f;
 			float y_percent = 13.0f;
@@ -313,8 +313,8 @@ int main()
 			area.expand(int(-x_off), int(-y_off));
 
             gfx::draw_list list;
-			list.add_image(image_background, rend.get_rect());
-            list.add_rect(area, gfx::color::red(), false);
+			list.add_image(font->texture, font->texture->get_rect(), tr);
+            //list.add_rect(area, gfx::color::red(), false);
 
 //			gfx::text_builder b;
 //			b.append("some random text");
@@ -329,7 +329,7 @@ int main()
 
 //			list.add_text(t, tr);
 //			list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
-			list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
+			//list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 
 //			std::cout << list.to_string() << std::endl;
 
