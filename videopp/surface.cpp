@@ -5,6 +5,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "image/stb_image.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "image/stb_image_write.h"
+
 namespace gfx
 {
     surface::~surface() = default;
@@ -341,6 +344,24 @@ namespace gfx
         }
 
         return true;
+    }
+
+    bool surface::save_to_file(const std::string &filename)
+    {
+        int comp = 4;
+        switch(type_)
+        {
+            case pix_type::red:
+                comp = 1;
+            break;
+            case pix_type::rgb:
+                comp = 3;
+            break;
+            case pix_type::rgba:
+                comp = 4;
+            break;
+        }
+        return stbi_write_png(filename.c_str(), get_width(), get_height(), comp, data_.data(), 0);
     }
 
 

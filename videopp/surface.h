@@ -48,6 +48,8 @@ namespace gfx
 
         //copy functions
         bool copy_from(const surface &src_surf, const rect &src_rect, const point &dest_point);
+
+        bool save_to_file(const std::string& filename);
     private:
         friend class texture;
 

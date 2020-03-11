@@ -61,15 +61,15 @@ int main()
 
 
         gfx::glyphs_builder builder;
-        //builder.add(gfx::get_all_glyph_range());
-        builder.add(gfx::parse_glyph_range("[A]"));
-		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 230, 4);
+        builder.add(gfx::get_all_glyph_range());
+        //builder.add(gfx::parse_glyph_range("[A]"));
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 130, 8);
         auto font = rend.create_font(std::move(info));
 
-		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 246, 4);
+		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 146, 8);
 		auto font1 = rend.create_font(std::move(info1));
 
-		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 246, 4);
+		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 146, 8);
 		auto font2 = rend.create_font(std::move(info2));
 
 
