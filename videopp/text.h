@@ -165,6 +165,7 @@ struct text_style
     /// Shadow color of the text
     color shadow_color_top{color::black()};
     color shadow_color_bot{color::black()};
+	float shadow_softness{0.0};
 
     float scale{1.0f};
 

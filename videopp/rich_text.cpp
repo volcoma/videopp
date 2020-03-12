@@ -86,8 +86,6 @@ void rich_text::apply_config()
 
 	set_advance({0, advance});
 
-	set_decorators({});
-
 	for(const auto& kvp : cfg_.styles)
 	{
 		const auto& style_id = kvp.first;

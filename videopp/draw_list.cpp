@@ -532,8 +532,8 @@ math::transformf align_wrap_and_fit_text(text& t,
                                         size_fit sz_fit,
                                         dimension_fit dim_fit)
 {
-    using clock_t = std::chrono::steady_clock;
-	auto start = clock_t::now();
+//    using clock_t = std::chrono::steady_clock;
+//	auto start = clock_t::now();
 
 	auto max_w = dst_rect.w;
 	t.set_wrap_width(float(max_w));
@@ -575,8 +575,8 @@ math::transformf align_wrap_and_fit_text(text& t,
 		}
 	}
 
-	auto end = clock_t::now();
-    auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+//	auto end = clock_t::now();
+//    auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	//std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
 	return world;
 }
@@ -866,6 +866,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 		shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
 		shadow.set_outline_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
 		shadow.set_shadow_offsets({0.0f, 0.0f});
+		shadow.set_softness(style.shadow_softness);
 		math::transformf shadow_transform{};
 		shadow_transform.translate(offsets.x, offsets.y, 0.0f);
 
