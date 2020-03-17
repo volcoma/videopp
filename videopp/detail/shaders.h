@@ -216,7 +216,7 @@ static constexpr const char* fs_distance_field =
 					{
 						vec4 master_color = vColor;
 						vec4 outline_color = vExtraColor;
-						float outline_width = clamp(vExtraData.x, 0.0, 0.5);
+						float outline_width = clamp(vExtraData.x, 0.0, 1.0) * 0.5;
 						float softness = clamp(vExtraData.y, 0.0, 1.0);
 						vec2 uv = vTexCoord.xy;
 						float dist = texture2D(uTexture, uv).r;

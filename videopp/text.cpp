@@ -357,7 +357,7 @@ void text::set_outline_color(color c)
 
 void text::set_outline_width(float owidth)
 {
-	owidth = math::clamp(owidth, 0.0f, 0.5f);
+	owidth = math::clamp(owidth, 0.0f, 1.0f);
 	if(math::epsilonEqual(style_.outline_width, owidth, math::epsilon<float>()))
 	{
 		return;
@@ -461,7 +461,7 @@ float text::get_advance_offset_x() const
 	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
-		return style_.advance.x + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
+		return style_.advance.x + (style_.outline_width * float(font->sdf_spread - 2));
 	}
 
 	return style_.advance.x;
@@ -471,7 +471,7 @@ float text::get_advance_offset_y() const
 	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
-		return style_.advance.y + (style_.outline_width * float(font->sdf_spread + 3) * 2.0f);
+		return style_.advance.y + (style_.outline_width * float(font->sdf_spread - 2));
 	}
 
 	return style_.advance.y;
