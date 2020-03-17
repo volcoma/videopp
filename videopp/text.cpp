@@ -546,6 +546,20 @@ void text::set_decorators(std::vector<text_decorator>&& decorators)
 	}
 	clear_lines();
 }
+
+void text::clear_decorators_with_callbacks()
+{
+	auto end = std::remove_if(std::begin(decorators_), std::end(decorators_),
+	[](const auto& decorator)
+	{
+		return decorator.get_size_on_line || decorator.set_position_on_line;
+	});
+
+	decorators_.erase(end, std::end(decorators_));
+
+	clear_lines();
+}
+
 void text::add_decorator(const text_decorator& decorator)
 {
 	decorators_.emplace_back(decorator);
@@ -1133,7 +1147,7 @@ const text_style& text::get_style() const
 
 std::vector<text_decorator*> text::add_decorators(const std::string& style_id)
 {
-	const std::string braces_matcher = R"(\(([\s\S]*?)\))";
+	const std::string braces_matcher = R"(\[([\s\S]*?)\])";
 	const std::string match_style = style_id + braces_matcher;
 
 	const std::regex global_rx(match_style); // --> style_id(some text)

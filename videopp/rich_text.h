@@ -49,6 +49,13 @@ struct rich_config
 class rich_text : public text
 {
 public:
+
+	rich_text() = default;
+	rich_text(const rich_text&) ;
+	rich_text& operator=(const rich_text&);
+	rich_text(rich_text&&) noexcept;
+	rich_text& operator=(rich_text&&) noexcept;
+
 	void set_config(const rich_config& cfg);
 	bool set_utf8_text(const std::string& t);
 	bool set_utf8_text(std::string&& t);
@@ -72,7 +79,6 @@ private:
 
 	rich_config cfg_;
 
-	math::transformf wrap_fitting_{};
     float calculated_line_height_{};
 };
 

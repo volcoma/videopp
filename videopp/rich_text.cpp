@@ -32,6 +32,44 @@ bool ends_with(const std::string& s, const std::string& suffix)
 }
 
 
+rich_text::rich_text(const rich_text& rhs)
+	: text(rhs)
+{
+	cfg_ = rhs.cfg_;
+
+	apply_config();
+}
+
+rich_text& rich_text::operator=(const rich_text& rhs)
+{
+	cfg_ = rhs.cfg_;
+
+	static_cast<text&>(*this) = rhs;
+	apply_config();
+	return *this;
+}
+
+rich_text::rich_text(rich_text&& rhs) noexcept
+	: text(std::move(rhs))
+{
+	cfg_ = rhs.cfg_;
+	apply_config();
+}
+
+rich_text& rich_text::operator=(rich_text&& rhs) noexcept
+{
+	cfg_ = rhs.cfg_;
+
+	static_cast<text&>(*this) = std::move(rhs);
+	apply_config();
+	return *this;
+}
+
+void rich_text::set_config(const rich_config& cfg)
+{
+	cfg_ = cfg;
+	set_utf8_text({});
+}
 std::vector<embedded_image*> rich_text::get_embedded_images() const
 {
 	return sorted_images_;
@@ -68,21 +106,18 @@ void rich_text::clear_lines()
 	clear_embedded_elements();
 }
 
-void rich_text::set_config(const rich_config& cfg)
-{
-	cfg_ = cfg;
-    set_utf8_text({});
-}
-
 void rich_text::apply_config()
 {
 	clear_embedded_elements();
 
-	const auto& style = get_style();
-	auto font = style.font;
+	const auto& main_style = get_style();
+	auto font = main_style.font;
 	auto line_height = font ? font->line_height : 0.0f;
 	calculated_line_height_ = line_height * cfg_.line_height_scale;
 	auto advance = (calculated_line_height_ - line_height);
+
+	// clear decorators with callbacks
+	clear_decorators_with_callbacks();
 
 	set_advance({0, advance});
 
@@ -94,7 +129,7 @@ void rich_text::apply_config()
 
 		for(const auto& decorator : decorators)
 		{
-			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
+			decorator->get_size_on_line = [this, style](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
 			{
 				key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
 
@@ -134,7 +169,7 @@ void rich_text::apply_config()
 				return {element.rect.w, element.rect.h};
 			};
 
-			decorator->set_position_on_line = [&](const text_decorator& decorator,
+			decorator->set_position_on_line = [this](const text_decorator& decorator,
 												  float line_offset_x,
 												  size_t line,
 												  const line_metrics& metrics,
@@ -157,7 +192,7 @@ void rich_text::apply_config()
 
 		for(const auto& decorator : decorators)
 		{
-			decorator->get_size_on_line = [&](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
+			decorator->get_size_on_line = [this](const text_decorator& decorator, const char* str_begin, const char* str_end) -> std::pair<float, float>
 			{
 				key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
 
@@ -194,7 +229,7 @@ void rich_text::apply_config()
 				return {float(element.rect.w), float(element.rect.h)};
 			};
 
-			decorator->set_position_on_line = [&](const text_decorator& decorator,
+			decorator->set_position_on_line = [this](const text_decorator& decorator,
 												  float line_offset_x,
 												  size_t line,
 												  const line_metrics& metrics,

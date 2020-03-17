@@ -12,38 +12,38 @@
 #include <regex>
 
 static std::string EN =
-R"(style1(FREE SPINS)
-style2(3) image(__SCATTER__) symbols anywhere on the style2(2nd), style2(3rd) and style2(4th) reels only trigger style2(__FGCOUNT__) style2(FREE SPINS) + style2(MOVING SYMBOLS).
-During style2(FREE SPINS), if symbol appear on the entire style2(1st) reel and on any position on the style2(3rd), style2(4th) or style2(5th) reel, the positions on the row between them will also be filled with that symbol.
-In case of retriggering style2(FREE SPINS), the player wins style2(__FGCOUNT__) new style2(FREE SPINS) which are added to the current number of style2(FREE SPINS).
-The winnings from image(__SCATTER__) symbols and new style3(FREE SPINS) are won before the expanding of the moving symbols. The style2(FREE SPINS) are played at trigger bet and lines. During style2(FREE SPINS) an alternate set of reels is used.
-Some random text with dynamically styled data style2(__CURRENCY__). Some random text after that for no reason at all. Some random text after that for no reason at all.
+R"(style1[FREE SPINS]
+style2[3] image[__SCATTER__] symbols anywhere on the style2[2nd], style2[3rd] and style2[4th] reels only trigger style2[__FGCOUNT__] style2[FREE SPINS] + style2[MOVING SYMBOLS].
+During style2[FREE SPINS], if symbol appear on the entire style2[1st] reel and on any position on the style2[3rd], style2[4th] or style2[5th] reel, the positions on the row between them will also be filled with that symbol.
+In case of retriggering style2[FREE SPINS], the player wins style2[__FGCOUNT__] new style2[FREE SPINS] which are added to the current number of style2[FREE SPINS].
+The winnings from image[__SCATTER__] symbols and new style3[FREE SPINS] are won before the expanding of the moving symbols. The style2[FREE SPINS] are played at trigger bet and lines. During style2[FREE SPINS] an alternate set of reels is used.
+Some random text with style5[dynamically] styled data style2[__CURRENCY__]. Some random text after that for no reason at all. Some random text after that for no reason at all.
 
 
-style1(WILD)
-image(__WILD__) subtitutes for all symbols except image(__SCATTER__).)";
+style1[WILD]
+image[__WILD__] subtitutes for all symbols except image[__SCATTER__].)";
 
 static std::string BG =
-R"(style1(БЕЗПЛАТНИ СПИНОВЕ)
-style2(3) image(__SCATTER__) символи навсякъде на style2(2ра), style2(3та) и style2(4та) ролка задействат само style2(10 БЕЗПЛАТНИ СПИНОВЕ) + style2(ДВИЖЕЩИ СИМВОЛИ).
-По време на style2(БЕЗПЛАТНИ СПИНОВЕ), ако символът се появи на цялата style2(1ва) ролка и на всяка позиция на style2(3та), style2(4та) или style2(5та) ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
-В случай на повторно задействане на style2(БЕЗПЛАТНИ СПИНОВЕ), играчът печели style2(10) нови style2(БЕЗПЛАТНИ СПИНОВЕ), които се добавят към текущия брой style2(БЕЗПЛАТНИ СПИНОВЕ).
-Печалбите от image(__SCATTER__) символи и нови style3(БЕЗПЛАТНИ СПИНОВЕ) се печелят преди разширяването на движещите се символи. style2(БЕЗПЛАТНИ СПИНОВЕ) се играят при залагане на тригер и линии. По време на style2(БЕЗПЛАТНИ СПИНОВЕ) се използва алтернативен набор от макари.
+R"(style1[БЕЗПЛАТНИ СПИНОВЕ]
+style2[3] image[__SCATTER__] символи навсякъде на style2[2ра], style2[3та] и style2[4та] ролка задействат само style2[10 БЕЗПЛАТНИ СПИНОВЕ] + style2[ДВИЖЕЩИ СИМВОЛИ].
+По време на style2[БЕЗПЛАТНИ СПИНОВЕ], ако символът се появи на цялата style2[1ва] ролка и на всяка позиция на style2[3та], style2[4та] или style2[5та] ролка, позициите на реда между тях също ще бъдат запълнени с този символ.
+В случай на повторно задействане на style2[БЕЗПЛАТНИ СПИНОВЕ], играчът печели style2[10] нови style2[БЕЗПЛАТНИ СПИНОВЕ], които се добавят към текущия брой style2[БЕЗПЛАТНИ СПИНОВЕ].
+Печалбите от image[__SCATTER__] символи и нови style3[БЕЗПЛАТНИ СПИНОВЕ] се печелят преди разширяването на движещите се символи. style2[БЕЗПЛАТНИ СПИНОВЕ] се играят при залагане на тригер и линии. По време на style2[БЕЗПЛАТНИ СПИНОВЕ] се използва алтернативен набор от макари.
 
 
-style1(ЖОКЕР)
-image(__WILD__) замества за всички символи, с изключение на image(__SCATTER__).)";
+style1[ЖОКЕР]
+image[__WILD__] замества за всички символи, с изключение на image[__SCATTER__].)";
 
 static std::string ESP =
-R"(style1(GIRAS GRATIS)
-Los símbolos style2(3) image(__SCATTER__) en cualquier lugar de los carretes style2(2nd), style2(3rd) y style2(4th) solo activan style2(10 GIRAS GRATIS) + style2(SÍMBOLOS EN MOVIMIENTO).
-Durante style2(GIRAS GRATIS), si el símbolo aparece en todo el carrete style2(1st) y en cualquier posición en el carrete style2(3rd), style2(4th) o style2(5th), las posiciones en la fila entre ellos también se llenarán con ese símbolo.
-En caso de reactivar style2(GIRAS GRATIS), el jugador gana style2(10) nuevos style2(GIRAS GRATIS) que se agregan al número actual de style2(FREE SPINS).
-Las ganancias de los símbolos image(__SCATTER__) y los nuevos style3(GIRAS GRATIS) se ganan antes de la expansión de los símbolos móviles. Los style2(GIRAS GRATIS) se juegan en la apuesta de activación y en las líneas. Durante style2(GIRAS GRATIS) se usa un conjunto alternativo de carretes.
+R"(style1[GIRAS GRATIS]
+Los símbolos style2[3] image[__SCATTER__] en cualquier lugar de los carretes style2[2nd], style2[3rd] y style2[4th] solo activan style2[10 GIRAS GRATIS] + style2[SÍMBOLOS EN MOVIMIENTO].
+Durante style2[GIRAS GRATIS], si el símbolo aparece en todo el carrete style2[1st] y en cualquier posición en el carrete style2[3rd], style2[4th] o style2[5th], las posiciones en la fila entre ellos también se llenarán con ese símbolo.
+En caso de reactivar style2[GIRAS GRATIS], el jugador gana style2[10] nuevos style2[GIRAS GRATIS] que se agregan al número actual de style2[FREE SPINS].
+Las ganancias de los símbolos image[__SCATTER__] y los nuevos style3[GIRAS GRATIS] se ganan antes de la expansión de los símbolos móviles. Los style2[GIRAS GRATIS] se juegan en la apuesta de activación y en las líneas. Durante style2[GIRAS GRATIS] se usa un conjunto alternativo de carretes.
 
 
-style1(SALVAJE)
-image(__WILD__) sustituye a todos los símbolos excepto image(__SCATTER__).)";
+style1[SALVAJE]
+image[__WILD__] sustituye a todos los símbolos excepto image[__SCATTER__].)";
 
 
 static std::vector<std::string> texts{EN, BG, ESP, {}};
@@ -63,13 +63,13 @@ int main()
         gfx::glyphs_builder builder;
         builder.add(gfx::get_all_glyph_range());
         //builder.add(gfx::parse_glyph_range("[A]"));
-		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 130, 8);
-        auto font = rend.create_font(std::move(info));
+		auto info = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 30, 8);
+		auto font = rend.create_font(std::move(info));
 
-		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 146, 8);
+		auto info1 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSans-Bold.ttf", builder.get(), 46, 8);
 		auto font1 = rend.create_font(std::move(info1));
 
-		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 146, 8);
+		auto info2 = gfx::create_font_from_ttf(DATA"fonts/dejavu/DejaVuSerif-BoldItalic.ttf", builder.get(), 46, 8);
 		auto font2 = rend.create_font(std::move(info2));
 
 
@@ -98,7 +98,8 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
 
 			style.shadow_color_top = gfx::color::black();
 			style.shadow_color_bot = gfx::color::black();
-			style.shadow_offsets = {2.0f, 2.0f};
+			style.shadow_offsets = {4.0f, 4.0f};
+			style.shadow_softness = 0.6f;
 //            style.outline_color_top = gfx::color::green();
 //			style.outline_color_bot = gfx::color::green();
 //			style.outline_width = 0.4f;
@@ -112,8 +113,8 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
 			style.font = font1;
 			style.color_top = gfx::color::red();
 			style.color_bot = gfx::color::green();
-            style.color_top.a = 0;
-            style.color_bot.a = 0;
+//            style.color_top.a = 0;
+//            style.color_bot.a = 0;
 			style.scale = 4.0f;
 //			style.shadow_color_top = gfx::color::black();
 //			style.shadow_color_bot = gfx::color::black();
@@ -313,8 +314,9 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
 			area.expand(int(-x_off), int(-y_off));
 
             gfx::draw_list list;
-			list.add_image(font->texture, font->texture->get_rect(), tr);
-            //list.add_rect(area, gfx::color::red(), false);
+//			list.add_image(font->texture, font->texture->get_rect(), tr);
+			list.add_image(image_background, rend.get_rect());
+			list.add_rect(area, gfx::color::red(), false);
 
 //			gfx::text_builder b;
 //			b.append("some random text");
@@ -327,9 +329,11 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
             t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 
+			auto t_copy = t;
+			auto t_move = std::move(t_copy);
 //			list.add_text(t, tr);
 //			list.add_text(t, gfx::align_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
-			//list.add_text(t, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
+			list.add_text(t_move, gfx::align_wrap_and_fit_text(t, tr, area, gfx::size_fit::shrink_to_fit, gfx::dimension_fit::uniform));
 
 //			std::cout << list.to_string() << std::endl;
 

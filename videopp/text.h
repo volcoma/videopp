@@ -360,6 +360,7 @@ public:
     static size_t count_glyphs(const std::string& utf8_text);
 	static size_t count_glyphs(const char* utf8_text_begin, const char* utf8_text_end);
 
+	void clear_decorators_with_callbacks();
 private:
 
     float get_advance_offset_x() const;
