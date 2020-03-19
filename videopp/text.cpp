@@ -461,7 +461,7 @@ float text::get_advance_offset_x() const
 	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
-		return style_.advance.x + (style_.outline_width * float(font->sdf_spread - 2));
+		return style_.advance.x + (style_.outline_width * float(font->sdf_spread));
 	}
 
 	return style_.advance.x;
@@ -471,7 +471,7 @@ float text::get_advance_offset_y() const
 	auto font = style_.font;
 	if(font && font->sdf_spread > 0)
 	{
-		return style_.advance.y + (style_.outline_width * float(font->sdf_spread - 2));
+		return style_.advance.y + (style_.outline_width * float(font->sdf_spread));
 	}
 
 	return style_.advance.y;

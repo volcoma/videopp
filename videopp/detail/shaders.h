@@ -216,13 +216,12 @@ static constexpr const char* fs_distance_field =
 					{
 						vec4 master_color = vColor;
 						vec4 outline_color = vExtraColor;
-						float outline_width = clamp(vExtraData.x, 0.0, 1.0) * 0.5;
+						float outline_width = clamp(vExtraData.x, 0.0, 1.0) * 0.4;
 						float softness = clamp(vExtraData.y, 0.0, 1.0);
 						vec2 uv = vTexCoord.xy;
 						float dist = texture2D(uTexture, uv).r;
 
 						float odist = dist + outline_width;
-                        odist = clamp((odist + softness * 0.5)/(1.0 + softness), 0.0, dist * 2.0);
 
 				#if defined(HAS_DERIVATIVES) && defined(SUPERSAMPLE)
 						// Supersample, 4 extra points
@@ -236,7 +235,6 @@ static constexpr const char* fs_distance_field =
 							texture2D(uTexture, box.zy).r
 						);
 						vec4 obox_distances = box_distances + outline_width;
-                        obox_distances = clamp((obox_distances + softness * 0.5)/(1.0 + softness), vec4(0.0), vec4(dist * 2.0));
 
 						float alpha  = aastep_supersample(dist, box_distances);
 						float oalpha = aastep_supersample(odist, obox_distances);
