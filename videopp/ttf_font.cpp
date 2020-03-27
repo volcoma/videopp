@@ -13,6 +13,25 @@ namespace gfx
 {
 namespace
 {
+std::string fontname(const char* path)
+{
+	auto spos = 0;
+	auto ppos = 0;
+	int i = 0;
+	for (char c = path[i]; c; c = path[++i])
+	{
+		if (c == '/') spos = i;
+		if (c == '.') ppos = i;
+	}
+
+	if (ppos > spos)
+	{
+		return {path + spos + 1, path + ppos};
+	}
+
+	return {path + spos + 1, path + i};
+}
+
 font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_info* font)
 {
     if(!font)
@@ -48,19 +67,19 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     f.kernings = std::move(font->kernings);
     f.size = font->font_size;
     f.surface = std::make_unique<surface>(std::move(atlas.tex_pixels_alpha8), atlas.tex_width, atlas.tex_height, pix_type::red);
-    f.sdf_spread = atlas.sdf_spread;
-    f.face_name = id;
+	f.sdf_spread = atlas.sdf_spread;
+	f.face_name = fontname(id.c_str());
 
-    return f;
+	return f;
 }
 }
 
 font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_ranges, float font_size,
-                               int sdf_spread /*= 0*/, bool kerning /*= false*/)
+							   bool kerning /*= false*/)
 {
     fnt::font_atlas atlas{};
-    atlas.max_texture_size = 1024 * 8;
-    atlas.sdf_spread = uint32_t(sdf_spread);
+	atlas.max_texture_size = 1024 * 16;
+	atlas.sdf_spread = uint32_t(0.1f * font_size);
     fnt::font_glyph_ranges_builder builder{};
 
     if(codepoint_ranges.empty())
@@ -82,11 +101,11 @@ font_info create_font_from_ttf(const std::string& path, const glyphs& codepoint_
     return create_font(path, atlas, font);
 }
 
-font_info create_default_font(float font_size, int sdf_spread)
+font_info create_default_font(float font_size)
 {
     fnt::font_atlas atlas{};
-    atlas.max_texture_size = 1024 * 8;
-    atlas.sdf_spread = uint32_t(sdf_spread);
+	atlas.max_texture_size = 1024 * 16;
+	atlas.sdf_spread = uint32_t(0.1f * font_size);
 
     fnt::font_config cfg{};
     cfg.size_pixels = font_size;

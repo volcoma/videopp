@@ -508,6 +508,22 @@ void text::set_wrap_width(float max_width)
 	clear_lines();
 }
 
+
+void text::set_overflow_type(overflow_type overflow)
+{
+	if(overflow_ == overflow)
+	{
+		return;
+	}
+	overflow_ = overflow;
+	clear_lines();
+}
+
+overflow_type text::get_overflow_type() const
+{
+	return overflow_;
+}
+
 void text::set_line_path(const polyline& line)
 {
 	line_path_ = line;
@@ -768,17 +784,24 @@ void text::update_lines() const
 				const char* str_begin = utf8_text_.data() + decorator->utf8_range.begin;
 				const char* str_end = utf8_text_.data() + decorator->utf8_range.end;
 				auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-                metric->maxx += external_size.first;
+				metric->maxx += external_size.first * scale;
             }
 		}
 
 		float relative_scale = get_decorator_scale(decorator);
 		float glyph_advance = (advance_offset_x + g.advance_x) * scale * relative_scale;
 
-		if(!decorator->is_visible(chars_))
-        {
-            glyph_advance = 0;
-        } 
+		bool is_visible = decorator->is_visible(chars_);
+		if(!is_visible)
+		{
+			glyph_advance = 0;
+		}
+		// check if is a break possible character
+		else if(is_space(c))
+		{
+			last_space = i;
+			pen_x_last_space = metric->maxx;
+		}
         // check if is a break possible character
 		else if(is_space(c))
 		{
@@ -787,13 +810,18 @@ void text::update_lines() const
 		}
 		// decorator end
 
-		bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
-
-		if((decorator->is_visible(chars_) && is_newline(c)) || (exceedsmax_width && (last_space != size_t(-1))))
+		auto add_char = [&]()
 		{
-            metric->maxx = pen_x_last_space;
+			lines_.back().push_back(c);
+			++chars_;
+			metric->maxx += glyph_advance;
+		};
 
-			if(is_blank(c) || is_newline(c))
+		auto break_line = [&]()
+		{
+			metric->maxx = pen_x_last_space;
+
+			if(is_space(c))
 			{
 				lines_.back().push_back(c);
 				++chars_;
@@ -807,34 +835,75 @@ void text::update_lines() const
 			}
 
 
-            lines_.resize(lines_.size() + 1);
+			lines_.resize(lines_.size() + 1);
 			cache<text>::get(lines_.back(), unicode_text_size - chars_);
 			lines_.back().reserve(unicode_text_size - chars_);
 
-            pen_x_last_space = 0;
+			pen_x_last_space = 0;
 			last_space = size_t(-1);
-            pen_y += line_height;
+			pen_y += line_height;
 
-            lines_metrics_.emplace_back();
-            metric = &lines_metrics_.back();
-            metric->minx = 0.0f;
-            metric->maxx = 0.0f;
-            metric->ascent = pen_y - ascent;
-            metric->cap_height = pen_y - cap_height;
-            metric->x_height = pen_y - x_height;
-            metric->median = pen_y - cap_height * 0.5f;
-            metric->baseline = pen_y;
-            metric->descent = pen_y - descent;
-            metric->miny = metric->ascent;
+			lines_metrics_.emplace_back();
+			metric = &lines_metrics_.back();
+			metric->minx = 0.0f;
+			metric->maxx = 0.0f;
+			metric->ascent = pen_y - ascent;
+			metric->cap_height = pen_y - cap_height;
+			metric->x_height = pen_y - x_height;
+			metric->median = pen_y - cap_height * 0.5f;
+			metric->baseline = pen_y;
+			metric->descent = pen_y - descent;
+			metric->miny = metric->ascent;
 			metric->maxy = metric->descent;
 
 			line_height = scale * (font->line_height + advance_offset_y);
+		};
+
+
+		bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
+
+		if((is_visible && is_newline(c)) || exceedsmax_width)
+		{
+			switch(overflow_)
+			{
+				case overflow_type::word_break:
+				{
+					bool no_space = last_space == size_t(-1);
+
+					if(no_space)
+					{
+						last_space = i;
+						pen_x_last_space = metric->maxx;
+					}
+
+					break_line();
+
+					if(no_space)
+					{
+						add_char();
+					}
+				}
+				break;
+				case overflow_type::word:
+				{
+					bool has_space = last_space != size_t(-1);
+					if(has_space)
+					{
+						break_line();
+					}
+					else
+					{
+						add_char();
+					}
+				}
+				break;
+
+			}
+
 		}
 		else
 		{
-			lines_.back().push_back(c);
-			++chars_;
-			metric->maxx += glyph_advance;
+			add_char();
 		}
 	}
 
@@ -993,7 +1062,7 @@ void text::update_geometry() const
 					if(decorator->get_size_on_line)
 					{
 						auto external_size = decorator->get_size_on_line(*decorator, str_begin, str_end);
-						external_advance = external_size.first;
+						external_advance = external_size.first * scale;
 					}
 
                     if(decorator->set_position_on_line)

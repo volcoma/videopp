@@ -68,7 +68,8 @@ rich_text& rich_text::operator=(rich_text&& rhs) noexcept
 void rich_text::set_config(const rich_config& cfg)
 {
 	cfg_ = cfg;
-	set_utf8_text({});
+	clear_lines();
+	apply_config();
 }
 std::vector<embedded_image*> rich_text::get_embedded_images() const
 {
@@ -113,13 +114,10 @@ void rich_text::apply_config()
 	const auto& main_style = get_style();
 	auto font = main_style.font;
 	auto line_height = font ? font->line_height : 0.0f;
-	calculated_line_height_ = line_height * cfg_.line_height_scale;
-	auto advance = (calculated_line_height_ - line_height);
+	calculated_line_height_ = line_height + main_style.advance.y;
 
 	// clear decorators with callbacks
 	clear_decorators_with_callbacks();
-
-	set_advance({0, advance});
 
 	for(const auto& kvp : cfg_.styles)
 	{
@@ -249,7 +247,6 @@ void rich_text::apply_config()
 				element.line = line;
 				element.rect.x = line_offset_x;
 				element.rect.y = metrics.median;
-				element.rect.y -= float(element.rect.h) * 0.5f;
 			};
 
 		}

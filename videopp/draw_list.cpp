@@ -991,6 +991,8 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 {
 	add_text(static_cast<const text&>(t), transform);
 
+	const auto& style = t.get_style();
+
 	auto sorted_texts = t.get_embedded_texts();
 	std::sort(std::begin(sorted_texts), std::end(sorted_texts), [](const auto& lhs, const auto& rhs)
 	{
@@ -1005,6 +1007,7 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 
 		math::transformf offset;
 		offset.translate(element.rect.x, element.rect.y, 0);
+		offset.scale(style.scale, style.scale, 1.0f);
 		add_text(text, transform * offset);
 	}
 	auto sorted_images = t.get_embedded_images();
@@ -1021,9 +1024,13 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 		auto image = embedded.data.image.lock();
 
 		const auto& img_src_rect = embedded.data.src_rect;
-        rect dst_rect = {int(element.rect.x), int(element.rect.y),
-                         int(element.rect.w), int(element.rect.h)};
-		add_image(image, img_src_rect, dst_rect, transform);
+		rect dst_rect = {0, 0,
+						 int(element.rect.w * style.scale), int(element.rect.h * style.scale)};
+
+		math::transformf pivot;
+		pivot.translate(element.rect.x, element.rect.y - (dst_rect.h * 0.5), 1.0f);
+
+		add_image(image, img_src_rect, dst_rect, transform * pivot);
 	}
 }
 

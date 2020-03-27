@@ -43,7 +43,6 @@ struct rich_config
 	text_getter_t text_getter;
 
 	std::map<std::string, text_style> styles{};
-	float line_height_scale = 1.0f;
 };
 
 class rich_text : public text
@@ -64,9 +63,9 @@ public:
 	std::vector<embedded_image*> get_embedded_images() const;
 	std::vector<embedded_text*> get_embedded_texts() const;
 	float get_calculated_line_height() const;
+	void apply_config();
 private:
     frect apply_line_constraints(const frect& r) const;
-	void apply_config();
 	void clear_embedded_elements();
 
 	// begin-end pair

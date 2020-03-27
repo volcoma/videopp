@@ -90,19 +90,18 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
 		auto halign = gfx::align::center;
 
 		gfx::rich_config cfg;
-		cfg.line_height_scale = 2.0f;
 
         {
 			auto& style = cfg.styles["style"];
 			style.font = font;
 
-			style.shadow_color_top = gfx::color::black();
-			style.shadow_color_bot = gfx::color::black();
-			style.shadow_offsets = {4.0f, 4.0f};
-			style.shadow_softness = 0.6f;
+//			style.shadow_color_top = gfx::color::black();
+//			style.shadow_color_bot = gfx::color::black();
+//			style.shadow_offsets = {4.0f, 4.0f};
+//			style.shadow_softness = 0.6f;
 //            style.outline_color_top = gfx::color::green();
 //			style.outline_color_bot = gfx::color::green();
-//			style.outline_width = 0.4f;
+			style.outline_width = 1.0f;
 //            style.softness = 1.0f;
 //            style.outline_color_top = gfx::color::magenta();
 //			style.outline_color_bot = gfx::color::black();
@@ -185,6 +184,7 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
         gfx::rich_text t;
         t.set_style(cfg.styles["style"]);
 		t.set_config(cfg);
+		t.set_advance({0, font->line_height});
 
 		while(running)
 		{
@@ -326,7 +326,7 @@ tr.set_scale(4.0f, 4.0f, 1.0f);
 //			b.append_formatted("10");
 //			gfx::apply_builder(b, t);
 
-            t.set_alignment(valign | halign);
+			t.set_alignment(valign | halign);
 			t.set_utf8_text(text);
 
 			auto t_copy = t;

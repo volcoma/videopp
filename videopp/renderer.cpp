@@ -261,7 +261,7 @@ renderer::renderer(os::window& win, bool vsync)
 				   std::string(version).append(fs_fxaa).c_str(), std::string(version).append(vs_simple).c_str());
 	if(!default_font())
 	{
-		default_font() = create_font(create_default_font(13, 2));
+		default_font() = create_font(create_default_font(13));
 		embedded_fonts_.emplace_back(default_font());
 	}
 

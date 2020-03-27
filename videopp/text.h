@@ -173,6 +173,13 @@ struct text_style
     bool kerning_enabled{};
 };
 
+enum class overflow_type
+{
+	word,
+	word_break,
+};
+
+
 class text
 {
 public:
@@ -265,6 +272,11 @@ public:
 	void set_wrap_width(float max_width);
 
 	//-----------------------------------------------------------------------------
+	/// Sets the overflow type
+	//-----------------------------------------------------------------------------
+	void set_overflow_type(overflow_type overflow);
+
+	//-----------------------------------------------------------------------------
     /// Sets the path of the line
     //-----------------------------------------------------------------------------
 	void set_line_path(const polyline& line);
@@ -332,6 +344,11 @@ public:
     /// Gets the utf8 text.
     //-----------------------------------------------------------------------------
     const std::string& get_utf8_text() const;
+
+	//-----------------------------------------------------------------------------
+	/// Gets the overflow type of the text.
+	//-----------------------------------------------------------------------------
+	overflow_type get_overflow_type() const;
 
     //-----------------------------------------------------------------------------
     /// Checks the validity of the text.
@@ -411,6 +428,9 @@ private:
 
     /// Origin alignment
     align_t alignment_ = align::left | align::baseline;
+
+	/// Overflow type
+	overflow_type overflow_ = overflow_type::word;
 
     /// Max width
 	float max_wrap_width_{};
