@@ -175,6 +175,7 @@ struct text_style
 
 enum class overflow_type
 {
+    none,
 	word,
 	word_break,
 };

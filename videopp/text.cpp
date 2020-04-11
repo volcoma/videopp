@@ -860,51 +860,71 @@ void text::update_lines() const
 		};
 
 
-		bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
+        bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
 
-		if((is_visible && is_newline(c)) || exceedsmax_width)
-		{
-			switch(overflow_)
-			{
-				case overflow_type::word_break:
-				{
-					bool no_space = last_space == size_t(-1);
+        if((is_visible && is_newline(c)) || exceedsmax_width)
+        {
+            switch(overflow_)
+            {
+                case overflow_type::word_break:
+                {
+                    bool no_space = last_space == size_t(-1);
 
-					if(no_space)
-					{
-						last_space = i;
-						pen_x_last_space = metric->maxx;
-					}
+                    if(no_space)
+                    {
+                        last_space = i;
+                        pen_x_last_space = metric->maxx;
+                    }
 
-					break_line();
+                    break_line();
 
-					if(no_space)
-					{
-						add_char();
-					}
-				}
-				break;
-				case overflow_type::word:
-				{
-					bool has_space = last_space != size_t(-1);
-					if(has_space)
-					{
-						break_line();
-					}
-					else
-					{
-						add_char();
-					}
-				}
-				break;
+                    if(no_space)
+                    {
+                        add_char();
+                    }
+                }
+                break;
+                case overflow_type::word:
+                {
+                    bool has_space = last_space != size_t(-1);
+                    if(has_space)
+                    {
+                        break_line();
+                    }
+                    else
+                    {
+                        add_char();
+                    }
+                }
+                break;
+                default:
+                {
+                    if(exceedsmax_width)
+                    {
+                        add_char();
+                    }
+                    else
+                    {
+                        bool has_space = last_space != size_t(-1);
+                        if(has_space)
+                        {
+                            break_line();
+                        }
+                        else
+                        {
+                            add_char();
+                        }
+                    }
+                }
+                break;
 
-			}
+            }
 
-		}
-		else
-		{
-			add_char();
-		}
+        }
+        else
+        {
+            add_char();
+        }
 	}
 
     update_alignment();
