@@ -175,10 +175,18 @@ struct text_style
 
 enum class overflow_type
 {
+    /// Break words when overflowing if no break characters
+    /// like 'spaces' are presnet (useful for Chinese, Japanese)
+    /// as they don't have any standalone 'spaces'.
+    word,
+
+    /// Keep words' integrity when overflowing.
+    word_break,
+
+    /// Do not break lines.
     none,
-	word,
-	word_break,
 };
+
 
 
 class text
@@ -318,7 +326,17 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the alignment of the text (relative to the origin point).
     //-----------------------------------------------------------------------------
-    align_t get_alignment() const;
+    align_t get_alignment() const noexcept;
+
+    //-----------------------------------------------------------------------------
+    /// Sets an opacity of the text. It multiplies by the style colors' alpha.
+    //-----------------------------------------------------------------------------
+    void set_opacity(float opacity);
+
+    //-----------------------------------------------------------------------------
+    /// Gets the opacity of the text
+    //-----------------------------------------------------------------------------
+    float get_opacity() const noexcept;
 
     //-----------------------------------------------------------------------------
     /// Generates the geometry if needed
@@ -380,7 +398,7 @@ public:
 
 	void clear_decorators_with_callbacks();
 private:
-
+    color apply_opacity(color c) const noexcept;
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
 
@@ -435,6 +453,8 @@ private:
 
     /// Max width
 	float max_wrap_width_{};
+
+    float opacity_{1.0f};
 
 };
 

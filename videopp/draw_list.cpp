@@ -582,22 +582,6 @@ math::transformf align_wrap_and_fit_text(text& t,
 }
 
 
-math::transformf align_wrap_and_fit_text(rich_text& t, const math::transformf& transform, rect dst_rect, size_fit sz_fit, dimension_fit dim_fit)
-{
-	auto modified_transform = transform;
-
-	const auto& style = t.get_style();
-	auto font = style.font;
-	auto line_height = font ? font->line_height : 0.0f;
-
-	auto advance = (t.get_calculated_line_height() - line_height);
-	modified_transform.translate(0.0f, advance * 0.5f, 0.0f);
-	dst_rect.h -= int(advance);
-
-	return align_wrap_and_fit_text(static_cast<text&>(t), modified_transform, dst_rect, sz_fit, dim_fit);
-}
-
-
 const program_setup& empty_setup() noexcept
 {
     static program_setup setup;
@@ -989,49 +973,49 @@ void draw_list::add_text(const text& t, const math::transformf& transform, const
 
 void draw_list::add_text(const rich_text& t, const math::transformf& transform)
 {
-	add_text(static_cast<const text&>(t), transform);
+    add_text(static_cast<const text&>(t), transform);
 
-	const auto& style = t.get_style();
+    const auto opacity = t.get_opacity();
+    auto sorted_texts = t.get_embedded_texts();
+    std::sort(std::begin(sorted_texts), std::end(sorted_texts), [](const auto& lhs, const auto& rhs)
+    {
+        return lhs->text.get_style().font < rhs->text.get_style().font;
+    });
 
-	auto sorted_texts = t.get_embedded_texts();
-	std::sort(std::begin(sorted_texts), std::end(sorted_texts), [](const auto& lhs, const auto& rhs)
-	{
-		return lhs->text.get_style().font < rhs->text.get_style().font;
-	});
+    for(const auto& ptr : sorted_texts)
+    {
+        const auto& embedded = *ptr;
+        const auto& element = embedded.element;
+        const auto& text = embedded.text;
 
-	for(const auto& ptr : sorted_texts)
-	{
-		const auto& embedded = *ptr;
-		const auto& element = embedded.element;
-		const auto& text = embedded.text;
+        math::transformf offset;
+        offset.translate(element.rect.x, element.rect.y, 0);
+        add_text(text, transform * offset);
+    }
+    auto sorted_images = t.get_embedded_images();
 
-		math::transformf offset;
-		offset.translate(element.rect.x, element.rect.y, 0);
-		offset.scale(style.scale, style.scale, 1.0f);
-		add_text(text, transform * offset);
-	}
-	auto sorted_images = t.get_embedded_images();
+    std::sort(std::begin(sorted_images), std::end(sorted_images), [](const auto& lhs, const auto& rhs)
+    {
+        return lhs->data.image.lock() < rhs->data.image.lock();
+    });
 
-	std::sort(std::begin(sorted_images), std::end(sorted_images), [](const auto& lhs, const auto& rhs)
-	{
-		return lhs->data.image.lock() < rhs->data.image.lock();
-	});
+    color col = color::white();
+    col.a = uint8_t(float(col.a) * opacity);
+    for(const auto& ptr : sorted_images)
+    {
+        const auto& embedded = *ptr;
+        const auto& element = embedded.element;
+        auto image = embedded.data.image.lock();
 
-	for(const auto& ptr : sorted_images)
-	{
-		const auto& embedded = *ptr;
-		const auto& element = embedded.element;
-		auto image = embedded.data.image.lock();
+        const auto& img_src_rect = embedded.data.src_rect;
+        rect dst_rect = {0, 0,
+                         int(element.rect.w), int(element.rect.h)};
 
-		const auto& img_src_rect = embedded.data.src_rect;
-		rect dst_rect = {0, 0,
-						 int(element.rect.w * style.scale), int(element.rect.h * style.scale)};
+        math::transformf pivot;
+        pivot.translate(element.rect.x, element.rect.y - (dst_rect.h * 0.5f), 1.0f);
 
-		math::transformf pivot;
-		pivot.translate(element.rect.x, element.rect.y - (dst_rect.h * 0.5), 1.0f);
-
-		add_image(image, img_src_rect, dst_rect, transform * pivot);
-	}
+        add_image(image, img_src_rect, dst_rect, transform * pivot, col);
+    }
 }
 
 void draw_list::add_text(const rich_text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
