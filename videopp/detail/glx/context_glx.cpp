@@ -12,32 +12,16 @@ int ctx_error_handler(Display* /*dpy*/, XErrorEvent* /*ev*/)
 	return 0;
 }
 
-//int visual_attribs[] = {
-//	GLX_RENDER_TYPE, GLX_RGBA_BIT,
-//	GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-//	GLX_DOUBLEBUFFER, true,
-//	GLX_RED_SIZE, 1,
-//	GLX_GREEN_SIZE, 1,
-//	GLX_BLUE_SIZE, 1,
-//	None
-//};
-
-const int visual_attribs[] = {
-	GLX_X_RENDERABLE    , true,
-	GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
-	GLX_RENDER_TYPE     , GLX_RGBA_BIT,
-	GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
-	GLX_RED_SIZE        , 8,
-	GLX_GREEN_SIZE      , 8,
-	GLX_BLUE_SIZE       , 8,
-	GLX_ALPHA_SIZE      , 8,
-	GLX_DEPTH_SIZE      , 24,
-	GLX_STENCIL_SIZE    , 8,
-	GLX_DOUBLEBUFFER    , true,
-	//GLX_SAMPLE_BUFFERS  , 1,
-	//GLX_SAMPLES         , 4,
+int visual_attribs[] = {
+	GLX_RENDER_TYPE, GLX_RGBA_BIT,
+	GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+	GLX_DOUBLEBUFFER, true,
+	GLX_RED_SIZE, 1,
+	GLX_GREEN_SIZE, 1,
+	GLX_BLUE_SIZE, 1,
 	None
 };
+
 void check_glx_version(Display* display)
 {
 	int glx_major, glx_minor;
@@ -45,7 +29,7 @@ void check_glx_version(Display* display)
 	if (!glXQueryVersion(display, &glx_major, &glx_minor) ||
 	   ((glx_major == 1) && (glx_minor < 3)) || (glx_major < 1))
 	{
-		throw gfx::exception("Invalid GLX version");
+		throw exception("Invalid GLX version");
 	}
 }
 GLXFBConfig choose_fb_config(Display* display)
@@ -57,7 +41,7 @@ GLXFBConfig choose_fb_config(Display* display)
 										 visual_attribs, &fbcount);
 	if (!fbc)
 	{
-		throw gfx::exception("glXChooseFBConfig() failed. Failed to retrieve a framebuffer config");
+		throw exception("glXChooseFBConfig() failed. Failed to retrieve a framebuffer config");
 	}
 	printf("Found %d matching FB configs.\n", fbcount);
 
@@ -77,10 +61,16 @@ GLXFBConfig choose_fb_config(Display* display)
 				   "SAMPLE_BUFFERS = %d, SAMPLES = %d\n",
 				   i, vi -> visualid, samp_buf, samples);
 
-			if (best_fbc < 0 || (samp_buf && samples) > best_num_samp)
-				best_fbc = i, best_num_samp = samples;
+			if (best_fbc < 0 || (samp_buf && (samples > best_num_samp)))
+			{
+				best_fbc = i;
+				best_num_samp = samples;
+			}
 			if (worst_fbc < 0 || !samp_buf || samples < worst_num_samp)
-				worst_fbc = i, worst_num_samp = samples;
+			{
+				worst_fbc = i;
+				worst_num_samp = samples;
+			}
 		}
 		XFree(vi);
 	}
@@ -89,29 +79,29 @@ GLXFBConfig choose_fb_config(Display* display)
 	return best;
 }
 
-context_glx* master_ctx{};
+std::vector<context_glx*> ctxs {};
 }
 
 
-context_glx::context_glx(void* native_handle, void* native_display, int major, int minor)
+context_glx::context_glx(void* handle, void* display, int major, int minor)
 {
-    surface_ = reinterpret_cast<Window>(reinterpret_cast<uintptr_t>(native_handle));
-    display_ = reinterpret_cast<Display*>(native_display);
+	surface_ = reinterpret_cast<Window>(reinterpret_cast<uintptr_t>(handle));
+	display_ = reinterpret_cast<Display*>(display);
 
-    if(!gladLoadGLX(display_, 0))
-    {
-        throw gfx::exception("Cannot load glx.");
-    }
+	if(!gladLoadGLX(display_, 0))
+	{
+		throw exception("Cannot load glx.");
+	}
 
 	auto best_fbc = choose_fb_config(display_);
 
 	int context_attribs[] =
-	{
-		GLX_CONTEXT_MAJOR_VERSION_ARB, major,
-		GLX_CONTEXT_MINOR_VERSION_ARB, minor,
-		//GLX_CONTEXT_FLAGS_ARB        , GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
-		None
-	};
+		{
+			GLX_CONTEXT_MAJOR_VERSION_ARB, major,
+			GLX_CONTEXT_MINOR_VERSION_ARB, minor,
+			//GLX_CONTEXT_FLAGS_ARB        , GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+			None
+		};
 
 	// Couldn't create GL 3.0 context.  Fall back to old-style 2.x context.
 	// When a context version below 3.0 is requested, implementations will
@@ -123,19 +113,19 @@ context_glx::context_glx(void* native_handle, void* native_display, int major, i
 		XSetErrorHandler(&ctx_error_handler);
 
 	ctx_error = false;
-    //XVisualInfo* vi = glXGetVisualFromFBConfig(display_, fbc[0]);
-    if(master_ctx)
-    {
-		context_ = glXCreateContextAttribsARB(display_, best_fbc, master_ctx->context_, True, context_attribs);
-    }
-    else
-    {
+	//XVisualInfo* vi = glXGetVisualFromFBConfig(display_, fbc[0]);
+	if(!ctxs.empty())
+	{
+		context_ = glXCreateContextAttribsARB(display_, best_fbc, ctxs.front()->context_, True, context_attribs);
+	}
+	else
+	{
 		context_ = glXCreateContextAttribsARB(display_, best_fbc, nullptr, True, context_attribs);
-    }
+	}
 	if (ctx_error || !context_)
 	{
-		throw gfx::exception("Failed to create OpenGL GLX context " + std::to_string(major) + "." + std::to_string(minor));
-    }
+		throw exception("Failed to create OpenGL GLX context " + std::to_string(major) + "." + std::to_string(minor));
+	}
 
 
 	// Sync to ensure any errors generated are processed.
@@ -144,57 +134,50 @@ context_glx::context_glx(void* native_handle, void* native_display, int major, i
 	// Restore the original error handler
 	XSetErrorHandler( oldHandler );
 
-    if(!master_ctx)
-    {
-        master_ctx = this;
-    }
-
-
-    make_current();
+	ctxs.push_back(this);
+	make_current();
 }
 
 context_glx::~context_glx()
 {
-    if(master_ctx == this)
-    {
-        master_ctx = {};
-    }
+	auto it = std::remove(std::begin(ctxs), std::end(ctxs), this);
+	ctxs.erase(it, std::end(ctxs));
 
-    glXMakeCurrent(display_, 0, nullptr);
-    glXDestroyContext(display_, context_);
+	glXMakeCurrent(display_, 0, nullptr);
+	glXDestroyContext(display_, context_);
 
-    if(master_ctx)
-    {
-        master_ctx->make_current();
-    }
+	if (!ctxs.empty())
+	{
+		ctxs.front()->make_current();
+	}
 }
 
 bool context_glx::set_vsync(bool vsync)
 {
-    if(glXSwapIntervalEXT)
-    {
-        glXSwapIntervalEXT(display_, surface_, vsync ? 1 : 0);
-    }
-    else if(glXSwapIntervalMESA)
-    {
-        glXSwapIntervalMESA(vsync ? 1 : 0);
-    }
-    else if(glXSwapIntervalSGI)
-    {
-        glXSwapIntervalSGI(vsync ? 1 : 0);
-    }
+	if(glXSwapIntervalEXT)
+	{
+		glXSwapIntervalEXT(display_, surface_, vsync ? 1 : 0);
+	}
+	else if(glXSwapIntervalMESA)
+	{
+		glXSwapIntervalMESA(vsync ? 1 : 0);
+	}
+	else if(glXSwapIntervalSGI)
+	{
+		glXSwapIntervalSGI(vsync ? 1 : 0);
+	}
 	return true;
 }
 
 // make it the calling thread's current rendering context
 bool context_glx::make_current()
 {
-    return glXMakeCurrent(display_, surface_, context_);
+	return glXMakeCurrent(display_, surface_, context_);
 }
 
 bool context_glx::swap_buffers()
 {
-    glXSwapBuffers(display_, surface_);
-    return true;
+	glXSwapBuffers(display_, surface_);
+	return true;
 }
 }
