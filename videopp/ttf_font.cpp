@@ -24,12 +24,16 @@ std::string fontname(const char* path)
 		if (c == '.') ppos = i;
 	}
 
-	if (ppos > spos)
-	{
-		return {path + spos + 1, path + ppos};
-	}
+    if((spos == ppos) && ppos == 0)
+    {
+        return path;
+    }
+    if (ppos > spos)
+    {
+        return {path + spos + 1, path + ppos};
+    }
 
-	return {path + spos + 1, path + i};
+    return {path + spos + 1, path + i};
 }
 
 font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_info* font)

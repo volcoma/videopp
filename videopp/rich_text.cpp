@@ -114,7 +114,7 @@ void rich_text::apply_config()
 	const auto& main_style = get_style();
 	auto font = main_style.font;
 	auto line_height = font ? font->line_height : 0.0f;
-	calculated_line_height_ = line_height + main_style.advance.y;
+	calculated_line_height_ = (line_height + main_style.advance.y) * main_style.scale;
 
 	// clear decorators with callbacks
 	clear_decorators_with_callbacks();
@@ -137,6 +137,7 @@ void rich_text::apply_config()
 					auto& embedded = embedded_texts_[key];
 					sorted_texts_.emplace_back(&embedded);
 
+                    embedded.text.set_opacity(get_opacity());
 					embedded.text.set_style(style);
 					embedded.text.set_alignment(align::baseline | align::left);
 

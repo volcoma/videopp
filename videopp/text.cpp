@@ -13,11 +13,10 @@ namespace
 
 constexpr size_t vertices_per_quad = 4;
 
-
 // line feed (0x0a, '\n')
 bool is_newline(uint32_t c)
 {
-	return c == 0x0a;
+    return c == 0x0a;
 }
 
 // Checks if the given character is a blank character
@@ -27,10 +26,16 @@ bool is_newline(uint32_t c)
 // In the default C locale, only
 // horizontal tab (0x09, '\t')
 // space (0x20, ' ')
+// ideographic space (0x3000, ' ')
 // are classified as blank characters.
 bool is_blank(uint32_t c)
 {
-	return c == 0x20 || c == 0x09;
+    return c == 0x20 || c == 0x09 || c == 0x3000;
+}
+
+bool is_with_embedded_space(uint32_t c)
+{
+    return c == 0x3001 || c == 0x3002 || c == 0xFF0C || c == 0xFF01 || c == 0xFF1F;
 }
 
 // Checks if the given character is whitespace character as classified by the currently installed C locale.
@@ -41,9 +46,10 @@ bool is_blank(uint32_t c)
 // vertical tab (0x0b, '\v')
 // form feed (0x0c, '\f')
 // carriage return (0x0d, '\r')
+// ideographic space (0x3000, ' ')
 bool is_space(uint32_t c)
 {
-	return is_blank(c) ||is_newline(c) || c == 0x0b || c == 0x0c || c == 0x0d;
+    return is_blank(c) || is_newline(c) || c == 0x0b || c == 0x0c || c == 0x0d;
 }
 
 rect cast_rect(const frect& r)
@@ -316,9 +322,31 @@ void text::set_font(const font_ptr& f)
 	clear_lines();
 }
 
-align_t text::get_alignment() const
+align_t text::get_alignment() const noexcept
 {
 	return alignment_;
+}
+
+void text::set_opacity(float opacity)
+{
+    opacity = math::clamp(opacity, 0.0f, 1.0f);
+    if(math::epsilonEqual(opacity_, opacity, math::epsilon<float>()))
+    {
+        return;
+    }
+    opacity_ = opacity;
+    clear_lines();
+}
+
+float text::get_opacity() const noexcept
+{
+    return opacity_;
+}
+
+color text::apply_opacity(color c) const noexcept
+{
+    c.a = uint8_t(float(c.a) * opacity_);
+    return c;
 }
 
 void text::set_color(color c)
@@ -748,6 +776,8 @@ void text::update_lines() const
 	auto advance_offset_y = get_advance_offset_y();
 
     float scale = decorator->scale;
+    const bool kerning_enabled = style_.kerning_enabled;
+
 	auto line_height = scale * (font->line_height + advance_offset_y);
 	const auto ascent = scale * font->ascent;
 	const auto descent = scale * font->descent;
@@ -770,6 +800,8 @@ void text::update_lines() const
     metric->miny = metric->ascent;
     metric->maxy = metric->descent;
 
+    auto last_codepoint = char_t(-1);
+
 	for(size_t i = 0; i < unicode_text_size; ++i)
 	{
 		uint32_t c = unicode_text[i];
@@ -787,9 +819,17 @@ void text::update_lines() const
 				metric->maxx += external_size.first * scale;
             }
 		}
-
 		float relative_scale = get_decorator_scale(decorator);
-		float glyph_advance = (advance_offset_x + g.advance_x) * scale * relative_scale;
+		float glyph_advance = (advance_offset_x + g.advance_x);
+
+        if(kerning_enabled)
+        {
+            // modify the pen advance with the kerning from the previous character
+            glyph_advance += font->get_kerning(last_codepoint, g.codepoint);
+            last_codepoint = g.codepoint;
+        }
+
+        glyph_advance *= scale * relative_scale;
 
 		bool is_visible = decorator->is_visible(chars_);
 		if(!is_visible)
@@ -860,51 +900,77 @@ void text::update_lines() const
 		};
 
 
-		bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
+        bool exceedsmax_width = max_width > 0 && (metric->maxx + glyph_advance) > max_width;
 
-		if((is_visible && is_newline(c)) || exceedsmax_width)
-		{
-			switch(overflow_)
-			{
-				case overflow_type::word_break:
-				{
-					bool no_space = last_space == size_t(-1);
+        if((is_visible && is_newline(c)) || exceedsmax_width)
+        {
+            switch(overflow_)
+            {
+                case overflow_type::word_break:
+                {
+                    bool no_space = last_space == size_t(-1);
 
-					if(no_space)
-					{
-						last_space = i;
-						pen_x_last_space = metric->maxx;
-					}
+                    if(no_space)
+                    {
+                        last_space = i;
+                        pen_x_last_space = metric->maxx;
+                    }
 
-					break_line();
+                    break_line();
 
-					if(no_space)
-					{
-						add_char();
-					}
-				}
-				break;
-				case overflow_type::word:
-				{
-					bool has_space = last_space != size_t(-1);
-					if(has_space)
-					{
-						break_line();
-					}
-					else
-					{
-						add_char();
-					}
-				}
-				break;
+                    if(no_space)
+                    {
+                        add_char();
+                    }
+                }
+                break;
+                case overflow_type::word:
+                {
+                    bool has_space = last_space != size_t(-1);
+                    if(has_space)
+                    {
+                        break_line();
+                    }
+                    else
+                    {
+                        add_char();
+                    }
+                }
+                break;
+                default:
+                {
+                    if(exceedsmax_width)
+                    {
+                        add_char();
+                    }
+                    else
+                    {
+                        bool has_space = last_space != size_t(-1);
+                        if(has_space)
+                        {
+                            break_line();
+                        }
+                        else
+                        {
+                            add_char();
+                        }
+                    }
+                }
+                break;
 
-			}
+            }
 
-		}
-		else
-		{
-			add_char();
-		}
+        }
+        else
+        {
+            add_char();
+        }
+
+
+        if(i == unicode_text_size - 1)
+        {
+            metric->maxx -= advance_offset_x * scale * relative_scale;
+        }
 	}
 
     update_alignment();
@@ -912,6 +978,11 @@ void text::update_lines() const
 
 void text::update_alignment() const
 {
+    if(lines_metrics_.empty())
+    {
+        return;
+    }
+
     const auto pixel_snap = style_.font->pixel_snap;
 
     const auto& first_line = lines_metrics_.front();
@@ -986,22 +1057,23 @@ void text::update_geometry() const
 	auto next_decorator = get_next_decorator(0, decorator);
 	auto advance_offset_x = get_advance_offset_x();
 
-	const auto color_top = style_.color_top;
-	const auto color_bot = style_.color_bot;
-	const math::vec4 vcolor_top{color_top.r, color_top.g, color_top.b, color_top.a};
-	const math::vec4 vcolor_bot{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
-	const bool has_gradient = color_top != color_bot;
-	const bool kerning_enabled = style_.kerning_enabled;
+    const auto color_top = apply_opacity(style_.color_top);
+    const auto color_bot = apply_opacity(style_.color_bot);
+    const math::vec4 vcolor_top{color_top.r, color_top.g, color_top.b, color_top.a};
+    const math::vec4 vcolor_bot{color_bot.r, color_bot.g, color_bot.b, color_bot.a};
+    const bool has_gradient = color_top != color_bot;
+    const bool kerning_enabled = style_.kerning_enabled;
 
 	const auto sdf_spread = font->sdf_spread;
 	const auto sdf_font = sdf_spread > 0;
     const auto outline_width = style_.outline_width;
 	const auto softness = style_.softness;
-    const auto outline_color_top = outline_width > 0 ? style_.outline_color_top : color_top;
-	const auto outline_color_bot = outline_width > 0 ? style_.outline_color_bot : color_bot;
-	const math::vec4 outline_vcolor_top{outline_color_top.r, outline_color_top.g, outline_color_top.b, outline_color_top.a};
-	const math::vec4 outline_vcolor_bot{outline_color_bot.r, outline_color_bot.g, outline_color_bot.b, outline_color_bot.a};
-	const bool outline_has_gradient = sdf_font && outline_color_top != outline_color_bot;
+    const auto outline_color_top = outline_width > 0 ? apply_opacity(style_.outline_color_top) : color_top;
+    const auto outline_color_bot = outline_width > 0 ? apply_opacity(style_.outline_color_bot) : color_bot;
+
+    const math::vec4 outline_vcolor_top{outline_color_top.r, outline_color_top.g, outline_color_top.b, outline_color_top.a};
+    const math::vec4 outline_vcolor_bot{outline_color_bot.r, outline_color_bot.g, outline_color_bot.b, outline_color_bot.a};
+    const bool outline_has_gradient = sdf_font && outline_color_top != outline_color_bot;
 
 	float leaning = 0.0f;
 	bool has_leaning = false;
