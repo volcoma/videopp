@@ -44,7 +44,7 @@ font_info create_font(const std::string& id, fnt::font_atlas& atlas, fnt::font_i
     }
 
     std::string err{};
-    if(!atlas.build(fnt::font_rasterizer::freetype, err))
+	if(!atlas.build(err))
     {
         throw std::runtime_error("[" + id + "] - " + err);
     }
