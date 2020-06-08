@@ -27,6 +27,7 @@ class vertex_buffer_layout
 {
 public:
     void set_program_id(uint32_t id) noexcept;
+    void set_stride(uint32_t stride) noexcept;
 
     template <typename T>
     void add(uint32_t count, uint32_t offset, const std::string& attr, uint32_t stride, bool normalized = false);
@@ -62,12 +63,32 @@ void vertex_buffer_layout::add<int32_t>(uint32_t count, uint32_t offset, const s
 /// A common vertex definition
 struct vertex_2d
 {
-    math::vec2 pos{0, 0}; // 2d position
-    math::vec2 uv{0, 0};  // 2d texture coordinates
-    color col{0, 0, 0, 0};// 32bit RGBA color
+    math::vec2 pos{0.0f, 0.0f}; // 2d position
+    math::vec2 uv{0.0f, 0.0f};  // 2d texture coordinates
+    color col{0, 0, 0, 0};      // 32bit RGBA color
     color extra_col{0, 0, 0, 0};
     math::vec2 extra_data{0, 0};
-    //uint8_t tex_idx{0};
+    uint32_t tex_idx{};
+};
+
+class vertex_array_object
+{
+public:
+    vertex_array_object();
+    ~vertex_array_object();
+
+    /// Create a vertex buffer
+    void create() noexcept;
+
+    /// Destroy a vertex buffer
+    void destroy() noexcept;
+
+
+    void bind() const noexcept;
+    void unbind() const noexcept;
+
+private:
+    uint32_t id_ = 0;
 };
 
 /// A vertex buffer object wrapper
@@ -124,4 +145,6 @@ private:
     uint32_t id_ = 0;
 };
 
-} // namespace video_ctrl
+
+
+} // namespace gfx

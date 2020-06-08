@@ -1,5 +1,6 @@
 #pragma once
 #include "math/transform.hpp"
+#include "utils.h"
 
 namespace gfx
 {
@@ -14,6 +15,18 @@ namespace gfx
     using point = point_t<int>;
     using pointf = point_t<float>;
     
+    template<typename T>
+    inline bool operator==(const point_t<T>& lhs, const point_t<T>& rhs)
+    {
+        return lhs.x == rhs.x && lhs.y == rhs.y;
+    }
+
+    template<typename T>
+    inline bool operator!=(const point_t<T>& lhs, const point_t<T>& rhs)
+    {
+        return !operator==(lhs, rhs);
+    }
+
     //Arithmetic operations on point
     template<typename T>
     inline point_t<T> operator+(const point_t<T>& lhs, const point_t<T>& rhs)
@@ -47,4 +60,20 @@ namespace gfx
     {
         return point_t<T>(lhs.x * rhs, lhs.y * rhs);
     }
+}
+
+namespace std
+{
+
+template<>
+struct hash<gfx::point>
+{
+    size_t operator()(const gfx::point& p) const noexcept
+    {
+        uint64_t seed = 0;
+        utils::hash(seed, p.x, p.y);
+        return seed;
+    }
+};
+
 }

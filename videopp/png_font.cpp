@@ -3,7 +3,7 @@
 #include "png_font.h"
 
 #include <cstdlib>
-#include <algorithm>
+#include <sstream>
 
 using namespace std;
 
@@ -12,6 +12,21 @@ namespace gfx
 
 namespace
 {
+
+void report_error(const std::string& name, char_t c)
+{
+    std::stringstream ss;
+    ss << "Could not find codepoint : '";
+
+    if(c > 0 && c < 128)
+        ss << char(c);
+    else
+        ss << c;
+
+    ss << "' in PNG font [" << name << "]. Probably caused by wrong specified range, missing cyan pixel or wrong rect.";
+
+    throw gfx::exception(ss.str());
+}
 bool is_cyan(color c)
 {
     return c.r == 0 && c.g == 255 && c.b == 255 && c.a != 0;
@@ -65,13 +80,9 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
         rect = s->get_rect();
     }
 
+
     point start_point {rect.x, rect.y};
-    auto sample = s->get_pixel(start_point);
-    if (!is_cyan(sample))
-    {
-        throw gfx::exception("PNG File is not font. Cannot find start cyan pixel.");
-    }
-    s->set_pixel(start_point, {0,0,0,0});
+    s->set_pixel(start_point, {0, 0, 0, 0});
 
     int height = font_size;
     f.line_height = f.size = float(height);
@@ -86,9 +97,8 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
         max_char = std::max(max_char, char_t(range.second + 1));
     }
 
-    f.glyph_index.resize(max_char);
+    f.glyph_index.resize(max_char, char_t(-1));
     f.glyphs.reserve(total_glyphs);
-
     for (auto& range : codepoint_ranges)
     {
         for (auto c = range.first; c < range.second + 1; ++c)
@@ -97,13 +107,9 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
             while((x = next_cyan_on_line(s, start_point, -1)) == -1)
             {
                 start_point = {rect.x, start_point.y + height + 1};
-                if(start_point.y >= rect.y + rect.h )
+                if((start_point.y >= rect.y + rect.h) || (start_point.y >= s->get_rect().h))
                 {
-                    throw gfx::exception("We are out of bounds in the png font by the supplied rect.");
-                }
-                if(start_point.y >= s->get_rect().h)
-                {
-                    throw gfx::exception("We are out of bounds in png font.");
+                    report_error(name, c);
                 }
             }
 
@@ -120,13 +126,12 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
             //Turns out we only need to offset Y, the cyan pixel can overlap actual data at the X axis
             auto symbol_start_y = float(start_point.y + offset);
             auto width = float(x) - symbol_start_x;
-
             g.x0 = 0.0f;
             g.y0 = -f.ascent;
             g.x1 = float(width);
             g.y1 = g.y0 + float(height);
 
-            g.advance_x = g.x1 + offset;
+            g.advance_x = g.x1;
 
             g.u0 = symbol_start_x / float(s->get_width());
             g.v0 = symbol_start_y / float(s->get_height());
@@ -137,6 +142,7 @@ font_info create_font_from_cyan_sep_png(const std::string& name, std::unique_ptr
             start_point.x = x;
         }
     }
+
 
     f.cap_height = f.ascent;
     f.x_height = f.cap_height * 0.5f;

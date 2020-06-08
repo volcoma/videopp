@@ -1,6 +1,7 @@
 #pragma once
 
 #include "point.h"
+#include "size.h"
 #include "utils.h"
 
 namespace gfx
@@ -8,23 +9,27 @@ namespace gfx
     template<typename T>
     struct rect_t
     {
-        T x{}, y{};
-        T w{}, h{};
+        T x {};
+        T y {};
+        T w {};
+        T h {};
 
         constexpr rect_t() noexcept = default;
         constexpr rect_t(T x, T y, T w, T h) noexcept : x(x), y(y), w(w), h(h) {}
+        constexpr rect_t(T x, T y, const size_type<T>& size) noexcept : x(x), y(y), w(size.w), h(size.h) {}
+        constexpr rect_t(const point_t<T>& pos, T w, T h) noexcept : x(pos.x), y(pos.y), w(w), h(h) {}
+        constexpr rect_t(const point_t<T>& pos, const size_type<T>& size) noexcept : x(pos.x), y(pos.y), w(size.w), h(size.h) {}
 
         rect_t(const rect_t &other) noexcept  = default;
         rect_t(rect_t &&other) noexcept = default;
         
-        void expand(T x_off, T y_off)
-        {
-            x -= int(x_off);
-            y -= int(y_off);
-            w += int(x_off * 2.0f);
-            h += int(y_off * 2.0f);
+        // getter
+        inline point_t<T> get_pos() const noexcept { return {x, y}; }
+        inline size_type<T> get_size() const noexcept { return {w, h}; }
 
-        }
+        // setter
+        void set_pos(const point_t<T>& pos) noexcept { x = pos.x; y = pos.y; }
+        void set_size(const size_type<T>& size) noexcept { w = size.w; h = size.h; }
 
         rect_t offset(const point_t<T>& pt) const
         {
@@ -63,13 +68,17 @@ namespace gfx
         ///     @return true if this rect overlaps the other
         bool is_overlapping(const rect_t &other) const noexcept
         {
-            auto other_right = other.x + other.w;
-            auto other_bottom = other.y + other.h;
-            auto right = x + w;
-            auto bottom = y + h;
-    
-            return !((x >= other_right || other.x >= right) && (bottom >= other.y || other_bottom >= y));
-            
+            auto left_x = std::max(x, other.x);
+            auto right_x = std::min(x + w, other.x + other.w);
+            auto top_y = std::max(y, other.y);
+            auto bottom_y = std::min(y + h, other.y + other.h);
+
+            if (left_x < right_x && top_y < bottom_y)
+            {
+                return true;
+            }
+
+            return false;
         }
         
         /// Get the area rectangle of the overlap (a.k.a. crop)
@@ -77,31 +86,25 @@ namespace gfx
         ///     @return the are rectangle of the overlap
         rect_t get_overlapping_rect(const rect_t &other) const noexcept
         {
-            auto other_right = other.x + other.w;
-            auto other_bottom = other.y + other.h;
-            auto right = x + w;
-            auto bottom = y + h;
-            rect_t result;
-    
-            if ((x >= other_right || other.x >= right) && (bottom >= other.y || other_bottom >= y))
-            { // no overlap return empty rect
-                return result;
+            auto left_x = std::max(x, other.x);
+            auto right_x = std::min(x + w, other.x + other.w);
+            auto top_y = std::max(y, other.y);
+            auto bottom_y = std::min(y + h, other.y + other.h);
+
+            if (left_x < right_x && top_y < bottom_y)
+            {
+                return {left_x, top_y, right_x - left_x, bottom_y - top_y};
             }
-    
-            result.x = other.x >= x ? other.x : x;
-            result.y = other.y >= y ? other.y : y;
-            result.w = other_right >= right ? right - result.x : other_right - result.x;
-            result.h = other_bottom >= bottom ? bottom - result.y : other_bottom - result.y;
-    
-            return result;
+
+            return {};
         }
         
         /// Get normalized texture coordinates after cropping
         ///     @param cropper - part of texture to use
         ///     @return the texture coords (left, right, top, bottom limits, represented as a rect)
-        rect_t<float> get_cropped_texture_coord(const rect_t &cropper) const 
+        rect_t get_cropped_texture_coord(const rect_t &cropper) const
         {
-            rect_t<float> result;
+            rect_t result;
             result.x = static_cast<float> (cropper.x) / w;
             result.y = static_cast<float> (cropper.x + cropper.w) / w;
             result.w = static_cast<float> (cropper.y) / h;
@@ -112,7 +115,7 @@ namespace gfx
         /// Check if rectangle contains a point
         ///     @param p - point to check
         ///     @return true if p is inside this rect
-        bool contains(const point& p) const
+        bool contains(const point_t<T>& p) const
         {
             return (p.x >= x && p.x <= (x + w) && p.y >= y && p.y <= (y + h));            
         }
@@ -157,23 +160,32 @@ namespace gfx
         }
 
         /// Cast to true if rectangle has a valid area (>0)
-        operator bool() const
+        explicit operator bool() const noexcept
         {
             return w != 0 && h != 0;
+        }
+
+        void expand(const T& x, const T& y) noexcept
+        {
+            this->x -= x;
+            this->y -= y;
+            this->w += 2 * x;
+            this->h += 2 * y;
         }
     };
     
     using rect = rect_t<int>;
     using frect = rect_t<float>;
+    using tcoords = frect;
 }
-
 
 namespace std
 {
-    template<typename T>
-    struct hash<gfx::rect_t<T>>
+    template<> struct hash<gfx::rect>
     {
-        std::size_t operator()(gfx::rect_t<T> const& s) const noexcept
+        using argument_type = gfx::rect;
+        using result_type = std::size_t;
+        result_type operator()(argument_type const& s) const noexcept
         {
             uint64_t seed{0};
             utils::hash(seed, s.x, s.y, s.w, s.h);

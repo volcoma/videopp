@@ -4,10 +4,28 @@ namespace gfx
 {
 namespace
 {
-context_wgl* master_context{};
+std::vector<context_wgl*> ctxs {};
+
+bool make_current_context(context_wgl* ctx)
+{
+    static context_wgl* current{};
+
+    if(current != ctx)
+    {
+        if(wglMakeCurrent(ctx->hdc_, ctx->context_))
+        {
+            current = ctx;
+            return true;
+        }
+
+        return false;
+    }
+
+    return true;
+}
 }
 
-context_wgl::context_wgl(void* native_handle)
+context_wgl::context_wgl(void* native_handle, int major, int minor)
 {
     hwnd_ = reinterpret_cast<HWND>(native_handle);
     if(!hwnd_)
@@ -47,61 +65,85 @@ context_wgl::context_wgl(void* native_handle)
 	{
 		throw gfx::exception("SetPixelFormat failed.");
 	}
-	context_ = wglCreateContext(hdc_);
 
-    if(!master_context)
+    auto dummy_ctx = wglCreateContext(hdc_);
+    wglMakeCurrent(hdc_, dummy_ctx);
+
+    // must be called after context was made current
+    if(!gladLoadWGL(hdc_))
     {
-        master_context = this;
+        wglMakeCurrent(nullptr, nullptr);
+        wglDeleteContext(dummy_ctx);
+        throw gfx::exception("Cannot load wgl.");
+    }
+
+    wglMakeCurrent(nullptr, nullptr);
+    wglDeleteContext(dummy_ctx);
+
+    int context_attribs[] =
+	{
+		WGL_CONTEXT_MAJOR_VERSION_ARB, major,
+		WGL_CONTEXT_MINOR_VERSION_ARB, minor,
+		0
+	};
+
+    if(!ctxs.empty())
+    {
+        context_ = wglCreateContextAttribsARB(hdc_, ctxs.front()->context_, context_attribs);
     }
     else
     {
-        if(!wglShareLists(master_context->context_, context_))
-        {
-            throw gfx::exception("wglShareLists failed.");
-        }
+        context_ = wglCreateContextAttribsARB(hdc_, nullptr, context_attribs);
     }
 
-    make_current();
-
-	// must be called after context was made current
-    if(!gladLoadWGL(hdc_))
+    if(!context_)
     {
-        throw gfx::exception("Cannot load wgl.");
+        throw gfx::exception("Cannot create wgl context.");
     }
+
+    ctxs.emplace_back(this);
+
+    make_current_context(this);
 }
 
 context_wgl::~context_wgl()
 {
-    if(master_context == this)
-    {
-        master_context = {};
-    }
-	wglMakeCurrent(nullptr, nullptr);
+    auto it = std::remove(std::begin(ctxs), std::end(ctxs), this);
+    ctxs.erase(it, std::end(ctxs));
+
+    wglMakeCurrent(nullptr, nullptr);
 	wglDeleteContext(context_);
 	ReleaseDC(hwnd_, hdc_);
 
-    if(master_context)
+    if (!ctxs.empty())
     {
-        master_context->make_current();
+        ctxs.front()->make_current();
     }
 }
 
 bool context_wgl::set_vsync(bool vsync)
 {
+    bool result = false;
 	if(wglSwapIntervalEXT)
 	{
-		return wglSwapIntervalEXT(vsync ? 1 : 0);
+		result = wglSwapIntervalEXT(vsync ? -1 : 0);
+        if(!result)
+        {
+            result = wglSwapIntervalEXT(vsync ? 1 : 0);
+        }
 	}
-	return false;
+	return result;
 }
 
 bool context_wgl::make_current()
 {
-	return wglMakeCurrent(hdc_, context_);
+    return make_current_context(this);
 }
 
 bool context_wgl::swap_buffers()
 {
-	return SwapBuffers(hdc_);
+    return SwapBuffers(hdc_);
 }
+
+
 }

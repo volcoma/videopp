@@ -2,26 +2,42 @@
 
 #include "draw_cmd.h"
 #include "text.h"
-#include "rich_text.h"
 #include "polyline.h"
+#include "rich_text.h"
 
 namespace gfx
 {
 
+struct batch_config
+{
+    size_t max_textures_per_batch{32};
+};
+
+const batch_config& get_batch_config();
+void set_batch_config(const batch_config& cfg);
+
 enum class size_fit
 {
-	shrink_to_fit,
-	stretch_to_fit,
-	auto_fit
+    shrink_to_fit,
+    stretch_to_fit,
+    auto_fit
 };
 
 enum class dimension_fit
 {
-	x,
-	y,
-	uniform
+    x,
+    y,
+    uniform,
+	non_uniform
 };
 
+
+enum class movie_format
+{
+    opaque,
+    valpha,
+    halpha
+};
 const program_setup& empty_setup() noexcept;
 
 //-----------------------------------------------------------------------------
@@ -41,24 +57,26 @@ math::transformf align_item(align_t align,
                             const rect& item);
 
 math::transformf align_and_fit_item(align_t align,
-									float item_w, float item_h,
-									const math::transformf& transform,
-									const rect& dst_rect,
-									size_fit sz_fit = size_fit::shrink_to_fit,
-									dimension_fit dim_fit = dimension_fit::uniform);
+                                    float item_w, float item_h,
+                                    const math::transformf& transform,
+                                    const rect& dst_rect,
+                                    size_fit sz_fit = size_fit::shrink_to_fit,
+                                    dimension_fit dim_fit = dimension_fit::uniform);
 
 
 math::transformf align_and_fit_text(const text& t,
-									const math::transformf& transform,
-									const rect& dst_rect,
-									size_fit sz_fit = size_fit::shrink_to_fit,
-									dimension_fit dim_fit = dimension_fit::uniform);
+                                    const math::transformf& transform,
+                                    const rect& dst_rect,
+                                    size_fit sz_fit = size_fit::shrink_to_fit,
+                                    dimension_fit dim_fit = dimension_fit::uniform);
 
 math::transformf align_wrap_and_fit_text(text& t,
-										 const math::transformf& transform,
-										 rect dst_rect,
-										 size_fit sz_fit = size_fit::shrink_to_fit,
-										 dimension_fit dim_fit = dimension_fit::uniform);
+                                         const math::transformf& transform,
+                                         rect dst_rect,
+                                         size_fit sz_fit = size_fit::shrink_to_fit,
+                                         dimension_fit dim_fit = dimension_fit::uniform);
+
+using source_data = std::tuple<texture_view, rect>;
 
 /// A draw list. Contains draw commands. Can be reused.
 struct draw_list
@@ -66,10 +84,11 @@ struct draw_list
     using index_t = uint32_t;
     using crop_area_t = std::vector<rect>;
 
-    draw_list(bool has_debug = true);
+    draw_list(bool has_debug_info = true);
     draw_list(draw_list&&) = default;
     draw_list& operator=(draw_list&&) = default;
     ~draw_list();
+
     //-----------------------------------------------------------------------------
     /// Clears the list.
     //-----------------------------------------------------------------------------
@@ -86,6 +105,7 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void push_crop(const crop_area_t& crop);
     void pop_crop();
+
     //-----------------------------------------------------------------------------
     /// Pushes/pops a blending to be used in the following commands, otherwise
     /// it will automatically try to detect it based on the texture format.
@@ -96,7 +116,7 @@ struct draw_list
     //-----------------------------------------------------------------------------
     /// Pushes/pops a global transform to be used in the following commands.
     //-----------------------------------------------------------------------------
-    void push_transform(const math::transformf& transform);
+    void push_transform(const math::transformf& tr);
     void pop_transform();
 
     //-----------------------------------------------------------------------------
@@ -105,29 +125,28 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void push_program(const gpu_program& program);
     void pop_program();
-
     //-----------------------------------------------------------------------------
     /// Adds a rect to the list.
     //-----------------------------------------------------------------------------
     void add_rect(const rect& r,
-                  color col = color::white(),
+                  const color& col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const rect& r,
                   const math::transformf& transform,
-                  color col = color::white(),
+                  const color& col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const frect& r,
                   const math::transformf& transform,
-                  color col = color::white(),
+                  const color& col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
     void add_rect(const std::array<math::vec2, 4>& points,
-                  color col = color::white(),
+                  const color& col = color::white(),
                   bool filled = true,
                   float thickness = 1.0f);
 
@@ -136,56 +155,118 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_line(const math::vec2& start,
                   const math::vec2& end,
-                  color col = color::white(),
+                  const color& col = color::white(),
                   float thickness = 1.0f);
 
 
     //-----------------------------------------------------------------------------
+    /// Adds a movie image to the list.
+    //-----------------------------------------------------------------------------
+    void add_movie_image(const texture_view& texture,
+                         const rect& src,
+                         const rect& dst,
+                         const math::transformf& transform,
+                         movie_format format = movie_format::opaque,
+                         flip_format flip = flip_format::none,
+                         const color& col = color::white());
+
+    void add_movie_image(const texture_view& texture,
+                         const rect& src,
+                         const rect& dst,
+                         movie_format format = movie_format::opaque,
+                         flip_format flip = flip_format::none,
+                         const color& col = color::white());
+
+    void add_movie_image(const texture_view& texture,
+                         const rect& dst,
+                         movie_format format = movie_format::opaque,
+                         flip_format flip = flip_format::none,
+                         const color& col = color::white());
+
+    void add_movie_image(const texture_view& texture,
+                         const rect& dst,
+                         const math::transformf& transform,
+                         movie_format format = movie_format::opaque,
+                         flip_format flip = flip_format::none,
+                         const color& col = color::white());
+
+    void add_movie_image(const texture_view& texture,
+                         const math::transformf& transform,
+                         movie_format format = movie_format::opaque,
+                         flip_format flip = flip_format::none,
+                         const color& col = color::white());
+
+    //-----------------------------------------------------------------------------
     /// Adds an image to the list.
     //-----------------------------------------------------------------------------
-    void add_image(texture_view texture,
+    void add_image(const texture_view& texture,
                    const rect& src,
                    const rect& dst,
                    const math::transformf& transform,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(texture_view texture,
+    void add_image(const texture_view& texture,
                    const rect& src,
                    const rect& dst,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(texture_view texture,
+    void add_image(const texture_view& texture,
                    const rect& dst,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(texture_view texture,
+    void add_image(const texture_view& texture,
                    const rect& dst,
                    const math::transformf& transform,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(texture_view texture,
+    void add_image(const source_data& src,
+                   const rect& dst,
+                   const color& col = color::white(),
+                   flip_format flip = flip_format::none,
+                   const program_setup& setup = empty_setup());
+
+    void add_image(const source_data& src,
+                   const math::transformf& transform,
+                   const rect& dst,
+                   const color& col = color::white(),
+                   flip_format flip = flip_format::none,
+                   const program_setup& setup = empty_setup());
+
+    void add_image(const source_data& src,
+                   const math::transformf& transform,
+                   const color& col = color::white(),
+                   flip_format flip = flip_format::none,
+                   const program_setup& setup = empty_setup());
+
+    void add_image(const source_data& src,
+                   const point& dst,
+                   const color& col = color::white(),
+                   flip_format flip = flip_format::none,
+                   const program_setup& setup = empty_setup());
+
+    void add_image(const texture_view& texture,
                    const point& pos,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
                    const program_setup& setup = empty_setup());
 
-    void add_image(texture_view texture,
+    void add_image(const texture_view& texture,
                    const std::array<math::vec2, 4>& points,
-                   color col = color::white(),
+                   const color& col = color::white(),
                    math::vec2 min_uv = {0.0f, 0.0f},
                    math::vec2 max_uv = {1.0f, 1.0f},
                    flip_format flip = flip_format::none,
@@ -195,19 +276,43 @@ struct draw_list
                       const vertex_2d* vertices,
                       size_t count,
                       primitive_type type,
-                      texture_view texture = {},
+                      const texture_view& texture = {},
                       const program_setup& setup = empty_setup());
     //-----------------------------------------------------------------------------
     /// Adds another draw_list into the list
     //-----------------------------------------------------------------------------
     void add_list(const draw_list& list);
 
-
     //-----------------------------------------------------------------------------
     /// Adds a text which will be fitted into the destination rect.
     /// Position inside the rect is affected by the text's alignment and transform.
+    ///
+    /// Example below with different aligmnents and zero position, and dst_rect.
+    //-----------------------------------------------------------------------------
+    //    +-------------------+   +-------------------+   +-------------------+
+    //    |top_left           |   |        top        |   |          top_right|
+    //    |                   |   |                   |   |                   |
+    //    |                   |   |                   |   |                   |
+    //    +-------------------+   +-------------------+   +-------------------+
+    ///
+    //    +-------------------+   +-------------------+   +-------------------+
+    //    |                   |   |                   |   |                   |
+    //    |left               |   |       center      |   |              right|
+    //    |                   |   |                   |   |                   |
+    //    +-------------------+   +-------------------+   +-------------------+
+    ///
+    //    +-------------------+   +-------------------+   +-------------------+
+    //    |                   |   |                   |   |                   |
+    //    |                   |   |                   |   |                   |
+    //    |bottom_left        |   |       bottom      |   |       bottom_right|
+    //    +-------------------+   +-------------------+   +-------------------+
     //-----------------------------------------------------------------------------
     void add_text(const text& t,
+                  const math::transformf& transform,
+                  const rect& dst_rect,
+                  size_fit sz_fit = size_fit::shrink_to_fit,
+                  dimension_fit dim_fit = dimension_fit::uniform);
+    void add_text(const rich_text& t,
                   const math::transformf& transform,
                   const rect& dst_rect,
                   size_fit sz_fit = size_fit::shrink_to_fit,
@@ -217,38 +322,23 @@ struct draw_list
     /// Adds a text to the list.
     /// The script part lies on the ascent of the whole part.
     //-----------------------------------------------------------------------------
-	void add_text(const rich_text& t,
+    void add_text(const text& t,
+                  const math::transformf& transform); 
+    void add_text(const rich_text& t,
                   const math::transformf& transform);
-
-	//-----------------------------------------------------------------------------
-	/// Adds a text which will be fitted into the destination rect.
-	/// Position inside the rect is affected by the text's alignment and transform.
-	//-----------------------------------------------------------------------------
-	void add_text(const rich_text& t,
-				  const math::transformf& transform,
-				  const rect& dst_rect,
-				  size_fit sz_fit = size_fit::shrink_to_fit,
-				  dimension_fit dim_fit = dimension_fit::uniform);
-
-	//-----------------------------------------------------------------------------
-	/// Adds a text to the list.
-	/// The script part lies on the ascent of the whole part.
-	//-----------------------------------------------------------------------------
-	void add_text(const text& t,
-				  const math::transformf& transform);
 
     //-----------------------------------------------------------------------------
     /// Adds a polyline to the list.
     //-----------------------------------------------------------------------------
     void add_polyline(const polyline& poly,
-                      color col,
+                      const color& col,
                       bool closed,
                       float thickness = 1.0f,
                       float antialias_size = 1.0f);
 
     void add_polyline_gradient(const polyline& poly,
-                               color coltop,
-                               color colbot,
+                               const color& coltop,
+                               const color& colbot,
                                bool closed,
                                float thickness = 1.0f,
                                float antialias_size = 1.0f);
@@ -258,12 +348,12 @@ struct draw_list
     /// Will only work for convex shapes
     //-----------------------------------------------------------------------------
     void add_polyline_filled_convex(const polyline& poly,
-                                    color colf,
+                                    const color& colf,
                                     float antialias_size = 1.0f);
 
     void add_polyline_filled_convex_gradient(const polyline& poly,
-                                             color coltop,
-                                             color colbot,
+                                             const color& coltop,
+                                             const color& colbot,
                                              float antialias_size = 1.0f);
 
     //-----------------------------------------------------------------------------
@@ -271,14 +361,14 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_ellipse(const math::vec2& center,
                      const math::vec2& radii,
-                     color col,
+                     const color& col,
                      size_t num_segments = 12,
                      float thickness = 1.0f);
 
     void add_ellipse_gradient(const math::vec2& center,
                               const math::vec2& radii,
-                              color col1,
-                              color col2,
+                              const color& col1,
+                              const color& col2,
                               size_t num_segments = 12,
                               float thickness = 1.0f);
 
@@ -287,21 +377,21 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_ellipse_filled(const math::vec2& center,
                             const math::vec2& radii,
-                            color col,
+                            const color& col,
                             size_t num_segments = 12);
 
     void add_bezier_curve(const math::vec2& pos0,
                           const math::vec2& cp0,
                           const math::vec2& cp1,
                           const math::vec2& pos1,
-                          color col,
+                          const color& col,
                           float thickness = 1.0f,
                           int num_segments = 0);
 
 
     void add_curved_path_gradient(const std::vector<math::vec2>& points,
-                                  color c1,
-                                  color c2,
+                                  const color& c1,
+                                  const color& c2,
                                   float thickness = 1.0f,
                                   float antialias_size = 1.0f);
 
@@ -319,8 +409,7 @@ struct draw_list
     std::string to_string() const;
     void validate_stacks() const noexcept;
 
-	bool empty() const noexcept { return commands_requested == 0; }
-
+    bool empty() const noexcept { return commands_requested == 0; }
     //-----------------------------------------------------------------------------
     /// Data members
     //-----------------------------------------------------------------------------
@@ -331,17 +420,17 @@ struct draw_list
     /// draw commands
     std::vector<draw_cmd> commands;
     /// clip rects stack
-    std::vector<rect> clip_rects;
+    std::vector<rect> clip_rects; 
     /// crop rects stack
     std::vector<crop_area_t> crop_areas;
-    /// clip rects stack
-    std::vector<blending_mode> blend_modes;
+    /// blend modes stack
+    std::vector<blending_mode> blend_modes; 
     /// transforms stack
     std::vector<math::transformf> transforms;
     /// programs stack
     std::vector<gpu_program> programs;
     /// total commands requested
-    size_t commands_requested = 0;
+    int commands_requested = 0;
 
     std::unique_ptr<draw_list> debug;
 };

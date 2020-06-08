@@ -12,20 +12,28 @@ namespace gfx
     const glyphs& get_default_glyph_range();
     const glyphs& get_latin_glyph_range();
     const glyphs& get_cyrillic_glyph_range();
+    const glyphs& get_arabic_glyph_range();
     const glyphs& get_korean_glyph_range();
 
     // Full chinese is around 25000 symbols
     const glyphs& get_chinese_glyph_range();
-    const glyphs& get_chinese_simplified_glyph_range();
+    // Store 2500 regularly used characters for Simplified Chinese.
+    // This table covers 97.97% of all characters
+    // used during the month in July, 1987.
+    const glyphs& get_chinese_simplified_common_glyph_range();
+    const glyphs& get_chinese_simplified_official_glyph_range();
+
     const glyphs& get_japanese_glyph_range();
     const glyphs& get_thai_glyph_range();
+    const glyphs& get_vietnamese_glyph_range();
+
     const glyphs& get_currency_glyph_range();
     const glyphs& get_all_glyph_range();
 
     struct glyphs_builder
     {
         void add(const glyphs& range);
-        const glyphs& get() const;
+        const glyphs &get() const;
 
     private:
         glyphs range_;

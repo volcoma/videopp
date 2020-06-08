@@ -160,12 +160,13 @@ namespace gfx
     {
         assert(slot < bound_textures_.size() && "shader::set_uniform - index out of bounds");
         max_bound_slot_ = std::max(max_bound_slot_, int32_t(slot));
-        rend_.bind_texture(tex, slot);
+        rend_.set_texture(tex, slot);
         if( tex.custom_sampler )
         {
-            rend_.bind_sampler(tex, slot);
+            rend_.set_texture_sampler(tex, slot);
         }
 
+        rend_.bind_pixmap(tex.pixmap);
         bound_textures_[slot] = tex;
         auto location = get_uniform_location(uniform);
         if(location >= 0)
@@ -174,30 +175,33 @@ namespace gfx
         }
     }
 
-    void shader::set_uniform(const char* uniform, const std::array<texture_view, 32>& textures) const
+    void shader::set_uniform(const char* uniform, const std::array<texture_view, 32>& tex, uint32_t used_slots) const
     {
-        max_bound_slot_ = std::max(max_bound_slot_, int32_t(textures.size() - 1));
+        assert(used_slots <= bound_textures_.size() && "shader::set_uniform - index out of bounds");
 
-        int samplers[32];
-        for(uint32_t slot = 0; slot < textures.size(); ++slot)
+        int32_t samplers[32]{};
+        for (uint32_t slot = 0; slot < 32; slot++)
         {
-            const auto& tex = textures[slot];
-            rend_.bind_texture(tex, slot);
-            if( tex.custom_sampler )
-            {
-                rend_.bind_sampler(tex, slot);
-            }
-
-            bound_textures_[slot] = tex;
-
             samplers[slot] = slot;
-        }
 
+            if(slot < used_slots)
+            {
+                auto& texture = tex[slot];
+                rend_.set_texture(texture, slot);
+//                if( texture.custom_sampler )
+//                {
+//                    rend_.set_texture_sampler(texture, slot);
+//                }
+                rend_.bind_pixmap(texture.pixmap);
+                bound_textures_[slot] = texture;
+                max_bound_slot_ = std::max(max_bound_slot_, int32_t(slot));
+            }
+        }
 
         auto location = get_uniform_location(uniform);
         if(location >= 0)
         {
-            gl_call(glUniform1iv(location, 32, samplers));
+            gl_call(glUniform1iv(location, GLsizei(32), samplers));
         }
     }
 
@@ -275,7 +279,7 @@ namespace gfx
 
     void shader::set_uniform(const char* uniform, const color& data) const
     {
-        set_uniform(uniform, math::vec4{data.r / 255.0f, data.g / 255.0f, data.b / 255.0f, data.a / 255.0f});
+        set_uniform(uniform, math::vec4{float(data.r) / 255.0f, float(data.g) / 255.0f, float(data.b) / 255.0f, float(data.a) / 255.0f});
     }
 
     bool shader::has_uniform(const char* uniform) const
@@ -287,15 +291,16 @@ namespace gfx
     {
         for(int32_t slot = 0; slot <= max_bound_slot_; ++slot)
         {
-            rend_.unbind_texture(uint32_t(slot));
+            rend_.unbind_pixmap(bound_textures_[size_t(slot)].pixmap);
+            rend_.reset_texture(uint32_t(slot));
             if ( bound_textures_[size_t(slot)].custom_sampler )
             {
-                rend_.unbind_sampler(uint32_t(slot));
+                rend_.reset_texture_sampler(uint32_t(slot));
             }
             bound_textures_[size_t(slot)] = {};
         }
         // activate just 1 texture
-        rend_.unbind_texture(0);
+        rend_.reset_texture(0);
         max_bound_slot_ = -1;
     }
 

@@ -100,6 +100,8 @@ void polyline::arc_between(const math::vec2& p1, const math::vec2& p, const math
     float start_angle = positive_angle (math::atan2<float, math::highp> ((c1.y - o.y), (c1.x - o.x)));
     float end_angle = positive_angle (math::atan2<float, math::highp> ((c2.y - o.y), (c2.x - o.x)));
 
+
+
     if(angle <= math::pi<float>())
     {
         arc_to(o, radius, start_angle, end_angle);
@@ -282,9 +284,8 @@ void polyline::rectangle(const frect& r, float rounding, uint32_t rounding_corne
 void polyline::ellipse(const math::vec2& center, const math::vec2& radii, size_t num_segments)
 {
     const float a_max = math::pi<float>() * 2.0f * (float(num_segments) - 1.0f) / float(num_segments);
-    arc_to(center, radii-0.5f, 0.0f, a_max, num_segments - 1);
+    arc_to(center, radii-0.5f, 0.0f, math::pi<float>() * 2.0f, num_segments);
 }
-
 
 void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
 {
@@ -308,9 +309,7 @@ void polyline::path(const std::vector<math::vec2>& points, float corner_radius)
         math::vec2 next = points[i + 1];
         arc_between(prev, edge, next, corner_radius);
     }
-
     line_to(points.back());
-
 }
 
 float polyline::get_length() const
@@ -328,12 +327,12 @@ int polyline::get_closest_point(float len, float& dist) const
 {
     int point_idx = -1;
     dist = 0;
-    for (size_t j = 0; j < points_.size() - 1; j++)
+    for (size_t i = 1; i < points_.size(); i++)
     {
-       auto next_dist = math::distance(points_[j], points_[j + 1]);
+       auto next_dist = math::distance(points_[i - 1], points_[i]);
        if (dist + next_dist >= len)
        {
-           point_idx = int(j);
+           point_idx = int(i) - 1;
            break;
        }
        dist += next_dist;

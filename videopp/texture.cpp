@@ -1,30 +1,67 @@
+
 #include "texture.h"
 
 #include "renderer.h"
 #include "surface.h"
+
 #include "detail/utils.h"
 
+#include <3rdparty/gli/gli/gli.hpp>
+#include <sstream>
 
 namespace gfx
 {
-
     namespace
     {
-        std::tuple<int32_t, int32_t> get_opengl_pixel_format(const pix_type &pixel_type)
+        constexpr uint64_t max_lod_levels = 2;
+
+
+        /// Hat pixel format to opengl pixel format converter
+        ///     @param pixel_type - hat format to convert
+        ///     @return the opengl format
+        int32_t get_opengl_pixel_format(const pix_type &pixel_type)
         {
+            int32_t pixel_format = GL_RGBA;
             switch (pixel_type)
             {
-                case pix_type::red:
-                    return {GL_RED, GL_R8};
+                case pix_type::gray:
+                    pixel_format = GL_RED;
+                    break;
                 case pix_type::rgb:
-                    return {GL_RGB, GL_RGB8};
+                    pixel_format = GL_RGB;
+                    break;
                 case pix_type::rgba:
-                    return {GL_RGBA, GL_RGBA8};
-                default:
-                    return {GL_RGBA, GL_RGBA8};
+                    pixel_format = GL_RGBA;
+                    break;
             }
+
+            return pixel_format;
         }
 
+        int get_compressed_buffer_size(int width, int height)
+        {
+            // info for this formula and values is get from :
+            // https://www.khronos.org/opengl/wiki/BPTC_Texture_Compression
+            // https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexImage2D.xhtml
+            constexpr int block_width = 4; // pixels
+            constexpr int round_up_width = block_width - 1;
+            constexpr int block_height = 4; // pixels
+            constexpr int round_up_height = block_width - 1;
+            constexpr int block_size = 16; // bytes
+
+            return block_size * ((width + round_up_width) / block_width) * ((height + round_up_height) / block_height);
+        }
+
+        uint8_t* get_empty_buffer(size_t size)
+        {
+            static std::vector<uint8_t> empty_data;
+            if (empty_data.size() < size_t(size))
+            {
+                empty_data.resize(size_t(size), 0);
+            }
+
+            return empty_data.data();
+        }
     }
 
     texture::texture(const renderer &rend) noexcept
@@ -38,7 +75,8 @@ namespace gfx
     ///     @param height - texture height in pixels
     ///     @param pixel_type - type of pixel data
     ///     @param format type - texture usage type
-    texture::texture(const renderer &rend, int width, int height, pix_type pixel_type, texture::format_type format_type)
+    texture::texture(const renderer &rend, int width, int height, pix_type pixel_type,
+                     texture::format_type format_type)
         : rend_(rend)
         , pixel_type_(pixel_type)
         , format_type_(format_type)
@@ -54,21 +92,32 @@ namespace gfx
             blending_ = blending_mode::blend_none;
         }
 
+        if (texture::format_type::pixmap == format_type_)
+        {
+            pixmap_ = rend_.context_->create_pixmap(rect_.get_size(), pixel_type_);
+        }
+
         // Generate the OGL texture ID
-        int32_t format{};
-        int32_t internal_format{};
-        std::tie(format, internal_format) = get_opengl_pixel_format(pixel_type);
+        int pixel_format = get_opengl_pixel_format(pixel_type);
         gl_call(glGenTextures(1, &texture_));
-        gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
+        rend_.set_texture(texture_, 0);
 
         // Upload data to VRAM
         if (texture::format_type::target == format_type_)
         {
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, nullptr));
+            //configure LOD
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0));
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, max_lod_levels));
+
+            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, pixel_format, width, height, 0, static_cast<GLenum> (pixel_format), GL_UNSIGNED_BYTE, nullptr));
         }
         else if (texture::format_type::streaming == format_type_)
         {
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, nullptr));
+            //configure LOD
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0));
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 1));
+
+            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, pixel_format, width, height, 0, static_cast<GLenum> (pixel_format), GL_UNSIGNED_BYTE, nullptr));
 
             // We're building a framebuffer object
             gl_call(glGenFramebuffers(1, &fbo_));
@@ -82,55 +131,88 @@ namespace gfx
                 throw gfx::exception("Cannot create FBO. GL ERROR CODE: " + std::to_string(status));
             }
         }
+        else if (texture::format_type::compress == format_type_)
+        {
+            //configure LOD
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0));
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, max_lod_levels));
+
+            auto size = get_compressed_buffer_size(width, height);
+            auto ptr = get_empty_buffer(size_t(size));
+            gl_call(glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_BPTC_UNORM, width, height, 0, size, ptr));
+        }
 
         setup_texparameters();
 
-        gl_call(glBindTexture(GL_TEXTURE_2D, 0));
+        rend_.reset_texture(0);
+    }
+
+    texture::texture(const renderer& rend, const std::tuple<size, pix_type, texture::format_type>& data)
+        : texture(rend, std::get<size>(data).w, std::get<size>(data).h,
+                  std::get<pix_type>(data), std::get<format_type>(data))
+    {
     }
 
     /// Texture constructor from a surface
     ///     @param rend - renderer interface
     ///     @param surface - the surface to copy pixels from
-    texture::texture(const renderer &rend, const surface &surface)
+    texture::texture(const renderer &rend, const surface &surface, bool empty)
         : rend_(rend)
+        , pixel_type_(surface.get_type())
         , rect_(0, 0, surface.get_width(), surface.get_height())
     {
-        if (!create_from_surface(surface))
+
+        if(!surface.had_alpha_pixels_originally_)
+        {
+            blending_ = blending_mode::blend_none;
+        }
+
+        if (!create_from_surface(surface, empty, 0, 0, 0, surface.get_levels(), surface.get_layers(), surface.get_faces()))
         {
             throw gfx::exception("Cannot create texture from surface.");
         }
     }
 
-    texture::~texture()
+    texture::texture(const renderer& rend, const surface& surface, size_t level_id, size_t layer_id, size_t face_id)
+        : rend_(rend)
+        , pixel_type_(surface.get_type())
     {
-        if (fbo_ > 0)
+        if (surface.get_levels() <= level_id)
         {
-            // Destroy FBO
-            gl_call(glDeleteFramebuffers(1, &fbo_));
-            fbo_ = 0;
+            throw gfx::exception("Cannot create texture from surface with fewer lavels than expected.");
         }
-        
-        if (texture_ > 0)
+
+        if (surface.get_layers() <= layer_id)
         {
-            // Destroy texture
-            gl_call(glDeleteTextures(1, &texture_));
-            texture_ = 0;
+            throw gfx::exception("Cannot create texture from surface with fewer layers than expected.");
+        }
+
+        if (surface.get_faces() <= face_id)
+        {
+            throw gfx::exception("Cannot create texture from surface with fewer faces than expected.");
+        }
+
+        rect_ = surface.get_rect(level_id);
+
+        if (!create_from_surface(surface, false, level_id, layer_id, face_id, 1, 1, 1))
+        {
+            throw gfx::exception("Cannot create texture from surface.");
         }
     }
 
-    bool texture::setup_texparameters() const
+    bool texture::setup_texparameters()
     {
         // Pick the wrap mode for rendering
         GLint wmode = GL_REPEAT;
         switch(wrap_type_)
         {
-        case wrap_type::mirror:
+        case wrap_type::wrap_mirror:
             wmode = GL_MIRRORED_REPEAT;
             break;
-        case wrap_type::repeat:
+        case wrap_type::wrap_repeat:
             wmode = GL_REPEAT;
             break;
-        case wrap_type::clamp:
+        case wrap_type::wrap_clamp:
         default:
             wmode = GL_CLAMP_TO_EDGE;
             break;
@@ -142,10 +224,10 @@ namespace gfx
         GLint imode = GL_LINEAR;
         switch(interp_type_)
         {
-        case interpolation_type::nearest:
+        case interpolation_type::interpolate_none:
             imode = GL_NEAREST;
             break;
-        case interpolation_type::linear:
+        case interpolation_type::interpolate_linear:
         default:
             imode = GL_LINEAR;
             break;
@@ -156,18 +238,9 @@ namespace gfx
         return true;
     }
 
-    /// Clear the texture. Works only for FBO textures
-    ///     @param color - color to clear to
-    ///     @return true on success
-    bool texture::clear(const color &color)
+    texture::~texture()
     {
-        if (format_type_ != format_type::streaming)
-        {
-            return false;
-        }
-
-        rend_.clear_fbo(fbo_, color);
-        return true;
+        rend_.queue_to_delete_texture(pixmap_, fbo_, texture_);
     }
 
     /// Load from a file
@@ -179,7 +252,7 @@ namespace gfx
         {
             surface surf(path);
 
-            if (!create_from_surface(surf))
+            if (!create_from_surface(surf, false, 0, 0, 0, surf.get_levels(), surf.get_layers(), surf.get_faces()))
             {
                 return false;
             }
@@ -187,7 +260,7 @@ namespace gfx
             rect_.w = surf.get_width();
             rect_.h = surf.get_height();
         }
-        catch (exception &e)
+        catch (gfx::exception &e)
         {
             log("ERROR: " + std::string(e.what()));
             return false;
@@ -199,7 +272,8 @@ namespace gfx
     /// Copy from a surface
     ///     @param surface - preloaded surface
     ///     @return true on success
-    bool texture::create_from_surface(const surface &surface) noexcept
+    bool texture::create_from_surface(const surface &surface, bool empty, size_t start_level_id, size_t start_layer_id,
+                                      size_t start_face_id, size_t levels_count, size_t layers_cout, size_t faces_count) noexcept
     {
         if (!rend_.set_current_context())
         {
@@ -208,76 +282,256 @@ namespace gfx
 
         gl_call(glGenTextures(1, &texture_));
 
-        if (surface.surface_type_ == surface::surface_type::raw)
+        auto& gli_surface = *surface.gli_surface_;
+        if (!gli::is_compressed(gli_surface.format()))
         {
-            pixel_type_ = surface.get_type();
-
-            int32_t format{};
-            int32_t internal_format{};
-            std::tie(format, internal_format) = get_opengl_pixel_format(surface.get_type());
-
-            if(pixel_type_ == pix_type::rgb)
-            {
-                blending_ = blending_mode::blend_none;
-            }
-
-
-            gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
-//            gl_call(glTexStorage2D(GL_TEXTURE_2D, 1, GLenum(internal_format), surface.get_width(), surface.get_height()));
-//            gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface.get_width(), surface.get_height(),
-//                            static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
-            gl_call(glTexImage2D(GL_TEXTURE_2D, 0, GLenum(internal_format), surface.get_width(), surface.get_height(), 0,
-                            static_cast<GLenum> (format), GL_UNSIGNED_BYTE, surface.get_pixels()));
-            if( !setup_texparameters() )
-            {
-                return false;
-            }
-
-            gl_call(glBindTexture(GL_TEXTURE_2D, 0));
-
             format_type_ = format_type::target;
-        }
-        else if (surface.surface_type_ == surface::surface_type::compressed)
-        {
-            return false;
         }
         else
         {
+            format_type_ = format_type::compress;
+        }
+
+        generated_mipmap_ = levels_count > 1;
+
+        gli::gl gl(gli::gl::PROFILE_GL32);
+        auto format = gl.translate(gli_surface.format(), gli_surface.swizzles());
+        GLenum target = gl.translate(gli_surface.target());
+
+        gl_call(glBindTexture(target, texture_));
+        if( !setup_texparameters() )
+        {
             return false;
         }
+        if (generated_mipmap_)
+        {
+            gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+        }
+
+        auto max_levels = std::min(levels_count, max_lod_levels);
+
+        gl_call(glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, format.Swizzles[0]));
+        gl_call(glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, format.Swizzles[1]));
+        gl_call(glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, format.Swizzles[2]));
+        gl_call(glTexParameteri(target, GL_TEXTURE_SWIZZLE_A, format.Swizzles[3]));
+
+        {
+            auto face_total = static_cast<GLsizei>(layers_cout * faces_count);
+            auto extent = gli_surface.extent(start_level_id);
+
+            switch(gli_surface.target())
+            {
+            case gli::TARGET_1D:
+                gl_call(glTexStorage1D(target, static_cast<GLint>(max_levels),
+                                       format.Internal, extent.x));
+                break;
+            case gli::TARGET_1D_ARRAY:
+            case gli::TARGET_2D:
+            case gli::TARGET_CUBE:
+            {
+                gl_call(glTexStorage2D(target, static_cast<GLint>(max_levels),
+                                       format.Internal, extent.x,
+                                       gli_surface.target() == gli::TARGET_2D ? extent.y : face_total));
+
+// EGL only
+//
+//                int width = extent.x;
+//                int height = gli_surface.target() == gli::TARGET_2D ? extent.y : face_total;
+//                for (int i = 0; i < int(max_levels); i++)
+//                {
+//                    gl_call(glTexImage2D(target, i, format.Internal, width, height, 0,
+//                                         format.External, format.Type, nullptr));
+//                    width = std::max(1, (width / 2));
+//                    height = std::max(1, (height / 2));
+//                }
+            }
+                break;
+            case gli::TARGET_2D_ARRAY:
+            case gli::TARGET_3D:
+            case gli::TARGET_CUBE_ARRAY:
+                gl_call(glTexStorage3D(target, static_cast<GLint>(max_levels),
+                                       format.Internal, extent.x, extent.y,
+                                       gli_surface.target() == gli::TARGET_3D ? extent.z : face_total));
+                break;
+            default:
+                gl_call(glBindTexture(target, 0));
+                gl_call(glDeleteTextures(1, &texture_));
+                return false;
+            }
+        }
+
+        if (!empty)
+        {
+            for(size_t src_layer = start_layer_id, dst_layer = 0;
+                src_layer < start_layer_id + layers_cout && dst_layer < layers_cout; ++src_layer, ++dst_layer)
+            {
+                for(size_t src_face = start_face_id, dst_face = 0;
+                    src_face < start_face_id + faces_count && dst_face < faces_count; ++src_face, ++dst_face)
+                {
+                    for(size_t src_level = start_level_id, dst_level = 0;
+                        src_level < start_level_id + max_levels && dst_level < max_levels; ++src_level, ++dst_level)
+                    {
+                        if(!update({0, 0}, surface, src_level, src_face, src_layer, dst_level, dst_face, dst_layer))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        gl_call(glBindTexture(target, 0));
 
         return true;
     }
 
+    
     /// Upload new data to VRAM buffer (from surface)
     ///     @param point - offset inside texture pixelspace
     ///     @param surface - surface to copy from
     ///     @return true on success
     bool texture::update(const point &point, const surface &surface)
     {
-        rect rect { point.x, point.y, surface.get_width(), surface.get_height() };
-        return update(rect, surface.get_type(), surface.get_pixels());
+        const auto& gli_surface = *surface.gli_surface_;
+        auto max_levels = std::min(gli_surface.levels(), max_lod_levels);
+        for(std::size_t layer = 0; layer < gli_surface.layers(); ++layer)
+        {
+            for(std::size_t face = 0; face < gli_surface.faces(); ++face)
+            {
+                for(std::size_t level = 0; level < max_levels; ++level)
+                {
+                    if(!update(point, surface, level, face, layer, level, face, layer))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     /// Upload new data to VRAM buffer (from raw data)
     ///     @param rect - rectangle to copy
     ///     @param pix_format - hat pixel format
     ///     @param buffer - data to copy from
+    ///     @param level - level of detail (mipmap)
     ///     @return true on success
-    bool texture::update(const rect &rect, pix_type pix_format, const uint8_t *buffer)
+    bool texture::update(const rect &rect, pix_type pix_format, const uint8_t *buffer, const size_t level)
     {
-        if (format_type_ != format_type::target)
+        const auto format = static_cast<GLenum> (get_opengl_pixel_format(pix_format));
+        rend_.set_texture(texture_, 0);
+
+        gl_call(glPixelStorei(GL_UNPACK_ALIGNMENT, bytes_per_pixel(pix_format)));
+
+        gl_call(glTexSubImage2D(GL_TEXTURE_2D, GLint(level), rect.x, rect.y, rect.w, rect.h, format, GL_UNSIGNED_BYTE, buffer));
+
+        gl_call(glPixelStorei(GL_UNPACK_ALIGNMENT, 4));
+
+        rend_.reset_texture(0);
+        return true;
+    }
+
+    bool texture::update(const point &point, const surface &surface,
+                         size_t src_level, size_t src_face, size_t src_layer,
+                         size_t dst_level, size_t dst_face, size_t dst_layer)
+    {
+        const auto& gli_surface = *surface.gli_surface_;
+        const auto& src_rect = surface.get_rect(src_level);
+
+        gli::gl gl(gli::gl::PROFILE_GL32);
+        auto format = gl.translate(gli_surface.format(), gli_surface.swizzles());
+        GLenum target = gl.translate(gli_surface.target());
+
+        gl_call(glBindTexture(target, texture_));
+
+        if(gli::is_compressed(gli_surface.format()))
         {
-            return false;
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_SIZE, static_cast<int> (gli_surface.storage().block_size())));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, static_cast<int> (gli_surface.storage().block_extent().x)));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, static_cast<int> (gli_surface.storage().block_extent().y)));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, static_cast<int> (gli_surface.storage().block_extent().z)));
         }
 
-        int32_t format{};
-        int32_t internal_format{};
-        std::tie(format, internal_format) = get_opengl_pixel_format(pix_format);
 
-        gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
-        gl_call(glTexSubImage2D(GL_TEXTURE_2D, 0, rect.x, rect.y, rect.w, rect.h, static_cast<GLenum> (format), GL_UNSIGNED_BYTE, buffer));
-        gl_call(glBindTexture(GL_TEXTURE_2D, 0));
+        auto layer_gl = static_cast<GLsizei>(src_layer);
+        math::tvec3<GLsizei> extent(gli_surface.extent(src_level));
+        if (gli::is_target_cube(gli_surface.target()))
+        {
+            target = static_cast<GLenum>(GL_TEXTURE_CUBE_MAP_POSITIVE_X + dst_face);
+        }
+
+        switch(gli_surface.target())
+        {
+            case gli::TARGET_1D:
+                if(gli::is_compressed(gli_surface.format()))
+                {
+                    gl_call(glCompressedTexSubImage1D(target, static_cast<GLint>(dst_level), point.x, src_rect.w,
+                                                      format.Internal, static_cast<GLsizei>(gli_surface.size(src_level)),
+                                                      gli_surface.data(src_layer, src_face, src_level)));
+                }
+                else
+                {
+                    gl_call(glTexSubImage1D(target, static_cast<GLint>(dst_level), point.x, src_rect.w,
+                                            format.External, format.Type,
+                                            gli_surface.data(src_layer, src_face, src_level)));
+                }
+                break;
+            case gli::TARGET_1D_ARRAY:
+            case gli::TARGET_2D:
+            case gli::TARGET_CUBE:
+                if(gli::is_compressed(gli_surface.format()))
+                {
+                    gl_call(glCompressedTexSubImage2D(target, static_cast<GLint>(dst_level), point.x, point.y, src_rect.w,
+                                                      gli_surface.target() == gli::TARGET_1D_ARRAY ? layer_gl : src_rect.h,
+                                                      format.Internal, static_cast<GLsizei>(gli_surface.size(src_level)),
+                                                      gli_surface.data(src_layer, src_face, src_level)));
+                }
+                else
+                {
+                    gl_call(glTexSubImage2D(target, static_cast<GLint>(dst_level), point.x, point.y, src_rect.w,
+                                            gli_surface.target() == gli::TARGET_1D_ARRAY ? layer_gl : src_rect.h,
+                                            format.External, format.Type,
+                                            gli_surface.data(src_layer, src_face, src_level)));
+
+                }
+                break;
+            case gli::TARGET_2D_ARRAY:
+            case gli::TARGET_3D:
+            case gli::TARGET_CUBE_ARRAY:
+                if(gli::is_compressed(gli_surface.format()))
+                {
+                    gl_call(glCompressedTexSubImage3D(target, static_cast<GLint>(dst_level), point.x, point.y, 0,
+                                                      src_rect.w, src_rect.h,
+                                                      gli_surface.target() == gli::TARGET_3D ? extent.z : layer_gl,
+                                                      format.Internal, static_cast<GLsizei>(gli_surface.size(src_level)),
+                                                      gli_surface.data(src_layer, src_face, src_level)));
+                }
+                else
+                {
+                    gl_call(glTexSubImage3D(target, static_cast<GLint>(dst_level), point.x, point.y, 0,
+                                            src_rect.w, src_rect.h,
+                                            gli_surface.target() == gli::TARGET_3D ? extent.z : layer_gl,
+                                            format.External, format.Type,
+                                            gli_surface.data(src_layer, src_face, src_level)));
+                }
+                break;
+            default:
+                gl_call(glBindTexture(target, 0));
+                return false;
+        }
+
+
+        gl_call(glBindTexture(target, 0));
+
+        if(gli::is_compressed(gli_surface.format()))
+        {
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_SIZE, 0));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, 0));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, 0));
+            gl_call(glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, 0));
+        }
+
         return true;
     }
 
@@ -303,17 +557,31 @@ namespace gfx
     ///     @return true on success
     bool texture::generate_mipmap() noexcept
     {
-        if (format_type_ != format_type::target || !rend_.set_current_context())
+        if (format_type_ != format_type::target || generated_mipmap_ || !rend_.set_current_context())
         {
             return false;
         }
 
         gl_call(glBindTexture(GL_TEXTURE_2D, texture_));
-        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST));
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0));
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, max_lod_levels));
+//        gl_call(glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST));
         gl_call(glGenerateMipmap(GL_TEXTURE_2D));
+        gl_call(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
         gl_call(glBindTexture(GL_TEXTURE_2D, 0));
 
-        return true;
+        generated_mipmap_ = true;
+        return generated_mipmap_;
+    }
+
+    void texture::set_default_blending_mode(blending_mode mode)
+    {
+        blending_ = mode;
+    }
+
+    const void* texture::get_pixmap_native_handle() const
+    {
+        return rend_.context_->get_native_handle(pixmap_);
     }
 
 
@@ -362,6 +630,7 @@ namespace gfx
             view.width = std::uint32_t(texture->get_rect().w);
             view.height = std::uint32_t(texture->get_rect().h);
             view.id = texture->get_id();
+            view.pixmap = texture->get_pixmap();
         }
 
         return view;
@@ -376,4 +645,5 @@ namespace gfx
         view.custom_sampler = true;
         return view;
     }
+
 }

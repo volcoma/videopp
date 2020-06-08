@@ -40,7 +40,7 @@ public:
 
     const vec3_t& get_position() const noexcept;
     void set_position(const vec3_t& position) noexcept;
-    void set_position(T x, T y, T z) noexcept;
+    void set_position(T x, T y, T z = T(0)) noexcept;
 
     vec3_t get_rotation_euler() const noexcept;
     void set_rotation_euler(const vec3_t& euler_angles) noexcept;
@@ -48,7 +48,7 @@ public:
 
     const vec3_t& get_scale() const noexcept;
     void set_scale(const vec3_t& scale) noexcept;
-    void set_scale(T x, T y, T z) noexcept;
+    void set_scale(T x, T y, T z = T(1)) noexcept;
 
     const quat_t& get_rotation() const noexcept;
     void set_rotation(const quat_t& rotation) noexcept;
@@ -67,11 +67,11 @@ public:
     void rotate(const vec3_t& v) noexcept;
     void rotate_local(T x, T y, T z) noexcept;
     void rotate_local(const vec3_t& v) noexcept;
-    void scale(T x, T y, T z) noexcept;
+    void scale(T x, T y, T z = T(1)) noexcept;
     void scale(const vec3_t& v) noexcept;
-    void translate(T x, T y, T z) noexcept;
+    void translate(T x, T y, T z = T(0)) noexcept;
     void translate(const vec3_t& v) noexcept;
-    void translate_local(T x, T y, T z) noexcept;
+    void translate_local(T x, T y, T z = T(0)) noexcept;
     void translate_local(const vec3_t& v) noexcept;
 
     int compare(const transform_t& t) const noexcept;
@@ -98,26 +98,25 @@ public:
     operator const typename mat4_t::value_type*() const noexcept;
 
     transform_t operator*(const transform_t& t) const noexcept;
-    inline typename mat4_t::col_type const& operator[](typename mat4_t::length_type i) const noexcept
+    typename mat4_t::col_type const& operator[](typename mat4_t::length_type i) const noexcept
     {
         return get_matrix()[i];
     }
 
-    inline vec4_t operator*(const vec4_t& v) const noexcept
+    vec4_t operator*(const vec4_t& v) const noexcept
     {
         vec4_t result = get_matrix() * v;
         return result;
     }
 
-    inline const mat4_t& get_matrix() const noexcept
+    const mat4_t& get_matrix() const noexcept
     {
         update_matrix();
         return matrix_;
     }
 
 private:
-
-    inline void update_components() noexcept
+    void update_components() noexcept
     {
         vec3_t skew;
         vec4_t perspective;
@@ -126,8 +125,6 @@ private:
         // used on projection matrix
         mat4_t m = matrix_;
         m[3][3] = 1;
-
-
         for(size_t i = 0; i < 3; ++i)
         {
             auto& el = m[math::length_t(i)][math::length_t(i)];
@@ -140,7 +137,7 @@ private:
         fixed_decompose(m, scale_, rotation_, position_, skew, perspective);
     }
 
-    inline void update_matrix() const noexcept
+    void update_matrix() const noexcept
     {
         if(dirty_)
         {
@@ -153,7 +150,7 @@ private:
             dirty_ = false;
         }
     }
-    inline void make_dirty() noexcept
+    void make_dirty() noexcept
     {
         dirty_ = true;
     }
@@ -238,6 +235,11 @@ template <typename T, precision Q>
 inline void transform_t<T, Q>::set_scale(const typename transform_t::vec3_t& scale) noexcept
 {
     scale_ = scale;
+
+    if(math::epsilonEqual(scale_.z, 0.0f, math::epsilon<float>()))
+    {
+        scale_.z = 0.01f;
+    }
     make_dirty();
 }
 
@@ -462,7 +464,6 @@ transform_t<T, Q>::inverse_transform_normal(const typename transform_t::vec2_t& 
     return result;
 }
 
-
 template <typename T, precision Q>
 inline typename transform_t<T, Q>::vec3_t
 transform_t<T, Q>::transform_coord(const typename transform_t::vec3_t& v) const noexcept
@@ -513,7 +514,8 @@ inline const transform_t<T, Q>& transform_t<T, Q>::identity() noexcept
 template <typename T, precision Q>
 inline transform_t<T, Q> transform_t<T, Q>::operator*(const transform_t& t) const noexcept
 {
-    return transform_t(get_matrix() * t.get_matrix());
+    transform_t result(get_matrix() * t.get_matrix());
+    return result;
 }
 
 template <typename T, precision Q>

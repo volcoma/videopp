@@ -22,10 +22,13 @@ enum programs : uint32_t
     single_channel_crop,
     distance_field,
     distance_field_crop,
-    blur,
-    fxaa
+    alphamix,
+    valphamix,
+    halphamix,
+    raw_alpha,
+    grayscale,
+    blur
 };
-
 
 /// Types of primitives to draw
 enum class primitive_type
@@ -36,6 +39,7 @@ enum class primitive_type
     lines,
     lines_loop,
 };
+
 /// Types of primitives to draw
 enum class draw_type
 {
@@ -46,8 +50,12 @@ enum class draw_type
 
 struct gpu_program
 {
+    /// here we use NON OWNING raw pointers for optimization
     gfx::shader* shader{};
+
+    /// reserved for future use
 };
+
 
 template<size_t T>
 inline gpu_program& get_program() noexcept
@@ -56,22 +64,21 @@ inline gpu_program& get_program() noexcept
     return program;
 }
 
+struct draw_cmd;
 struct gpu_context
 {
+    const draw_cmd& cmd;
     const renderer& rend;
     const gpu_program& program;
 };
 
-
 struct program_setup
 {
-    using callback = std::function<void(const gpu_context&)>;
-
     gpu_program program;
-    callback begin;
-    callback end;
+    std::function<void(const gpu_context&)> begin;
+    std::function<void(const gpu_context&)> end;
 
-    // this is used for batching
+    /// this is used for batching
     uint64_t uniforms_hash{};
 };
 
@@ -96,8 +103,15 @@ struct draw_cmd
     rect clip_rect{0, 0, 0, 0};
     /// Program setup
     program_setup setup{};
+
+    std::array<texture_view, 32> texture_slots{{}};
+
+    uint8_t used_slots{};
     /// Uniforms's hash used for batching.
     uint64_t hash{0};
+
+    size_t subcount{0};
+
 };
 
 inline font_ptr& default_font() noexcept

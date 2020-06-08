@@ -1,54 +1,104 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include "utils.h"
 
 namespace gfx
 {
-
     /// Common 32bit RGBA color structure                                               
     struct color
     {
         uint8_t r = 0, g = 0, b = 0, a = 255;
         
         constexpr color() noexcept = default;
-        constexpr color(uint8_t rr, uint8_t gg, uint8_t bb, uint8_t aa = 0xff) noexcept
+        constexpr color(uint8_t rr, uint8_t gg, uint8_t bb, uint8_t aa = 0xff) noexcept 
             : r(rr)
             , g(gg)
             , b(bb)
             , a(aa) {}
-        constexpr color(uint32_t rgba) noexcept
-        {
-            r = (rgba>>0) & 0xFF;
-            g = (rgba>>8) & 0xFF;
-            b = (rgba>>16) & 0xFF;
-            a = (rgba>>24) & 0xFF;
-        }
 
         bool operator == (const color &rhs) const noexcept;
         bool operator != (const color &rhs) const noexcept;
 
         inline operator uint32_t() const noexcept
         {
-            return (((uint32_t)(a)<< 24) | ((uint32_t)(b)<<16) | ((uint32_t)(g)<<8) | ((uint32_t)(r)<<0));
+            return ((uint32_t(a)<< 24) | (uint32_t(b)<<16) | (uint32_t(g)<<8) | (uint32_t(r)<<0));
         }
 
-        static const color black();
-        static const color blue();
-        static const color cyan();
-        static const color gray();
-        static const color green();
-        static const color magenta();
-        static const color red();
-        static const color yellow();
-        static const color white();
+        // gray/black colors
+        static const color& black();
+        static const color& state_gray();
+        static const color& gray();
+        static const color& silver();
+        static const color& gainsboro();
+
+        // white colors
+        static const color& white();
+        static const color& snow();
+        static const color& ghost_while();
+        static const color& ivory();
+        static const color& linen();
+
+        // purple/violet/magenta colors
+        static const color& lavender();
+        static const color& thistle();
+        static const color& violet();
+        static const color& orchid();
+        static const color& magenta();
+        static const color& purple();
+        static const color& indigo();
+
+        // blue colors
+        static const color& navy();
+        static const color& blue();
+        static const color& royal_blue();
+        static const color& sky_blue();
+
+        // cyan colors
+        static const color& teal();
+        static const color& turquoise();
+        static const color& aquamarine();
+        static const color& cyan();
+
+        //green colors
+        static const color& green();
+        static const color& lime();
+        static const color& olive();
+
+        //brown colors
+        static const color& maroon();
+        static const color& brown();
+        static const color& sienna();
+        static const color& cholocate();
+        static const color& peru();
+        static const color& goldenrod();
+        static const color& tan();
+        static const color& wheat();
+
+        //yellow colors
+        static const color& gold();
+        static const color& yellow();
+
+        //orange colors
+        static const color& orange();
+        static const color& coral();
+        static const color& tomato();
+
+        //red colors
+        static const color& red();
+        static const color& crimson();
+        static const color& salmon();
+
+        //pink colors
+        static const color& pink();
+
+        //transperat color
+        static const color& clear();
 
         color& operator *= (const color& rhs) noexcept;
-        color& operator *= (float scalar) noexcept;
     };
-
-    color operator * (const color& rhs, float scalar) noexcept;
-
+    
     /// Blending modes                                                                  
     enum blending_mode
     {

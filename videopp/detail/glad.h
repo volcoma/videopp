@@ -920,6 +920,12 @@ typedef void* (* GLADloadproc)(const char *name);
 
 GLAPI struct gladGLversionStruct GLVersion;
 
+GLAPI int gladLoad(void);
+
+GLAPI void gladUnload(void);
+
+GLAPI void* gladGetProc(const char *namez);
+
 GLAPI int gladLoadGL(void);
 
 GLAPI int gladLoadGLLoader(GLADloadproc);

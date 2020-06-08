@@ -54,20 +54,19 @@ public:
 
     void rectangle(const rect& r, float rounding = 0.0f,
                   uint32_t rounding_corners_flags = corner_flags::all);
-
     void rectangle(const frect& r, float rounding = 0.0f,
                   uint32_t rounding_corners_flags = corner_flags::all);
 
-    void ellipse(const math::vec2& center, const math::vec2& radii, size_t num_segments = 12);
+    void ellipse(const math::vec2& center, const math::vec2& radii, size_t num_segments = 10);
 
     void path(const std::vector<math::vec2>& points, float corner_radius);
 
     const std::vector<math::vec2>& get_points() const { return points_; }
-    bool empty() const { return points_.empty(); }
 
     float get_length() const;
-
     int get_closest_point(float len, float& dist) const;
+
+    bool empty() const { return points_.empty(); }
 private:
     std::vector<math::vec2> points_;
 };

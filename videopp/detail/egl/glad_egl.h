@@ -167,7 +167,7 @@
         Too many extensions
 */
 
-
+#include "../glad.h"
 #ifndef __glad_egl_h_
 
 #ifdef __egl_h_
@@ -177,25 +177,9 @@
 #define __glad_egl_h_
 #define __egl_h_
 
-#if defined(_WIN32) && !defined(APIENTRY) && !defined(__CYGWIN__) && !defined(__SCITECH_SNAP__)
-#define APIENTRY __stdcall
-#endif
-
-#ifndef APIENTRY
-#define APIENTRY
-#endif
-#ifndef APIENTRYP
-#define APIENTRYP APIENTRY *
-#endif
-#ifndef GLAPI
-#define GLAPI extern
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef void* (* GLADloadproc)(const char *name);
 
 GLAPI int gladLoadEGL(void);
 GLAPI int gladLoadEGLLoader(GLADloadproc);

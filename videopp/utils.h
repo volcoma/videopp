@@ -16,6 +16,7 @@ inline void hash(uint64_t& seed, const T & v) noexcept
 template <typename Arg0, typename Arg1, typename... Args>
 inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args) noexcept
 {
+
     hash(seed, std::forward<Arg0>(arg0));
     hash(seed, std::forward<Arg1>(arg1), std::forward<Args>(args)...);
 }
@@ -24,7 +25,6 @@ inline void hash(uint64_t& seed, Arg0&& arg0, Arg1&& arg1, Args&& ...args) noexc
 
 namespace gfx
 {
-
 template<typename T>
 struct sparse_list
 {

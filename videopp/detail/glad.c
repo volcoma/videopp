@@ -972,16 +972,19 @@ void* get_proc(const char *namez) {
 
     return result;
 }
+void* gladGetProc(const char *namez) {
+    return get_proc(namez);
+}
+int gladLoad(void) {
+    return open_gl();
+}
+
+void gladUnload(void) {
+    close_gl();
+}
 
 int gladLoadGL(void) {
-    int status = 0;
-
-    if(open_gl()) {
-        status = gladLoadGLLoader(&get_proc);
-        close_gl();
-    }
-
-    return status;
+    return gladLoadGLLoader(&get_proc);
 }
 
 struct gladGLversionStruct GLVersion = { 0, 0 };

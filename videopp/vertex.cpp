@@ -4,6 +4,45 @@
 
 namespace gfx
 {
+////
+/// Vertex array object implementation
+////
+
+vertex_array_object::vertex_array_object() = default;
+
+vertex_array_object::~vertex_array_object()
+{
+    // Dimo: this might also crash if called after gl context release
+    destroy();
+}
+
+void vertex_array_object::create() noexcept
+{
+    if(!id_)
+    {
+        gl_call(glGenVertexArrays(1, &id_));
+    }
+}
+
+void vertex_array_object::destroy() noexcept
+{
+    if(id_)
+    {
+        gl_call(glDeleteVertexArrays(1, &id_));
+        id_ = 0;
+    }
+}
+
+void vertex_array_object::bind() const noexcept
+{
+    gl_call(glBindVertexArray(id_));
+}
+
+
+void vertex_array_object::unbind() const noexcept
+{
+    gl_call(glBindVertexArray(0));
+}
 
 ////
 /// Vertex buffer implementation

@@ -1,35 +1,51 @@
+
 #include "draw_list.h"
 #include <cmath>
 #include <codecvt>
 #include <locale>
 #include <sstream>
 #include <iomanip>
-#include <chrono>
+
 #include "font.h"
 #include "logger.h"
 #include "renderer.h"
 #include "text.h"
-#include "draw_cmd.h"
+#include <algorithm>
+#include <iostream>
 
 namespace gfx
 {
+batch_config& get_batch_config_impl()
+{
+    static batch_config cfg;
+    return cfg;
+}
+
+void set_batch_config(const batch_config& cfg)
+{
+    get_batch_config_impl() = cfg;
+}
+
+const batch_config& get_batch_config()
+{
+    return get_batch_config_impl();
+}
 
 namespace
 {
 bool debug_draw_enabled = false;
 
-
 template<typename T>
 inline std::array<math::vec2, 4> transform_rect(const rect_t<T>& r) noexcept
 {
-   return {{math::vec2(r.x, r.y),
-            math::vec2(r.x + r.w, r.y),
-            math::vec2(r.x + r.w, r.y + r.h),
-            math::vec2(r.x, r.y + r.h)}};
+   return {{{r.x, r.y},
+            {r.x + r.w, r.y},
+            {r.x + r.w, r.y + r.h},
+            {r.x, r.y + r.h}}};
 }
 
 template<typename T>
-std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transformf& transform) noexcept
+inline std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transformf& transform) noexcept
 {
     auto points = transform_rect(r);
 
@@ -41,7 +57,6 @@ std::array<math::vec2, 4> transform_rect(const rect_t<T>& r, const math::transfo
     return points;
 }
 
-
 inline uint64_t simple_hash() noexcept
 {
     uint64_t seed{0};
@@ -49,10 +64,43 @@ inline uint64_t simple_hash() noexcept
     return seed;
 }
 
-inline bool can_be_batched(draw_list& list, uint64_t hash) noexcept
+inline bool can_be_batched(draw_list& list, uint64_t hash, const texture_view& tex) noexcept
 {
-    return !list.commands.empty() && list.commands.back().hash == hash;
+    if(list.commands.empty())
+    {
+        return false;
+    }
+
+    auto& cmd = list.commands.back();
+    if(cmd.hash == hash)
+    {
+        if(!tex)
+        {
+            return true;
+        }
+
+        auto& cfg = get_batch_config();
+        auto max_slots = cfg.max_textures_per_batch;
+
+        if(max_slots > 0)
+        {
+            if(cmd.used_slots < max_slots)
+            {
+                return true;
+            }
+            if(cmd.used_slots == max_slots)
+            {
+                if(std::find(std::begin(cmd.texture_slots), std::end(cmd.texture_slots), tex) != std::end(cmd.texture_slots))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
+
 
 inline void transform_vertices(draw_list& list, size_t vtx_offset, size_t vtx_count, bool pixel_snap)
 {
@@ -72,9 +120,36 @@ inline void transform_vertices(draw_list& list, size_t vtx_offset, size_t vtx_co
     }
 }
 
+inline void apply_texture(draw_list& list, draw_cmd& cmd, size_t vtx_offset, size_t vtx_count, const texture_view& texture)
+{
+    auto tex_idx = cmd.used_slots;
+
+    for(uint8_t i = 0; i < cmd.used_slots; ++i)
+    {
+        if(cmd.texture_slots[i] == texture)
+        {
+            tex_idx = i;
+            break;
+        }
+    }
+
+    if(tex_idx == cmd.used_slots)
+    {
+        cmd.texture_slots[tex_idx] = texture;
+        cmd.used_slots++;
+    }
+
+    for(size_t i = vtx_offset; i < vtx_offset + vtx_count; ++i)
+    {
+        auto& v = list.vertices[i];
+        v.tex_idx = tex_idx;
+    }
+}
+
 template<typename Setup>
 inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t vertices_before, uint32_t vertices_added,
-                              uint32_t indices_before, uint32_t indices_added, primitive_type type, blending_mode deduced_blend, Setup&& setup,
+                              uint32_t indices_before, uint32_t indices_added, primitive_type type, blending_mode deduced_blend,
+                              Setup&& setup, const texture_view& texture = {},
                               bool apply_transform = true, bool pixel_snap = false)
 {
     if(indices_added == 0)
@@ -94,14 +169,8 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
                     {
                         for(uint32_t i = 2; i < rect_vertices; ++i)
                         {
-                            draw_list::index_t src_indices[] =
-                            {
-                                index_offset,
-                                index_offset + i - 1,
-                                index_offset + i
-                            };
-                            std::memcpy(list.indices.data() + indices_before + indices_added,
-                                        src_indices, sizeof(src_indices));
+                            draw_list::index_t src_indices[] = {index_offset, index_offset + i - 1, index_offset + i};
+                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
                             indices_added += 3;
                         }
                         index_offset += rect_vertices;
@@ -117,13 +186,8 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
 
                         for(uint32_t i = 0; i < vertices_added - 1; ++i)
                         {
-                            draw_list::index_t src_indices[] =
-                            {
-                                index_offset + i,
-                                index_offset + i + 1
-                            };
-                            std::memcpy(list.indices.data() + indices_before + indices_added,
-                                        src_indices, sizeof(src_indices));
+                            draw_list::index_t src_indices[] = {index_offset + i, index_offset + i + 1};
+                            std::memcpy(list.indices.data() + indices_before + indices_added, src_indices, sizeof(src_indices));
                             indices_added += 2;
                         }
                     }
@@ -135,10 +199,7 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
         }
     }
 
-    if(apply_transform)
-    {
-        transform_vertices(list, vertices_before, vertices_added, pixel_snap);
-    }
+
 
     rect clip{};
     if(!list.clip_rects.empty())
@@ -166,7 +227,10 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
     };
 
     list.commands_requested++;
-    if(setup.uniforms_hash == 0)
+
+    bool should_consider_batching = texture && apply_transform;
+
+    if(setup.uniforms_hash == 0 && !should_consider_batching)
     {
         add_new_command(0);
     }
@@ -174,30 +238,45 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
     {
         auto hash = setup.uniforms_hash;
         utils::hash(hash, dr_type, type, blend, clip, setup.program.shader);
-        if(!can_be_batched(list, hash))
+        if(!can_be_batched(list, hash, texture))
         {
             add_new_command(hash);
         }
     }
 
     auto& command = list.commands.back();
+
+    if(apply_transform)
+    {
+        transform_vertices(list, vertices_before, vertices_added, pixel_snap);
+    }
+
+    if(texture)
+    {
+        apply_texture(list, command, vertices_before, vertices_added, texture);
+    }
+
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
     command.vertices_offset = std::min(command.vertices_offset, vertices_before);
     command.vertices_count += vertices_added;
+    command.subcount++;
+
 
     return command;
 }
+
 
 inline void prim_resize(draw_list& list, size_t idx_count, size_t vtx_count, size_t& idx_current_idx, size_t& vtx_current_idx)
 {
     idx_current_idx = list.indices.size();
     vtx_current_idx = list.vertices.size();
-    list.indices.resize(idx_current_idx + idx_count);
-    list.vertices.resize(vtx_current_idx + vtx_count);
+    list.indices.resize(list.indices.size() + idx_count);
+    list.vertices.resize(list.vertices.size() + vtx_count);
 }
 
-inline void normalize2f_over_zero(float& vx, float& vy)
+
+inline void normalize2f_over_zero(float& vx, float& vy) noexcept
 {
     float d2 = vx*vx + vy*vy;
     if (d2 > 0.0f)
@@ -207,16 +286,19 @@ inline void normalize2f_over_zero(float& vx, float& vy)
         vy *= inv_len;
     }
 }
-
-inline void fixnormal2f(float& vx, float& vy)
+inline void fixnormal2f(float& vx, float& vy) noexcept
 {
     float d2 = vx*vx + vy*vy;
+    if (d2 < 0.5f)
+    {
+        d2 = 0.5f;
+    }
     float inv_lensq = 1.0f / d2;
     vx *= inv_lensq;
     vy *= inv_lensq;
 }
 
-color get_vertical_gradient(color ct,color cb, float dh, float h)
+inline color get_vertical_gradient(const color& ct, const color& cb, float dh, float h) noexcept
 {
     const float fa = dh/h;
     const float fc = (1.0f-fa);
@@ -241,8 +323,7 @@ const program_setup& get_simple_setup() noexcept
     return setup;
 }
 
-
-program_setup::callback transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
+std::function<void(const gpu_context&)> transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
 {
     if(!cpu_batch)
     {
@@ -256,7 +337,6 @@ program_setup::callback transform_setup(const draw_list& list, bool cpu_batch, b
             }
             transform.set_position(pos.x, pos.y, 0);
 
-            //push the transformation to happen on the gpu
             ctx.rend.push_transform(transform);
         };
     }
@@ -264,7 +344,7 @@ program_setup::callback transform_setup(const draw_list& list, bool cpu_batch, b
     return nullptr;
 }
 
-program_setup::callback crop_rects_setup(const draw_list& list)
+std::function<void(const gpu_context&)> crop_rects_setup(const draw_list& list)
 {
     if(!list.crop_areas.empty())
     {
@@ -285,6 +365,7 @@ program_setup::callback crop_rects_setup(const draw_list& list)
     return nullptr;
 }
 
+
 template<typename Setup>
 inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
                                    primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup, bool apply_transform = true, bool pixel_snap = false)
@@ -297,12 +378,34 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
 
     if(setup.program.shader)
     {
-        return add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::forward<Setup>(setup), apply_transform, pixel_snap);
+        return add_cmd_impl(list,
+                            dr_type,
+                            vtx_offset,
+                            uint32_t(count),
+                            idx_offset,
+                            0,
+                            type,
+                            blend,
+                            std::forward<Setup>(setup),
+                            texture,
+                            apply_transform,
+                            pixel_snap);
     }
 
     if(!texture)
     {
-        return add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, get_simple_setup(), apply_transform, pixel_snap);
+        return add_cmd_impl(list,
+                            dr_type,
+                            vtx_offset,
+                            uint32_t(count),
+                            idx_offset,
+                            0,
+                            type,
+                            blend,
+                            get_simple_setup(),
+                            {},
+                            apply_transform,
+                            pixel_snap);
     }
 
 
@@ -318,7 +421,7 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
     {
         switch(texture.format)
         {
-        case pix_type::red:
+            case pix_type::gray:
             if(!has_crop)
             {
                 prog_setup.program = get_program<programs::single_channel>();
@@ -342,11 +445,11 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
             }
             break;
         }
+
     }
 
     if(apply_transform)
     {
-        utils::hash(prog_setup.uniforms_hash, texture);
         if(has_crop)
         {
             const auto& crop_areas = list.crop_areas.back();
@@ -357,13 +460,24 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
         }
     }
 
-    auto& cmd = add_cmd_impl(list, dr_type, vtx_offset, uint32_t(count), idx_offset, 0, type, blend, std::move(prog_setup), apply_transform, pixel_snap);
+    auto& cmd = add_cmd_impl(list,
+                             dr_type,
+                             vtx_offset,
+                             uint32_t(count),
+                             idx_offset,
+                             0,
+                             type,
+                             blend,
+                             std::move(prog_setup),
+                             texture,
+                             apply_transform,
+                             pixel_snap);
     // check if a new command was added
     if(!cmd.setup.begin)
     {
         cmd.setup.begin = [setup_crop_rects = crop_rects_setup(list),
-                           setup_transform = transform_setup(list, apply_transform, pixel_snap),
-                           texture](const gpu_context& ctx) mutable
+                           setup_transform = transform_setup(list, apply_transform, pixel_snap)]
+        (const gpu_context& ctx) mutable
         {
             if(setup_transform)
             {
@@ -375,8 +489,7 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
                 setup_crop_rects(ctx);
             }
 
-            ctx.program.shader->set_uniform("uTexture", texture);
-
+            ctx.program.shader->set_uniform("uTextures[0]", ctx.cmd.texture_slots, ctx.cmd.used_slots);
         };
     }
 
@@ -392,6 +505,7 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
 }
 
 }
+
 
 math::transformf fit_item(float item_w, float item_h,
                           float area_w, float area_h,
@@ -457,45 +571,50 @@ math::transformf fit_item(float item_w, float item_h,
     {
         case dimension_fit::x:
             fit_trans.set_scale(xscale, 1.0f, 1.0f);
-            break;
+        break;
 
         case dimension_fit::y:
             fit_trans.set_scale(1.0f, yscale, 1.0f);
-            break;
+        break;
 
         case dimension_fit::uniform:
+        {
             float uniform_scale = std::min(xscale, yscale);
             fit_trans.set_scale(uniform_scale, uniform_scale, 1.0f);
-            break;
+        }
+        break;
+        case dimension_fit::non_uniform:
+            fit_trans.set_scale(xscale, yscale, 1.0f);
+        break;
     }
 
     return fit_trans;
 }
 
 math::transformf align_and_fit_item(align_t align, float item_w, float item_h, const math::transformf &transform,
-                                         const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+                                    const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
     auto scale_x = transform.get_scale().x;
-	auto scale_y = transform.get_scale().y;
-	float text_width = item_w * scale_x;
-	float text_height = item_h * scale_y;
+    auto scale_y = transform.get_scale().y;
+    float text_width = item_w * scale_x;
+    float text_height = item_h * scale_y;
 
-	const auto& translation = transform.get_position();
-	auto offsets = get_alignment_offsets(align,
-										 float(dst_rect.x),
-										 float(dst_rect.y),
-										 float(dst_rect.x + dst_rect.w),
-										 float(dst_rect.y + dst_rect.h),
+    const auto& translation = transform.get_position();
+    auto offsets = get_alignment_offsets(align,
+                                         float(dst_rect.x),
+                                         float(dst_rect.y),
+                                         float(dst_rect.x + dst_rect.w),
+                                         float(dst_rect.y + dst_rect.h),
                                          false);
 
     math::transformf parent{};
     parent.translate(translation);
     parent.set_rotation(transform.get_rotation());
 
-	math::transformf local = fit_item(text_width,
-									  text_height,
-									  float(dst_rect.w),
-									  float(dst_rect.h),
+    math::transformf local = fit_item(text_width,
+                                      text_height,
+                                      float(dst_rect.w),
+                                      float(dst_rect.h),
                                       sz_fit, dim_fit);
 
     local.scale(transform.get_scale());
@@ -505,9 +624,9 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
 }
 
 math::transformf align_and_fit_text(const text& t, const math::transformf &transform,
-									const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+                                    const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
-	return align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+    return align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
 }
 
 math::transformf align_item(align_t align, const rect& item)
@@ -518,7 +637,7 @@ math::transformf align_item(align_t align, const rect& item)
 math::transformf align_item(align_t align, float minx, float miny, float maxx, float maxy, bool pixel_snap)
 {
     auto xoffs = get_alignment_x(align, minx, maxx, pixel_snap);
-	auto yoffs = get_alignment_y(align, miny, maxy, pixel_snap);
+    auto yoffs = get_alignment_y(align, miny, maxy, pixel_snap);
 
     math::transformf result;
     result.translate(xoffs, yoffs, 0.0f);
@@ -527,36 +646,50 @@ math::transformf align_item(align_t align, float minx, float miny, float maxx, f
 
 
 math::transformf align_wrap_and_fit_text(text& t,
-										const math::transformf& transform,
-                                        rect dst_rect,
-                                        size_fit sz_fit,
-                                        dimension_fit dim_fit)
+                                         const math::transformf& transform,
+                                         rect dst_rect,
+                                         size_fit sz_fit,
+                                         dimension_fit dim_fit)
 {
-//    using clock_t = std::chrono::steady_clock;
-//	auto start = clock_t::now();
+    if(!t.is_valid())
+    {
+        return transform;
+    }
 
-	auto max_w = dst_rect.w;
-	t.set_wrap_width(float(max_w));
-	auto world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
-	auto w = int(float(dst_rect.w) / world.get_scale().y);
+//    using clock_t = std::chrono::steady_clock;
+//    auto start = clock_t::now();
+
+    auto max_w = dst_rect.w;
+
+    t.set_wrap_width(float(max_w));
+    auto world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
+    auto w = int(float(dst_rect.w) / world.get_scale().x);
 
     size_t iterations{0};
-	if(w != max_w)
-	{
-		max_w = w;
+    if(w != max_w)
+    {
+        max_w = w;
 
         auto fit = dim_fit;
         dim_fit = dimension_fit::y;
-		while(iterations < 128)
-		{
-			t.set_wrap_width(float(max_w));
-			world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
-            w = int(float(dst_rect.w) / world.get_scale().y);
+        while(iterations < 128)
+        {
+            t.set_wrap_width(float(max_w));
+            world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
+
+            if(dim_fit == dimension_fit::y)
+            {
+                w = int(float(dst_rect.w) / world.get_scale().y);
+            }
+            else
+            {
+                w = int(float(dst_rect.w) / world.get_scale().x);
+            }
 
             auto diff = w - max_w;
 
             if(diff >= 0)
-			{
+            {
                 if(fit != dim_fit)
                 {
                     //we hit the upper bounds, so return to
@@ -568,26 +701,26 @@ math::transformf align_wrap_and_fit_text(text& t,
                 {
                     break;
                 }
-			}
+            }
 
             max_w = w;
-			iterations++;
-		}
-	}
+            iterations++;
+        }
+    }
 
-//	auto end = clock_t::now();
+//    auto end = clock_t::now();
 //    auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	//std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
-	return world;
+//    std::cout << "wrap fitting : i=" << iterations << ", us=" << dur.count() << std::endl;
+    return world;
 }
-
 
 const program_setup& empty_setup() noexcept
 {
     static program_setup setup;
     return setup;
 }
-draw_list::draw_list(bool has_debug)
+
+draw_list::draw_list(bool has_debug_info)
 {
     constexpr size_t vertices_reserved = 128;
     constexpr size_t indices_reserved = (vertices_reserved - 2) * 3;
@@ -600,7 +733,13 @@ draw_list::draw_list(bool has_debug)
     cache<draw_list>::get(commands, commands_reserved);
     commands.reserve(commands_reserved);
 
-    if(has_debug)
+    clip_rects.reserve(4);
+    crop_areas.reserve(4);
+    blend_modes.reserve(4);
+    transforms.reserve(4);
+    programs.reserve(4);
+
+    if(has_debug_info)
     {
         debug = std::make_unique<draw_list>(false);
     }
@@ -612,13 +751,13 @@ draw_list::~draw_list()
     cache<draw_list>::add(indices);
     cache<draw_list>::add(commands);
 }
-
 void draw_list::clear() noexcept
 {
     vertices.clear();
     indices.clear();
     commands.clear();
     clip_rects.clear();
+    crop_areas.clear();
     blend_modes.clear();
     transforms.clear();
     programs.clear();
@@ -630,7 +769,7 @@ void draw_list::clear() noexcept
     }
 }
 
-void draw_list::add_rect(const std::array<math::vec2, 4>& points, color col, bool filled,
+void draw_list::add_rect(const std::array<math::vec2, 4>& points, const color& col, bool filled,
                          float thickness)
 {
     polyline line;
@@ -649,24 +788,24 @@ void draw_list::add_rect(const std::array<math::vec2, 4>& points, color col, boo
     }
 }
 
-void draw_list::add_rect(const rect& dst, color col, bool filled, float thickness)
+void draw_list::add_rect(const rect& dst, const color& col, bool filled, float thickness)
 {
     add_rect(transform_rect(dst), col, filled, thickness);
 }
 
-void draw_list::add_rect(const frect& dst, const math::transformf& transform, color col, bool filled,
+void draw_list::add_rect(const frect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
     add_rect(transform_rect(dst, transform), col, filled, thickness);
 }
 
-void draw_list::add_rect(const rect& dst, const math::transformf& transform, color col, bool filled,
+void draw_list::add_rect(const rect& dst, const math::transformf& transform, const color& col, bool filled,
                          float thickness)
 {
     add_rect(frect(float(dst.x), float(dst.y), float(dst.w), float(dst.h)), transform, col, filled, thickness);
 }
 
-void draw_list::add_line(const math::vec2& start, const math::vec2& end, color col, float thickness)
+void draw_list::add_line(const math::vec2& start, const math::vec2& end, const color& col, float thickness)
 {
     polyline line;
     line.line_to(start);
@@ -674,8 +813,90 @@ void draw_list::add_line(const math::vec2& start, const math::vec2& end, color c
     add_polyline(line, col, false, thickness);
 }
 
-void draw_list::add_image(texture_view texture, const rect& src, const rect& dst,
-                          const math::transformf& transform, color col, flip_format flip, const program_setup& setup)
+void draw_list::add_movie_image(const texture_view& texture, const rect& src, const rect& dst,
+                                const math::transformf& transform, movie_format format, flip_format flip, const color& col)
+{
+    texture_view blended_tex = texture;
+    switch(format)
+    {
+    case movie_format::opaque:
+        blended_tex.blending = blending_mode::blend_none;
+    break;
+    case movie_format::valpha:
+        blended_tex.blending = blending_mode::blend_normal;
+        push_program(get_program<programs::valphamix>());
+    break;
+    case movie_format::halpha:
+        blended_tex.blending = blending_mode::blend_normal;
+        push_program(get_program<programs::halphamix>());
+    break;
+    }
+
+    add_image(blended_tex, src, dst, transform, col, flip);
+
+    switch(format)
+    {
+    case movie_format::valpha:
+    case movie_format::halpha:
+        pop_program();
+    break;
+    default:
+    break;
+    }
+}
+
+void draw_list::add_movie_image(const texture_view& texture, const rect& src, const rect& dst,
+                                movie_format format, flip_format flip, const color& col)
+{
+    add_movie_image(texture, src, dst, math::transformf{}, format, flip, col);
+}
+
+void draw_list::add_movie_image(const texture_view& texture, const rect& dst, movie_format format, flip_format flip, const color& col)
+{
+    add_movie_image(texture, dst, math::transformf{}, format, flip, col);
+}
+
+void draw_list::add_movie_image(const texture_view& texture, const rect& dst, const math::transformf& transform,
+                                movie_format format, flip_format flip, const color& col)
+{
+
+    gfx::rect src{0, 0, int(texture.width), int(texture.height)};
+    switch(format)
+    {
+    case movie_format::opaque:
+    break;
+    case movie_format::valpha:
+        src.h /= 2;
+    break;
+    case movie_format::halpha:
+        src.w /= 2;
+    break;
+    }
+
+    add_movie_image(texture, src, dst, transform, format, flip, col);
+}
+
+void draw_list::add_movie_image(const texture_view& texture, const math::transformf& transform,
+                                movie_format format, flip_format flip, const color& col)
+{
+    gfx::rect src{0, 0, int(texture.width), int(texture.height)};
+    switch(format)
+    {
+    case movie_format::opaque:
+    break;
+    case movie_format::valpha:
+        src.h /= 2;
+    break;
+    case movie_format::halpha:
+        src.w /= 2;
+    break;
+    }
+
+    add_movie_image(texture, src, src, transform, format, flip, col);
+}
+
+void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst,
+                          const math::transformf& transform, const color& col, flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
     float left = static_cast<float>(src.x) / rect.w;
@@ -688,7 +909,7 @@ void draw_list::add_image(texture_view texture, const rect& src, const rect& dst
     add_image(texture, transform_rect(dst, transform), col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const rect& src, const rect& dst, color col,
+void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst, const color& col,
                           flip_format flip, const program_setup& setup)
 {
     const auto rect = texture ? gfx::rect{0, 0, int(texture.width), int(texture.height)} : src;
@@ -702,20 +923,44 @@ void draw_list::add_image(texture_view texture, const rect& src, const rect& dst
     add_image(texture, dst, col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const rect& dst, color col,
+void draw_list::add_image(const texture_view& texture, const rect& dst, const color& col,
                           math::vec2 min_uv, math::vec2 max_uv, flip_format flip, const program_setup& setup)
 {
     add_image(texture, transform_rect(dst), col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const rect& dst, const math::transformf& transform,
-                          color col, math::vec2 min_uv, math::vec2 max_uv,
+void draw_list::add_image(const texture_view& texture, const rect& dst, const math::transformf& transform,
+                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
     add_image(texture, transform_rect(dst, transform), col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const point& pos, color col,
+void draw_list::add_image(const source_data& src, const point& dst, const color& col, flip_format flip, const program_setup& setup)
+{
+    const auto& src_rect = std::get<rect>(src);
+    rect dest_rect {dst.x, dst.y, src_rect.w, src_rect.h};
+    add_image(src, dest_rect, col, flip, setup);
+}
+
+void draw_list::add_image(const source_data& src, const rect& dst, const color& col, flip_format flip, const program_setup& setup)
+{
+    add_image(std::get<texture_view>(src), std::get<rect>(src), dst, col, flip, setup);
+}
+
+void draw_list::add_image(const source_data& src, const math::transformf& transform, const rect& dst, const color& col, flip_format flip, const program_setup& setup)
+{
+    add_image(std::get<texture_view>(src), std::get<rect>(src), dst, transform, col, flip, setup);
+}
+
+void draw_list::add_image(const source_data& src, const math::transformf& transform, const color& col, flip_format flip, const program_setup& setup)
+{
+    const auto& src_rect = std::get<rect>(src);
+    auto dst_rect = rect(0,0, src_rect.w, src_rect.h);
+    add_image(std::get<texture_view>(src), src_rect, dst_rect, transform, col, flip, setup);
+}
+
+void draw_list::add_image(const texture_view& texture, const point& pos, const color& col,
                           math::vec2 min_uv, math::vec2 max_uv, flip_format flip,
                           const program_setup& setup)
 {
@@ -724,11 +969,10 @@ void draw_list::add_image(texture_view texture, const point& pos, color col,
     add_image(texture, rect, col, min_uv, max_uv, flip, setup);
 }
 
-void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>& points,
-                          color col, math::vec2 min_uv, math::vec2 max_uv,
+void draw_list::add_image(const texture_view& texture, const std::array<math::vec2, 4>& points,
+                          const color& col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
-
     switch (flip)
     {
         case flip_format::horizontal:
@@ -745,37 +989,52 @@ void draw_list::add_image(texture_view texture, const std::array<math::vec2, 4>&
         break;
     }
 
+    auto draw_color = col;
+
     if(!texture)
     {
-        col = color::magenta();
-        col.a = 128;
+        draw_color = color::magenta();
+        draw_color.a = 128;
     }
 
     const vertex_2d verts[] =
     {
-        {points[0], min_uv, col},
-        {points[1], {max_uv.x, min_uv.y}, col},
-        {points[2], max_uv, col},
-        {points[3], {min_uv.x, max_uv.y}, col},
+        {points[0], min_uv, draw_color},
+        {points[1], {max_uv.x, min_uv.y}, draw_color},
+        {points[2], max_uv, draw_color},
+        {points[3], {min_uv.x, max_uv.y}, draw_color},
     };
 
     blending_mode blend = texture.blending;
 
-
-    if(col.a < 255)
+    if(draw_color.a < 255)
     {
         blend = blending_mode::blend_normal;
     }
 
     add_vertices_impl(*this, draw_type::elements, verts, 4, primitive_type::triangles, texture, blend, setup);
 
-	if(debug_draw() && debug)
+    if(debug_draw())
     {
-        debug->add_rect(points, col, false);
+        if(debug)
+        {
+            debug->add_rect(points, draw_color, false);
+
+            math::vec2 center{};
+            for(const auto& p : points)
+            {
+                center.x += p.x;
+                center.y += p.y;
+            }
+            center.x /= points.size();
+            center.y /= points.size();
+
+            debug->add_rect({int(center.x) - 2, int(center.y) - 2, 4, 4}, color::green());
+        }
     }
 }
 
-void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, texture_view texture, const program_setup& setup)
+void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_t count, primitive_type type, const texture_view& texture, const program_setup& setup)
 {
     if(count == 0)
     {
@@ -786,6 +1045,8 @@ void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_
 
 void draw_list::add_list(const draw_list& list)
 {
+    list.validate_stacks();
+
     auto vtx_offset = vertices.size();
     auto idx_offset = indices.size();
     auto cmd_offset = commands.size();
@@ -839,120 +1100,118 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         return;
     }
 
-	const auto& style = t.get_style();
-	auto font = style.font;
-	auto pixel_snap = font->pixel_snap;
 
-	const auto& offsets = style.shadow_offsets * style.scale;
-	if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
-	{
-		auto shadow = t;
-		shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
-		shadow.set_outline_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
-		shadow.set_shadow_offsets({0.0f, 0.0f});
-		shadow.set_softness(style.shadow_softness);
-		math::transformf shadow_transform{};
-		shadow_transform.translate(offsets.x, offsets.y, 0.0f);
+    const auto& style = t.get_style();
+    auto font = style.font;
+    auto pixel_snap = font->pixel_snap;
 
-		auto debug_draw_old = set_debug_draw(false);
-		add_text(shadow, transform * shadow_transform);
-		set_debug_draw(debug_draw_old);
+    const auto& offsets = style.shadow_offsets * style.scale;
+    if(math::any(math::notEqual(offsets, math::vec2(0.0f, 0.0f))))
+    {
+        auto shadow = t;
+        shadow.set_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
+        shadow.set_outline_vgradient_colors(style.shadow_color_top, style.shadow_color_bot);
+        shadow.set_softness(style.shadow_softness);
+        shadow.set_shadow_offsets({0.0f, 0.0f});
+        math::transformf shadow_transform{};
+        shadow_transform.translate(offsets.x, offsets.y, 0.0f);
+
+        auto debug_draw_old = set_debug_draw(false);
+        add_text(shadow, transform * shadow_transform);
+        set_debug_draw(debug_draw_old);
 
     }
 
-	const auto& geometry = t.get_geometry();
-	if(!geometry.empty())
-	{
-        auto sdf_spread = font->sdf_spread;
+    const auto& geometry = t.get_geometry();
+    if(geometry.empty())
+    {
+        return;
+    }
 
-        // cpu_batching is disabled for text rendering with more than X vertices
-        // because there are too many vertices and their matrix multiplication
-        // on the cpu dominates the batching benefits.
-        constexpr size_t max_cpu_transformed_glyhps = 24;
-        auto has_crop = !crop_areas.empty();
-        bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
+    auto sdf_spread = font->sdf_spread;
 
-        program_setup setup;
-        auto texture = font->texture;
-        texture_view view = texture;
-        auto blend = view.blending;
+    // cpu_batching is disabled for text rendering with more than X vertices
+    // because there are too many vertices and their matrix multiplication
+    // on the cpu dominates the batching benefits.
+    constexpr size_t max_cpu_transformed_glyhps = 24;
+    bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
+    auto has_crop = !crop_areas.empty();
 
-        if(sdf_spread > 0)
+    program_setup setup;
+    auto texture = font->texture;
+    texture_view view = texture;
+    auto blend = view.blending;
+
+    if(sdf_spread > 0)
+    {
+        if(!has_crop)
         {
-            if(!has_crop)
-            {
-                setup.program = get_program<programs::distance_field>();
-            }
-            else
-            {
-                setup.program = get_program<programs::distance_field_crop>();
-            }
+            setup.program = get_program<programs::distance_field>();
+        }
+        else
+        {
+            setup.program = get_program<programs::distance_field_crop>();
+        }
 
-
-            if(cpu_batch)
+        if(cpu_batch)
+        {
+            if(has_crop)
             {
-                utils::hash(setup.uniforms_hash,
-                            texture);
-
-                if(has_crop)
+                const auto& areas = crop_areas.back();
+                for(const auto& area : areas)
                 {
-                    const auto& areas = crop_areas.back();
-                    for(const auto& area : areas)
-                    {
-                        utils::hash(setup.uniforms_hash, area);
-                    }
+                    utils::hash(setup.uniforms_hash, area);
                 }
             }
         }
+    }
+
+    push_transform(transform);
+    auto& cmd = add_vertices_impl(*this, draw_type::elements,
+                                  geometry.data(), geometry.size(),
+                                  primitive_type::triangles,
+                                  view, blend,
+                                  std::move(setup),
+                                  cpu_batch, pixel_snap);
 
 
-        push_transform(transform);
-        auto& cmd = add_vertices_impl(*this,
-                                      draw_type::elements,
-                                      geometry.data(), geometry.size(),
-                                      primitive_type::triangles,
-                                      view, blend,
-                                      std::move(setup),
-                                      cpu_batch, pixel_snap);
-
-
-        // check if a new command was added
-        if(!cmd.setup.begin)
+    // check if a new command was added
+    if(!cmd.setup.begin)
+    {
+        if(sdf_spread > 0)
         {
 
-            if(sdf_spread > 0)
+            cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
+                               setup_transform = transform_setup(*this, cpu_batch, pixel_snap)]
+            (const gpu_context& ctx) mutable
             {
-                cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
-                                   setup_transform = transform_setup(*this, cpu_batch, pixel_snap),
-                                   texture](const gpu_context& ctx) mutable
+                if(setup_transform)
                 {
-                    if(setup_transform)
-                    {
-                        setup_transform(ctx);
-                    }
+                    setup_transform(ctx);
+                }
 
-                    if(setup_crop_rects)
-                    {
-                        setup_crop_rects(ctx);
-                    }
+                if(setup_crop_rects)
+                {
+                    setup_crop_rects(ctx);
+                }
 
-                    ctx.program.shader->set_uniform("uTexture", texture);
+                ctx.program.shader->set_uniform("uTextures[0]", ctx.cmd.texture_slots, ctx.cmd.used_slots);
 
-                };
-            }
-        }
-
-        if(!cmd.setup.end && !cpu_batch)
-        {
-            cmd.setup.end = [](const gpu_context& ctx)
-            {
-                ctx.rend.pop_transform();
             };
         }
-
-        pop_transform();
     }
-	if(debug_draw() && debug)
+
+    if(!cmd.setup.end && !cpu_batch)
+    {
+        cmd.setup.end = [](const gpu_context& ctx)
+        {
+            ctx.rend.pop_transform();
+        };
+    }
+
+    pop_transform();
+
+    if(debug_draw() && debug)
     {
         debug->add_text_debug_info(t, transform);
     }
@@ -961,13 +1220,16 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
 void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
-	add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
+    add_text(t, align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit));
 
-	if(debug_draw() && debug)
+    if(debug_draw())
     {
-        auto tr = transform;
-        tr.set_scale(1.0f, 1.0f, 1.0f);
-        debug->add_rect(dst_rect, tr, color::cyan(), false);
+        if(debug)
+        {
+            auto non_scaled = transform;
+            non_scaled.set_scale(1.0f, 1.0f);
+            debug->add_rect(dst_rect, non_scaled, color::cyan(), false);
+        }
     }
 }
 
@@ -982,12 +1244,13 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
         return lhs->text.get_style().font < rhs->text.get_style().font;
     });
 
-    for(const auto& ptr : sorted_texts)
+    for(auto& ptr : sorted_texts)
     {
-        const auto& embedded = *ptr;
+        auto& embedded = *ptr;
         const auto& element = embedded.element;
-        const auto& text = embedded.text;
+        auto& text = embedded.text;
 
+        text.set_opacity(opacity);
         math::transformf offset;
         offset.translate(element.rect.x, element.rect.y, 0);
         add_text(text, transform * offset);
@@ -1011,17 +1274,30 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
         rect dst_rect = {0, 0,
                          int(element.rect.w), int(element.rect.h)};
 
+        auto rect_y = element.rect.y;
+        switch(embedded.alignment)
+        {
+            case script_line::median:
+                rect_y -= dst_rect.h * 0.5f;
+                break;
+            case script_line::baseline:
+                rect_y -= dst_rect.h;
+                break;
+            default:
+                assert(false && "Not implemented");
+                rect_y -= dst_rect.h * 0.5f;
+        }
         math::transformf pivot;
-        pivot.translate(element.rect.x, element.rect.y - (dst_rect.h * 0.5f), 1.0f);
+        pivot.translate(element.rect.x, rect_y, 1.0f);
 
         add_image(image, img_src_rect, dst_rect, transform * pivot, col);
     }
 }
 
 void draw_list::add_text(const rich_text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
-						 dimension_fit dim_fit)
+                         dimension_fit dim_fit)
 {
-	add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
+    add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
 }
 
 std::string draw_list::to_string() const
@@ -1047,16 +1323,15 @@ void draw_list::validate_stacks() const noexcept
     assert(blend_modes.empty() && "draw_list::blend_modes stack was not popped");
     assert(transforms.empty() && "draw_list::transforms stack was not popped");
     assert(programs.empty() && "draw_list::programs stack was not popped");
-
 }
 
-void draw_list::add_polyline(const polyline& poly, color col, bool closed, float thickness, float antialias_size)
+void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
     add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
 }
 
 
-void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color colbot, bool closed, float thickness, float antialias_size)
+void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
@@ -1262,7 +1537,6 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
             vtx_current_idx += 4;
         }
     }
-
     auto vtx_count = vertices.size() - vtx_offset;
     auto idx_count = indices.size() - idx_offset;
     add_cmd_impl(*this,
@@ -1277,12 +1551,12 @@ void draw_list::add_polyline_gradient(const polyline& poly, color coltop, color 
 }
 
 
-void draw_list::add_polyline_filled_convex(const polyline& poly, color col, float antialias_size)
+void draw_list::add_polyline_filled_convex(const polyline& poly, const color& col, float antialias_size)
 {
     add_polyline_filled_convex_gradient(poly, col, col, antialias_size);
 }
 
-void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color coltop, color colbot, float antialias_size)
+void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
@@ -1420,15 +1694,14 @@ void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, color 
                  primitive_type::triangles,
                  blend,
                  get_simple_setup());
-
 }
-void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, color col, size_t num_segments, float thickness)
+void draw_list::add_ellipse(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments, float thickness)
 {
     add_ellipse_gradient(center, radii, col, col, num_segments, thickness);
 
 }
 
-void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, color col1, color col2, size_t num_segments, float thickness)
+void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2& radii, const color& col1, const color& col2, size_t num_segments, float thickness)
 {
     if ((col1.a == 0 && col2.a == 0) || num_segments <= 2)
         return;
@@ -1439,7 +1712,7 @@ void draw_list::add_ellipse_gradient(const math::vec2& center, const math::vec2&
 
 }
 
-void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, color col, size_t num_segments)
+void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& radii, const color& col, size_t num_segments)
 {
     if (col.a == 0|| num_segments <= 2)
         return;
@@ -1449,7 +1722,7 @@ void draw_list::add_ellipse_filled(const math::vec2& center, const math::vec2& r
     add_polyline_filled_convex(line, col, true);
 }
 
-void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, color col, float thickness, int num_segments)
+void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, const math::vec2& cp1, const math::vec2& pos1, const color& col, float thickness, int num_segments)
 {
     if (col.a == 0)
         return;
@@ -1460,7 +1733,7 @@ void draw_list::add_bezier_curve(const math::vec2& pos0, const math::vec2& cp0, 
     add_polyline(line, col, false, thickness);
 }
 
-void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, color col1, color col2, float thickness, float antialias_size)
+void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, const color& col1, const color& col2, float thickness, float antialias_size)
 {
     if((col1.a == 0 && col2.a == 0) || points.size() < 2)
         return;
@@ -1481,7 +1754,28 @@ void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, 
 
 void draw_list::push_clip(const rect& clip)
 {
-    clip_rects.emplace_back(clip);
+    if(debug_draw())
+    {
+        if(debug)
+        {
+            debug->add_rect(clip, color::yellow(), false, 3.f);
+        }
+    }
+
+    if(!transforms.empty())
+    {
+        const auto& trans = transforms.back();
+        auto mod_clip = clip;
+        mod_clip.x = int(float(mod_clip.x) * trans.get_scale().x + trans.get_position().x);
+        mod_clip.y = int(float(mod_clip.y) * trans.get_scale().y + trans.get_position().y);
+        mod_clip.w = int(float(clip.w) * trans.get_scale().x);
+        mod_clip.h = int(float(clip.h) * trans.get_scale().y);
+        clip_rects.emplace_back(mod_clip);
+    }
+    else
+    {
+        clip_rects.emplace_back(clip);
+    }
 }
 
 void draw_list::pop_clip()
@@ -1494,7 +1788,38 @@ void draw_list::pop_clip()
 
 void draw_list::push_crop(const crop_area_t& crop)
 {
-    crop_areas.emplace_back(crop);
+    if(debug_draw())
+    {
+        if(debug)
+        {
+            for (auto rect : crop)
+            {
+                add_rect(rect, color::red(), false, 3.f);
+            }
+        }
+    }
+
+    if(!transforms.empty())
+    {
+        crop_area_t mod_crop;
+        mod_crop.reserve(crop.size());
+        const auto& trans = transforms.back();
+        for (auto& rect : crop)
+        {
+            mod_crop.push_back(rect);
+            auto& mod_rect = mod_crop.back();
+            mod_rect.x = int(float(rect.x) * trans.get_scale().x + trans.get_position().x);
+            mod_rect.y = int(float(rect.y) * trans.get_scale().y + trans.get_position().y);
+            mod_rect.w = int(float(rect.w) * trans.get_scale().x);
+            mod_rect.h = int(float(rect.h) * trans.get_scale().y);
+        }
+
+        crop_areas.emplace_back(mod_crop);
+    }
+    else
+    {
+        crop_areas.emplace_back(crop);
+    }
 }
 
 void draw_list::pop_crop()
@@ -1517,9 +1842,23 @@ void draw_list::pop_blend()
         blend_modes.pop_back();
     }
 }
+
 void draw_list::push_transform(const math::transformf& tr)
 {
-    transforms.emplace_back(tr);
+    if(transforms.empty())
+    {
+        transforms.emplace_back(tr);
+    }
+    else
+    {
+        const auto& top = transforms.back();
+        transforms.emplace_back(top * tr);
+    }
+
+    if(debug)
+    {
+        debug->push_transform(tr);
+    }
 }
 
 void draw_list::pop_transform()
@@ -1527,6 +1866,11 @@ void draw_list::pop_transform()
     if(!transforms.empty())
     {
         transforms.pop_back();
+    }
+
+    if(debug)
+    {
+        debug->pop_transform();
     }
 }
 
@@ -1542,7 +1886,6 @@ void draw_list::pop_program()
         programs.pop_back();
     }
 }
-
 void draw_list::reserve_vertices(size_t count)
 {
     vertices.reserve(vertices.size() + count);
@@ -1590,104 +1933,104 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     }
     else
     {
-        math::transformf tr = transform;
+//        math::transformf tr = transform;
+//        {
+//            for(const auto& line : lines)
+//            {
+//                auto v1 = transform.transform_coord({line.minx, line.ascent});
+//                auto v2 = transform.transform_coord({line.maxx, line.ascent});
+
+//                text txt;
+//                txt.set_color(color::cyan()());
+//                txt.set_font(default_font());
+//                txt.set_alignment(align::right | align::middle);
+//                txt.set_utf8_text("ascent ");
+
+//                tr.set_position(v1.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+
+//                auto width = line.maxx - line.minx;
+//                std::stringstream ss;
+//                ss << " width = " << std::fixed << std::setprecision(2) << width;
+
+//                txt.set_alignment(align::left | align::middle);
+//                txt.set_utf8_text(ss.str());
+
+//                tr.set_position(v2.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+//            }
+//        }
+//        {
+//            for(const auto& line : lines)
+//            {
+//                auto v1 = transform.transform_coord({line.minx, line.cap});
+
+//                text txt;
+//                txt.set_color(color::green()());
+//                txt.set_font(default_font());
+//                txt.set_alignment(align::right | align::middle);
+//                txt.set_utf8_text("cap_height ");
+
+//                tr.set_position(v1.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+//            }
+//        }
+//        {
+//            for(const auto& line : lines)
+//            {
+//                auto v1 = transform.transform_coord({line.minx, line.median});
+
+//                text txt;
+//                txt.set_color(color::red()());
+//                txt.set_font(default_font());
+//                txt.set_alignment(align::right | align::middle);
+//                txt.set_utf8_text("median ");
+
+//                tr.set_position(v1.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+//            }
+//        }
+//        {
+//            for(const auto& line : lines)
+//            {
+//                auto v1 = transform.transform_coord({line.minx, line.baseline});
+
+//                text txt;
+//                txt.set_color(color::magenta()());
+//                txt.set_font(default_font());
+//                txt.set_alignment(align::right | align::middle);
+//                txt.set_utf8_text("baseline ");
+
+//                tr.set_position(v1.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+//            }
+//        }
+//        {
+//            for(const auto& line : lines)
+//            {
+//                auto v1 = transform.transform_coord({line.minx, line.descent});
+
+//                text txt;
+//                txt.set_color(color::blue()());
+//                txt.set_font(default_font());
+//                txt.set_alignment(align::right | align::middle);
+//                txt.set_utf8_text("descent ");
+
+//                tr.set_position(v1.x, v1.y, 0.0f);
+//                add_text(txt, tr);
+//            }
+//        }
+
+        add_rect(t.get_frect(), transform, color::red(), false, 1.0f);
+
         {
             for(const auto& line : lines)
             {
-                auto v1 = transform.transform_coord({line.minx, line.ascent});
-                auto v2 = transform.transform_coord({line.maxx, line.ascent});
+                math::vec2 v1{line.minx, line.ascent};
+                math::vec2 v2{line.maxx, line.ascent};
 
-                text txt;
-                txt.set_color(color::cyan());
-                txt.set_font(default_font());
-                txt.set_alignment(align::right | align::middle);
-                txt.set_utf8_text("ascent ");
-
-                tr.set_position(v1.x, v1.y, 0.0f);
-                add_text(txt, tr);
-
-                auto width = line.maxx - line.minx;
-                std::stringstream ss;
-                ss << " width = " << std::fixed << std::setprecision(2) << width;
-
-                txt.set_alignment(align::left | align::middle);
-                txt.set_utf8_text(ss.str());
-
-                tr.set_position(v2.x, v1.y, 0.0f);
-                add_text(txt, tr);
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::cyan());
             }
-        }
-        {
-            for(const auto& line : lines)
-            {
-                auto v1 = transform.transform_coord({line.minx, line.cap_height});
-
-                text txt;
-                txt.set_color(color::green());
-                txt.set_font(default_font());
-                txt.set_alignment(align::right | align::middle);
-                txt.set_utf8_text("cap_height ");
-
-                tr.set_position(v1.x, v1.y, 0.0f);
-                add_text(txt, tr);
-            }
-        }
-        {
-            for(const auto& line : lines)
-            {
-                auto v1 = transform.transform_coord({line.minx, line.median});
-
-                text txt;
-                txt.set_color(color::red());
-                txt.set_font(default_font());
-                txt.set_alignment(align::right | align::middle);
-                txt.set_utf8_text("median ");
-
-                tr.set_position(v1.x, v1.y, 0.0f);
-                add_text(txt, tr);
-            }
-        }
-        {
-            for(const auto& line : lines)
-            {
-                auto v1 = transform.transform_coord({line.minx, line.baseline});
-
-                text txt;
-                txt.set_color(color::magenta());
-                txt.set_font(default_font());
-                txt.set_alignment(align::right | align::middle);
-                txt.set_utf8_text("baseline ");
-
-                tr.set_position(v1.x, v1.y, 0.0f);
-                add_text(txt, tr);
-            }
-        }
-        {
-            for(const auto& line : lines)
-            {
-                auto v1 = transform.transform_coord({line.minx, line.descent});
-
-                text txt;
-                txt.set_color(color::blue());
-                txt.set_font(default_font());
-                txt.set_alignment(align::right | align::middle);
-                txt.set_utf8_text("descent ");
-
-                tr.set_position(v1.x, v1.y, 0.0f);
-                add_text(txt, tr);
-            }
-        }
-
-
-
-        add_rect(t.get_frect(), transform, color::red(), false, 3.0f);
-
-        for(const auto& line : lines)
-        {
-            math::vec2 v1{line.minx, line.ascent};
-            math::vec2 v2{line.maxx, line.ascent};
-
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::cyan());
         }
 
         for(const auto& line : lines)
@@ -1698,71 +2041,65 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
             add_line(transform.transform_coord(v1), transform.transform_coord(v2),  color::green());
         }
 
-        for(const auto& line : lines)
         {
-            math::vec2 v1{line.minx, line.x_height};
-            math::vec2 v2{line.maxx, line.x_height};
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.baseline};
+                math::vec2 v2{line.maxx, line.baseline};
 
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.median};
+                math::vec2 v2{line.maxx, line.median};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::red());
+            }
+        }
+        {
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.descent};
+                math::vec2 v2{line.maxx, line.descent};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
+            }
         }
 
-        for(const auto& line : lines)
         {
-            math::vec2 v1{line.minx, line.median};
-            math::vec2 v2{line.maxx, line.median};
+            for(const auto& line : lines)
+            {
+                auto line_height = t.get_style().font->line_height * t.get_style().scale;
+                math::vec2 v1{line.maxx, line.ascent};
+                math::vec2 v2{line.maxx, line.ascent + line_height};
 
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::red());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
+            }
         }
-
-        for(const auto& line : lines)
-        {
-            math::vec2 v1{line.minx, line.baseline};
-            math::vec2 v2{line.maxx, line.baseline};
-
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
-        }
-
-        for(const auto& line : lines)
-        {
-            math::vec2 v1{line.minx, line.descent};
-            math::vec2 v2{line.maxx, line.descent};
-
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
-        }
-
-		auto font = t.get_style().font;
-		if(font)
-		{
-			for(const auto& line : lines)
-			{
-				auto line_height = font->line_height;
-				math::vec2 v1{line.maxx, line.ascent};
-				math::vec2 v2{line.maxx, line.ascent + line_height};
-
-				add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
-			}
-		}
     }
 
-    add_rect(rect{-1, -1, 2, 2}, transform, color{255, 190, 2});
+    add_rect(rect{-2, -2, 4, 4}, transform, gfx::color{255, 190, 2});
 }
 
 
 bool set_debug_draw(bool debug)
 {
-	bool old = debug_draw_enabled;
-	debug_draw_enabled = debug;
-	return old;
+    bool old = debug_draw_enabled;
+    debug_draw_enabled = debug;
+    return old;
 }
 
 void toggle_debug_draw()
 {
-	debug_draw_enabled = !debug_draw_enabled;
+    debug_draw_enabled = !debug_draw_enabled;
 }
 
 bool debug_draw()
 {
-	return debug_draw_enabled;
+    return debug_draw_enabled;
 }
 
 

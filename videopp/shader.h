@@ -3,17 +3,15 @@
 #include "vertex.h"
 #include "texture.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
 #include <map>
-#include <array>
-
 
 namespace gfx
 {
     class renderer;
-    struct texture_view;
 
     class shader
     {
@@ -24,7 +22,8 @@ namespace gfx
         void disable() const;
 
         void set_uniform(const char* uniform, const texture_view& tex, uint32_t slot = 0) const;
-        void set_uniform(const char* uniform, const std::array<texture_view, 32>& texures) const;
+        void set_uniform(const char* uniform, const std::array<texture_view, 32>& tex, uint32_t used_slots) const;
+
 
         void set_uniform(const char* uniform, int data) const;
         void set_uniform(const char* uniform, float data) const;
@@ -56,7 +55,7 @@ namespace gfx
         int get_uniform_location(const char* uniform) const;
 
         friend class renderer;
-        shader(const renderer &rend, const char* fragment_code, const char* vertex_code);
+        shader(const gfx::renderer &rend, const char* fragment_code, const char* vertex_code);
 
         void unload() noexcept;
         void compile(uint32_t shader_id);
@@ -72,7 +71,7 @@ namespace gfx
         mutable int32_t max_bound_slot_ = -1;
         mutable std::array<texture_view, 32> bound_textures_{{}};
 
-        const renderer &rend_;
+        const gfx::renderer &rend_;
     };
 
     using shader_ptr = std::shared_ptr<shader>;
