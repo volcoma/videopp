@@ -22,6 +22,8 @@ enum programs : uint32_t
     single_channel_crop,
     distance_field,
     distance_field_crop,
+    distance_field_supersample,
+    distance_field_crop_supersample,
     alphamix,
     valphamix,
     halphamix,
@@ -75,6 +77,8 @@ struct gpu_context
 struct program_setup
 {
     gpu_program program;
+
+    std::function<math::transformf()> get_gpu_transform;
     std::function<void(const gpu_context&)> begin;
     std::function<void(const gpu_context&)> end;
 
@@ -85,6 +89,27 @@ struct program_setup
 /// A draw command
 struct draw_cmd
 {
+    uint8_t get_texture_idx(const texture_view& tex)
+    {
+        auto tex_idx = used_slots;
+
+        for(uint8_t i = 0; i < used_slots; ++i)
+        {
+            if(texture_slots[i] == tex)
+            {
+                tex_idx = i;
+                break;
+            }
+        }
+
+        return tex_idx;
+    }
+
+    void set_texture_idx(const texture_view& tex, uint8_t tex_idx)
+    {
+        texture_slots[tex_idx] = tex;
+        used_slots++;
+    }
     /// Type of primitive we're drawing
     primitive_type type{primitive_type::triangles};
     /// Type of draw method
@@ -105,7 +130,6 @@ struct draw_cmd
     program_setup setup{};
 
     std::array<texture_view, 32> texture_slots{{}};
-
     uint8_t used_slots{};
     /// Uniforms's hash used for batching.
     uint64_t hash{0};
@@ -113,12 +137,6 @@ struct draw_cmd
     size_t subcount{0};
 
 };
-
-inline font_ptr& default_font() noexcept
-{
-    static font_ptr font;
-    return font;
-}
 
 }
 

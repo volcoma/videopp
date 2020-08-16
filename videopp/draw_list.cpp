@@ -1,4 +1,3 @@
-
 #include "draw_list.h"
 #include <cmath>
 #include <codecvt>
@@ -15,25 +14,30 @@
 
 namespace gfx
 {
-batch_config& get_batch_config_impl()
+
+draw_config& get_draw_config_impl()
 {
-    static batch_config cfg;
+    static draw_config cfg;
     return cfg;
 }
 
-void set_batch_config(const batch_config& cfg)
+void set_draw_config(const draw_config& cfg)
 {
-    get_batch_config_impl() = cfg;
+    get_draw_config_impl() = cfg;
 }
 
-const batch_config& get_batch_config()
+const draw_config& get_draw_config()
 {
-    return get_batch_config_impl();
+    return get_draw_config_impl();
+}
+
+bool debug_draw()
+{
+    return get_draw_config().debug;
 }
 
 namespace
 {
-bool debug_draw_enabled = false;
 
 template<typename T>
 inline std::array<math::vec2, 4> transform_rect(const rect_t<T>& r) noexcept
@@ -64,8 +68,9 @@ inline uint64_t simple_hash() noexcept
     return seed;
 }
 
-inline bool can_be_batched(draw_list& list, uint64_t hash, const texture_view& tex) noexcept
+inline bool can_be_batched(draw_list& list, uint64_t hash, const texture_view& tex, uint8_t& tex_idx) noexcept
 {
+//    EGT_BLOCK_PROFILING("draw_list::can_be_batched")
     if(list.commands.empty())
     {
         return false;
@@ -79,21 +84,15 @@ inline bool can_be_batched(draw_list& list, uint64_t hash, const texture_view& t
             return true;
         }
 
-        auto& cfg = get_batch_config();
+        auto& cfg = get_draw_config();
         auto max_slots = cfg.max_textures_per_batch;
 
         if(max_slots > 0)
         {
-            if(cmd.used_slots < max_slots)
+            if(cmd.used_slots <= max_slots)
             {
-                return true;
-            }
-            if(cmd.used_slots == max_slots)
-            {
-                if(std::find(std::begin(cmd.texture_slots), std::end(cmd.texture_slots), tex) != std::end(cmd.texture_slots))
-                {
-                    return true;
-                }
+                tex_idx = cmd.get_texture_idx(tex);
+                return tex_idx < max_slots;
             }
         }
     }
@@ -101,9 +100,10 @@ inline bool can_be_batched(draw_list& list, uint64_t hash, const texture_view& t
     return false;
 }
 
-
 inline void transform_vertices(draw_list& list, size_t vtx_offset, size_t vtx_count, bool pixel_snap)
 {
+//    EGT_BLOCK_PROFILING("draw_list::transform_vertices")
+
     if(!list.transforms.empty())
     {
         const auto& tr = list.transforms.back();
@@ -120,23 +120,61 @@ inline void transform_vertices(draw_list& list, size_t vtx_offset, size_t vtx_co
     }
 }
 
-inline void apply_texture(draw_list& list, draw_cmd& cmd, size_t vtx_offset, size_t vtx_count, const texture_view& texture)
+inline void apply_transform_and_texture(draw_list& list,
+                                    draw_cmd& cmd,
+                                    uint8_t tex_idx,
+                                    size_t vtx_offset,
+                                    size_t vtx_count,
+                                    bool pixel_snap,
+                                    const texture_view& texture,
+                                    bool apply_transform)
 {
-    auto tex_idx = cmd.used_slots;
+//    EGT_BLOCK_PROFILING("draw_list::apply_transform_and_texture")
 
-    for(uint8_t i = 0; i < cmd.used_slots; ++i)
+    const auto& tr = [&]() -> const math::transformf&
     {
-        if(cmd.texture_slots[i] == texture)
+        if(!list.transforms.empty())
         {
-            tex_idx = i;
-            break;
+            return list.transforms.back();
         }
-    }
+
+        static math::transformf trans{};
+        return trans;
+    }();
 
     if(tex_idx == cmd.used_slots)
     {
-        cmd.texture_slots[tex_idx] = texture;
-        cmd.used_slots++;
+        cmd.set_texture_idx(texture, tex_idx);
+    }
+
+
+    for(size_t i = vtx_offset; i < vtx_offset + vtx_count; ++i)
+    {
+        auto& v = list.vertices[i];
+        if(apply_transform)
+        {
+            v.pos = tr.transform_coord(v.pos);
+
+            if(pixel_snap)
+            {
+                v.pos.x = float(int(v.pos.x));
+            }
+        }
+        if(texture)
+        {
+            v.tex_idx = tex_idx;
+        }
+    }
+}
+
+
+inline void apply_texture(draw_list& list, draw_cmd& cmd, uint8_t tex_idx, size_t vtx_offset, size_t vtx_count, const texture_view& texture)
+{
+//    EGT_BLOCK_PROFILING("draw_list::apply_texture")
+
+    if(tex_idx == cmd.used_slots)
+    {
+        cmd.set_texture_idx(texture, tex_idx);
     }
 
     for(size_t i = vtx_offset; i < vtx_offset + vtx_count; ++i)
@@ -146,12 +184,111 @@ inline void apply_texture(draw_list& list, draw_cmd& cmd, size_t vtx_offset, siz
     }
 }
 
+
+std::function<void(const gpu_context&)> crop_rects_setup(const draw_list& list)
+{
+    if(!list.crop_areas.empty())
+    {
+        return [rects = list.crop_areas.back()](const gpu_context& ctx) mutable
+        {
+            if(ctx.program.shader->has_uniform("uRects[0]"))
+            {
+                if (!ctx.rend.is_with_fbo())
+                {
+                    for (auto& area : rects)
+                    {
+                        area.y = ctx.rend.get_rect().h - (area.y + area.h);
+                    }
+                }
+
+                auto transform = ctx.rend.get_transform();
+                const auto& scale = transform.get_scale();
+                const auto& pos = transform.get_position();
+                for (auto& area : rects)
+                {
+                    area.x = int(float(area.x) * scale.x + pos.x);
+                    area.y = int(float(area.y) * scale.y + pos.y);
+                    area.w = int(float(area.w) * scale.x);
+                    area.h = int(float(area.h) * scale.y);
+                }
+
+                ctx.program.shader->set_uniform("uRects[0]", rects);
+                ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
+            }
+        };
+    }
+
+    return nullptr;
+}
+
+
+inline void setup_cmd(draw_list& list, draw_cmd& cmd, bool apply_transform = true, bool pixel_snap = false)
+{
+    // check if a new command was added
+    bool setup_gpu_transform = !apply_transform && !list.transforms.empty();
+    if(!cmd.setup.begin)
+    {
+        //        EGT_BLOCK_PROFILING("draw_list::new_cmd_added")
+
+        if(setup_gpu_transform)
+        {
+            cmd.setup.get_gpu_transform = [transform = list.transforms.back()]()
+            {
+                return transform;
+            };
+        }
+
+        cmd.setup.begin = [setup_crop_rects = crop_rects_setup(list),
+                           pixel_snap]
+            (const gpu_context& ctx) mutable
+        {
+            if(ctx.cmd.setup.get_gpu_transform)
+            {
+                auto transform = ctx.cmd.setup.get_gpu_transform();
+
+                auto pos = transform.get_position();
+
+                if(pixel_snap)
+                {
+                    pos.x = float(int(pos.x));
+                }
+                transform.set_position(pos.x, pos.y, 0);
+
+                ctx.rend.push_transform(transform);
+            }
+
+            if(setup_crop_rects)
+            {
+                setup_crop_rects(ctx);
+            }
+
+            if(ctx.program.shader->has_uniform("uTextures[0]"))
+            {
+                ctx.program.shader->set_uniform("uTextures[0]", ctx.cmd.texture_slots, ctx.cmd.used_slots);
+            }
+        };
+    }
+
+    if(!cmd.setup.end)
+    {
+        cmd.setup.end = [](const gpu_context& ctx)
+        {
+            if(ctx.cmd.setup.get_gpu_transform)
+            {
+                ctx.rend.pop_transform();
+            }
+        };
+    }
+}
+
 template<typename Setup>
 inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t vertices_before, uint32_t vertices_added,
                               uint32_t indices_before, uint32_t indices_added, primitive_type type, blending_mode deduced_blend,
                               Setup&& setup, const texture_view& texture = {},
                               bool apply_transform = true, bool pixel_snap = false)
 {
+//    EGT_BLOCK_PROFILING("draw_list::add_cmd_impl")
+
     if(indices_added == 0)
     {
         if(dr_type == draw_type::elements)
@@ -213,6 +350,8 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
         blend = list.blend_modes.back();
     }
 
+    uint8_t tex_idx = 0;
+
     const auto add_new_command = [&](uint64_t hash) {
         list.commands.emplace_back();
         auto& command = list.commands.back();
@@ -224,6 +363,7 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
         command.hash = hash;
         command.blend = blend;
         command.clip_rect = clip;
+        tex_idx = command.used_slots;
     };
 
     list.commands_requested++;
@@ -238,7 +378,7 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
     {
         auto hash = setup.uniforms_hash;
         utils::hash(hash, dr_type, type, blend, clip, setup.program.shader);
-        if(!can_be_batched(list, hash, texture))
+        if(!can_be_batched(list, hash, texture, tex_idx))
         {
             add_new_command(hash);
         }
@@ -246,15 +386,14 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
 
     auto& command = list.commands.back();
 
-    if(apply_transform)
-    {
-        transform_vertices(list, vertices_before, vertices_added, pixel_snap);
-    }
-
-    if(texture)
-    {
-        apply_texture(list, command, vertices_before, vertices_added, texture);
-    }
+    apply_transform_and_texture(list,
+                                command,
+                                tex_idx,
+                                vertices_before,
+                                vertices_added,
+                                pixel_snap,
+                                texture,
+                                apply_transform);
 
     command.indices_offset = std::min(command.indices_offset, indices_before);
     command.indices_count += indices_added;
@@ -262,6 +401,7 @@ inline draw_cmd& add_cmd_impl(draw_list& list, draw_type dr_type, uint32_t verti
     command.vertices_count += vertices_added;
     command.subcount++;
 
+    setup_cmd(list, command, apply_transform, pixel_snap);
 
     return command;
 }
@@ -323,53 +463,13 @@ const program_setup& get_simple_setup() noexcept
     return setup;
 }
 
-std::function<void(const gpu_context&)> transform_setup(const draw_list& list, bool cpu_batch, bool pixel_snap)
-{
-    if(!cpu_batch)
-    {
-        return [transform = list.transforms.back(), pixel_snap](const gpu_context& ctx) mutable
-        {
-            auto pos = transform.get_position();
-
-            if(pixel_snap)
-            {
-                pos.x = float(int(pos.x));
-            }
-            transform.set_position(pos.x, pos.y, 0);
-
-            ctx.rend.push_transform(transform);
-        };
-    }
-
-    return nullptr;
-}
-
-std::function<void(const gpu_context&)> crop_rects_setup(const draw_list& list)
-{
-    if(!list.crop_areas.empty())
-    {
-        return [rects = list.crop_areas.back()](const gpu_context& ctx) mutable
-        {
-            if (!ctx.rend.is_with_fbo())
-            {
-                for (auto& area : rects)
-                {
-                    area.y = ctx.rend.get_rect().h - (area.y + area.h);
-                }
-            }
-            ctx.program.shader->set_uniform("uRects[0]", rects);
-            ctx.program.shader->set_uniform("uRectsCount", int(rects.size()));
-        };
-    }
-
-    return nullptr;
-}
-
 
 template<typename Setup>
 inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const vertex_2d* verts, size_t count,
                                    primitive_type type, const texture_view& texture, blending_mode blend, Setup&& setup, bool apply_transform = true, bool pixel_snap = false)
 {
+//    EGT_BLOCK_PROFILING("draw_list::add_vertices_impl %d", int(count))
+
     assert(verts != nullptr && count > 0 && "invalid input for memcpy");
     const auto vtx_offset = uint32_t(list.vertices.size());
     const auto idx_offset = uint32_t(list.indices.size());
@@ -460,48 +560,18 @@ inline draw_cmd& add_vertices_impl(draw_list& list, draw_type dr_type, const ver
         }
     }
 
-    auto& cmd = add_cmd_impl(list,
-                             dr_type,
-                             vtx_offset,
-                             uint32_t(count),
-                             idx_offset,
-                             0,
-                             type,
-                             blend,
-                             std::move(prog_setup),
-                             texture,
-                             apply_transform,
-                             pixel_snap);
-    // check if a new command was added
-    if(!cmd.setup.begin)
-    {
-        cmd.setup.begin = [setup_crop_rects = crop_rects_setup(list),
-                           setup_transform = transform_setup(list, apply_transform, pixel_snap)]
-        (const gpu_context& ctx) mutable
-        {
-            if(setup_transform)
-            {
-                setup_transform(ctx);
-            }
-
-            if(setup_crop_rects)
-            {
-                setup_crop_rects(ctx);
-            }
-
-            ctx.program.shader->set_uniform("uTextures[0]", ctx.cmd.texture_slots, ctx.cmd.used_slots);
-        };
-    }
-
-    if(!cmd.setup.end && !apply_transform)
-    {
-        cmd.setup.end = [](const gpu_context& ctx)
-        {
-            ctx.rend.pop_transform();
-        };
-    }
-
-    return cmd;
+    return add_cmd_impl(list,
+                         dr_type,
+                         vtx_offset,
+                         uint32_t(count),
+                         idx_offset,
+                         0,
+                         type,
+                         blend,
+                         std::move(prog_setup),
+                         texture,
+                         apply_transform,
+                         pixel_snap);
 }
 
 }
@@ -591,8 +661,8 @@ math::transformf fit_item(float item_w, float item_h,
     return fit_trans;
 }
 
-math::transformf align_and_fit_item(align_t align, float item_w, float item_h, const math::transformf &transform,
-                                    const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+math::transformf align_and_fit_item(align_t align, float item_w, float item_h, const math::transformf& transform,
+                                    const frect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
     auto scale_x = transform.get_scale().x;
     auto scale_y = transform.get_scale().y;
@@ -624,12 +694,13 @@ math::transformf align_and_fit_item(align_t align, float item_w, float item_h, c
 }
 
 math::transformf align_and_fit_text(const text& t, const math::transformf &transform,
-                                    const rect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
+                                    const frect& dst_rect, size_fit sz_fit, dimension_fit dim_fit)
 {
-    return align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit);
+    auto bounds = t.get_bounds(text::bounds_query::precise);
+    return align_and_fit_item(t.get_alignment(), bounds.w, bounds.h, transform, dst_rect, sz_fit, dim_fit);
 }
 
-math::transformf align_item(align_t align, const rect& item)
+math::transformf align_item(align_t align, const frect& item)
 {
     return align_item(align, float(item.x), float(item.y), float(item.x + item.w), float(item.y + item.h), true);
 }
@@ -644,14 +715,18 @@ math::transformf align_item(align_t align, float minx, float miny, float maxx, f
     return result;
 }
 
-
 math::transformf align_wrap_and_fit_text(text& t,
                                          const math::transformf& transform,
-                                         rect dst_rect,
+                                         frect dst_rect,
                                          size_fit sz_fit,
                                          dimension_fit dim_fit)
 {
     if(!t.is_valid())
+    {
+        return transform;
+    }
+
+    if(dst_rect.w <= 2 || dst_rect.h <= 2)
     {
         return transform;
     }
@@ -860,7 +935,7 @@ void draw_list::add_movie_image(const texture_view& texture, const rect& dst, co
                                 movie_format format, flip_format flip, const color& col)
 {
 
-    gfx::rect src{0, 0, int(texture.width), int(texture.height)};
+    rect src{0, 0, int(texture.width), int(texture.height)};
     switch(format)
     {
     case movie_format::opaque:
@@ -879,7 +954,7 @@ void draw_list::add_movie_image(const texture_view& texture, const rect& dst, co
 void draw_list::add_movie_image(const texture_view& texture, const math::transformf& transform,
                                 movie_format format, flip_format flip, const color& col)
 {
-    gfx::rect src{0, 0, int(texture.width), int(texture.height)};
+    rect src{0, 0, int(texture.width), int(texture.height)};
     switch(format)
     {
     case movie_format::opaque:
@@ -893,6 +968,56 @@ void draw_list::add_movie_image(const texture_view& texture, const math::transfo
     }
 
     add_movie_image(texture, src, src, transform, format, flip, col);
+}
+
+void draw_list::add_movie_images(const texture_view& rgb_texture, const texture_view& alpha_texture, const rect& src,
+                                 const rect& dst, const math::transformf& transform, const color& col, flip_format flip)
+{
+    if (!alpha_texture)
+    {
+        add_image(rgb_texture, src, dst, transform, col, flip);
+        return;
+    }
+
+    program_setup setup;
+    setup.program = get_program<programs::alphamix>();
+    setup.begin = [rgb_texture, alpha_texture](const auto& ctx)
+    {
+        ctx.program.shader->set_uniform("uTextureRGB", rgb_texture, 0);
+        ctx.program.shader->set_uniform("uTextureAlpha", alpha_texture, 1);
+    };
+
+    push_blend(blending_mode::blend_normal);
+    add_image(rgb_texture, src, dst, transform, col, flip, setup);
+    pop_blend();
+}
+
+void draw_list::add_movie_images(const texture_view& rgb_texture, const texture_view& alpha_texture,
+                                 const rect& src, const rect& dst, const color& col, flip_format flip)
+{
+    add_movie_images(rgb_texture, alpha_texture, src, dst, math::transformf{}, col, flip);
+}
+
+void draw_list::add_movie_images(const texture_view& rgb_texture, const texture_view& alpha_texture,
+                                 const rect& dst, const color& col, flip_format flip)
+{
+    add_movie_images(rgb_texture, alpha_texture, dst, math::transformf{}, col, flip);
+}
+
+void draw_list::add_movie_images(const texture_view& rgb_texture, const texture_view& alpha_texture, const rect& dst,
+                                 const math::transformf& transform, const color& col, flip_format flip)
+{
+    rect src{0, 0, int(rgb_texture.width), int(rgb_texture.height)};
+
+    add_movie_images(rgb_texture, alpha_texture, src, dst, transform, col, flip);
+}
+
+void draw_list::add_movie_images(const texture_view& rgb_texture, const texture_view& alpha_texture,
+                                 const math::transformf& transform, const color& col, flip_format flip)
+{
+    rect src{0, 0, int(rgb_texture.width), int(rgb_texture.height)};
+
+    add_movie_images(rgb_texture, alpha_texture, src, src, transform, col, flip);
 }
 
 void draw_list::add_image(const texture_view& texture, const rect& src, const rect& dst,
@@ -973,6 +1098,10 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
                           const color& col, math::vec2 min_uv, math::vec2 max_uv,
                           flip_format flip, const program_setup& setup)
 {
+//    EGT_BLOCK_PROFILING("draw_list::add_image")
+
+    apply_linear_filtering_correction(texture, min_uv, max_uv);
+
     switch (flip)
     {
         case flip_format::horizontal:
@@ -986,7 +1115,7 @@ void draw_list::add_image(const texture_view& texture, const std::array<math::ve
             std::swap(min_uv.y, max_uv.y);
             break;
         default:
-        break;
+            break;
     }
 
     auto draw_color = col;
@@ -1043,15 +1172,16 @@ void draw_list::add_vertices(draw_type dr_type, const vertex_2d* vertices, size_
     add_vertices_impl(*this, dr_type, vertices, count, type, texture, texture.blending, setup);
 }
 
-void draw_list::add_list(const draw_list& list)
+void draw_list::add_list(const draw_list& list, bool transform_verts)
 {
     list.validate_stacks();
 
     auto vtx_offset = vertices.size();
     auto idx_offset = indices.size();
     auto cmd_offset = commands.size();
+    auto vertices_size = list.vertices.size();
 
-    vertices.resize(vtx_offset + list.vertices.size());
+    vertices.resize(vtx_offset + vertices_size);
     std::memcpy(vertices.data() + vtx_offset,
                 list.vertices.data(),
                 list.vertices.size() * sizeof(decltype (list.vertices)::value_type));
@@ -1060,8 +1190,6 @@ void draw_list::add_list(const draw_list& list)
     std::memcpy(indices.data() + idx_offset,
                 list.indices.data(),
                 list.indices.size() * sizeof(decltype (list.indices)::value_type));
-
-
     if(vtx_offset != 0)
     {
         // offset the indices from the new list with the current
@@ -1073,8 +1201,38 @@ void draw_list::add_list(const draw_list& list)
     }
 
     // These are not trivially copiable. So the memcpy is a no-no
-    commands.reserve(commands.size() + list.commands.size());
-    std::move(std::begin(list.commands), std::end(list.commands), std::back_inserter(commands));
+    auto start_cmd_idx = commands.size();
+    commands.reserve(start_cmd_idx + list.commands.size());
+    std::copy(std::begin(list.commands), std::end(list.commands), std::back_inserter(commands));
+
+    if(transform_verts)
+    {
+        if(!transforms.empty())
+        {
+            const auto& stack_transform = transforms.back();
+            for(size_t i = start_cmd_idx; i < commands.size(); ++i)
+            {
+                auto& cmd = commands[i];
+                if(cmd.setup.get_gpu_transform)
+                {
+                    auto cmd_transform = cmd.setup.get_gpu_transform();
+                    auto overwrite_transform = stack_transform * cmd_transform;
+                    cmd.setup.get_gpu_transform = [overwrite_transform]()
+                    {
+                        return overwrite_transform;
+                    };
+                }
+                else
+                {
+                    cmd.setup.get_gpu_transform = [stack_transform]()
+                    {
+                        return stack_transform;
+                    };
+                }
+            }
+        }
+    }
+
 
     if(idx_offset != 0)
     {
@@ -1089,7 +1247,7 @@ void draw_list::add_list(const draw_list& list)
 
     if(debug && list.debug)
     {
-        debug->add_list(*list.debug);
+        debug->add_list(*list.debug, transform_verts);
     }
 }
 
@@ -1099,7 +1257,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     {
         return;
     }
-
+//    EGT_BLOCK_PROFILING("draw_list::add_text")
 
     const auto& style = t.get_style();
     auto font = style.font;
@@ -1116,9 +1274,11 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
         math::transformf shadow_transform{};
         shadow_transform.translate(offsets.x, offsets.y, 0.0f);
 
-        auto debug_draw_old = set_debug_draw(false);
+        bool curr_debug = debug_draw();
+        auto& cfg = get_draw_config_impl();
+        cfg.debug = false;
         add_text(shadow, transform * shadow_transform);
-        set_debug_draw(debug_draw_old);
+        cfg.debug = curr_debug;
 
     }
 
@@ -1133,8 +1293,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     // cpu_batching is disabled for text rendering with more than X vertices
     // because there are too many vertices and their matrix multiplication
     // on the cpu dominates the batching benefits.
-    constexpr size_t max_cpu_transformed_glyhps = 24;
-    bool cpu_batch = geometry.size() <= (max_cpu_transformed_glyhps * 4);
+    bool cpu_batch = geometry.size() <= (get_draw_config().max_cpu_transformed_glyhps * 4);
     auto has_crop = !crop_areas.empty();
 
     program_setup setup;
@@ -1146,15 +1305,31 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     {
         if(!has_crop)
         {
-            setup.program = get_program<programs::distance_field>();
+            if(get_draw_config().sdf_supersample)
+            {
+                setup.program = get_program<programs::distance_field_supersample>();
+            }
+            else
+            {
+                setup.program = get_program<programs::distance_field>();
+            }
         }
         else
         {
-            setup.program = get_program<programs::distance_field_crop>();
+            if(get_draw_config().sdf_supersample)
+            {
+                setup.program = get_program<programs::distance_field_crop_supersample>();
+            }
+            else
+            {
+                setup.program = get_program<programs::distance_field_crop>();
+            }
         }
 
         if(cpu_batch)
         {
+            utils::hash(setup.uniforms_hash, view);
+
             if(has_crop)
             {
                 const auto& areas = crop_areas.back();
@@ -1174,41 +1349,6 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
                                   std::move(setup),
                                   cpu_batch, pixel_snap);
 
-
-    // check if a new command was added
-    if(!cmd.setup.begin)
-    {
-        if(sdf_spread > 0)
-        {
-
-            cmd.setup.begin = [setup_crop_rects = crop_rects_setup(*this),
-                               setup_transform = transform_setup(*this, cpu_batch, pixel_snap)]
-            (const gpu_context& ctx) mutable
-            {
-                if(setup_transform)
-                {
-                    setup_transform(ctx);
-                }
-
-                if(setup_crop_rects)
-                {
-                    setup_crop_rects(ctx);
-                }
-
-                ctx.program.shader->set_uniform("uTextures[0]", ctx.cmd.texture_slots, ctx.cmd.used_slots);
-
-            };
-        }
-    }
-
-    if(!cmd.setup.end && !cpu_batch)
-    {
-        cmd.setup.end = [](const gpu_context& ctx)
-        {
-            ctx.rend.pop_transform();
-        };
-    }
-
     pop_transform();
 
     if(debug_draw() && debug)
@@ -1217,7 +1357,7 @@ void draw_list::add_text(const text& t, const math::transformf& transform)
     }
 }
 
-void draw_list::add_text(const text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
+void draw_list::add_text(const text& t, const math::transformf& transform, const frect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
     add_text(t, align_and_fit_item(t.get_alignment(), t.get_width(), t.get_height(), transform, dst_rect, sz_fit, dim_fit));
@@ -1256,7 +1396,7 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
         add_text(text, transform * offset);
     }
     auto sorted_images = t.get_embedded_images();
-
+    const auto& cfg = t.get_config();
     std::sort(std::begin(sorted_images), std::end(sorted_images), [](const auto& lhs, const auto& rhs)
     {
         return lhs->data.image.lock() < rhs->data.image.lock();
@@ -1275,26 +1415,16 @@ void draw_list::add_text(const rich_text& t, const math::transformf& transform)
                          int(element.rect.w), int(element.rect.h)};
 
         auto rect_y = element.rect.y;
-        switch(embedded.alignment)
-        {
-            case script_line::median:
-                rect_y -= dst_rect.h * 0.5f;
-                break;
-            case script_line::baseline:
-                rect_y -= dst_rect.h;
-                break;
-            default:
-                assert(false && "Not implemented");
-                rect_y -= dst_rect.h * 0.5f;
-        }
+        rect_y -= dst_rect.h * (1.0f - cfg.image_alignment);
+
         math::transformf pivot;
-        pivot.translate(element.rect.x, rect_y, 1.0f);
+        pivot.translate(float(int(element.rect.x)), rect_y);
 
         add_image(image, img_src_rect, dst_rect, transform * pivot, col);
     }
 }
 
-void draw_list::add_text(const rich_text& t, const math::transformf& transform, const rect& dst_rect, size_fit sz_fit,
+void draw_list::add_text(const rich_text& t, const math::transformf& transform, const frect& dst_rect, size_fit sz_fit,
                          dimension_fit dim_fit)
 {
     add_text(t, align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit));
@@ -1325,6 +1455,33 @@ void draw_list::validate_stacks() const noexcept
     assert(programs.empty() && "draw_list::programs stack was not popped");
 }
 
+void draw_list::apply_linear_filtering_correction(const texture_view& texture,
+                                                  math::vec2& min_uv,
+                                                  math::vec2& max_uv)
+{
+    if(texture && texture.interp_type == texture::interpolation_type::interpolate_linear)
+    {
+        if(!transforms.empty())
+        {
+            const auto& scale = transforms.back().get_scale();
+
+            if(math::any(math::notEqual(scale, math::vec3(1.0f, 1.0f, 1.0f))))
+            {
+                // when linear filtering, we need to shift uv coords to the
+                // center of the texels, otherwise for outermost pixels
+                // the filtering will sample the image's neighbouring pixels in the atlas
+                const auto& correction = get_draw_config().filtering_correction;
+                math::vec2 half_texel{};
+                half_texel.x = correction.x / float(texture.width);
+                half_texel.y = correction.y / float(texture.height);
+
+                min_uv += half_texel;
+                max_uv -= half_texel;
+            }
+        }
+    }
+}
+
 void draw_list::add_polyline(const polyline& poly, const color& col, bool closed, float thickness, float antialias_size)
 {
     add_polyline_gradient(poly, col, col, closed, thickness, antialias_size);
@@ -1333,6 +1490,8 @@ void draw_list::add_polyline(const polyline& poly, const color& col, bool closed
 
 void draw_list::add_polyline_gradient(const polyline& poly, const color& coltop, const color& colbot, bool closed, float thickness, float antialias_size)
 {
+//    EGT_BLOCK_PROFILING("draw_list::add_polyline_gradient")
+
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
     const auto& points = poly.get_points();
@@ -1558,6 +1717,8 @@ void draw_list::add_polyline_filled_convex(const polyline& poly, const color& co
 
 void draw_list::add_polyline_filled_convex_gradient(const polyline& poly, const color& coltop, const color& colbot, float antialias_size)
 {
+//    EGT_BLOCK_PROFILING("draw_list::add_polyline_filled_convex_gradient")
+
     blending_mode blend = (coltop.a < 255 || colbot.a < 255 || antialias_size != 0.0f) ? blending_mode::blend_normal : blending_mode::blend_none;
 
     const auto& points = poly.get_points();
@@ -1754,14 +1915,6 @@ void draw_list::add_curved_path_gradient(const std::vector<math::vec2>& points, 
 
 void draw_list::push_clip(const rect& clip)
 {
-    if(debug_draw())
-    {
-        if(debug)
-        {
-            debug->add_rect(clip, color::yellow(), false, 3.f);
-        }
-    }
-
     if(!transforms.empty())
     {
         const auto& trans = transforms.back();
@@ -1776,6 +1929,14 @@ void draw_list::push_clip(const rect& clip)
     {
         clip_rects.emplace_back(clip);
     }
+
+    if(debug_draw())
+    {
+        if(debug)
+        {
+            debug->add_rect(clip, color::yellow(), false, 3.f);
+        }
+    }
 }
 
 void draw_list::pop_clip()
@@ -1788,17 +1949,6 @@ void draw_list::pop_clip()
 
 void draw_list::push_crop(const crop_area_t& crop)
 {
-    if(debug_draw())
-    {
-        if(debug)
-        {
-            for (auto rect : crop)
-            {
-                add_rect(rect, color::red(), false, 3.f);
-            }
-        }
-    }
-
     if(!transforms.empty())
     {
         crop_area_t mod_crop;
@@ -1818,7 +1968,19 @@ void draw_list::push_crop(const crop_area_t& crop)
     }
     else
     {
+
         crop_areas.emplace_back(crop);
+    }
+
+    if(debug_draw())
+    {
+        if(debug)
+        {
+            for (const auto& rect : crop)
+            {
+                add_rect(rect, color::red(), false, 3.f);
+            }
+        }
     }
 }
 
@@ -1905,22 +2067,25 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     const auto& lines = t.get_lines_metrics();
 
     {
-        auto geometry = t.get_geometry();
-        for(auto& v : geometry)
-        {
-            v.pos = transform.transform_coord(v.pos);
-        }
+        const auto& geometry = t.get_geometry();
 
-        for(size_t i = 0, sz = geometry.size(); i < sz; i+=4)
-        {
-            polyline line;
-            color col = geometry[i].col;
-            for(size_t j = 0; j < 4; ++j)
-            {
-                line.line_to(geometry[i + j].pos);
-            }
-            add_polyline(line, col, true);
-        }
+//        float total_area = 0.0f;
+//        for(size_t i = 0, sz = geometry.size(); i < sz; i+=4)
+//        {
+//            auto w = geometry[i + 1].pos.x - geometry[i].pos.x;
+//            auto h = geometry[i + 2].pos.y - geometry[i + 1].pos.y;
+//            total_area += w * h;
+//            polyline line;
+//            color col = geometry[i].col;
+//            for(size_t j = 0; j < 4; ++j)
+//            {
+//                auto pos = geometry[i + j].pos;
+//                pos = transform.transform_coord(pos);
+//                line.line_to(pos);
+//            }
+//            add_polyline(line, col, true);
+//        }
+//        std::cout << "total area : " << total_area << std::endl;
     }
 
     const auto& line_path = t.get_line_path();
@@ -1942,7 +2107,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 //                text txt;
 //                txt.set_color(color::cyan()());
-//                txt.set_font(default_font());
+//                txt.set_font(font_default());
 //                txt.set_alignment(align::right | align::middle);
 //                txt.set_utf8_text("ascent ");
 
@@ -1967,7 +2132,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 //                text txt;
 //                txt.set_color(color::green()());
-//                txt.set_font(default_font());
+//                txt.set_font(font_default());
 //                txt.set_alignment(align::right | align::middle);
 //                txt.set_utf8_text("cap_height ");
 
@@ -1982,7 +2147,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 //                text txt;
 //                txt.set_color(color::red()());
-//                txt.set_font(default_font());
+//                txt.set_font(font_default());
 //                txt.set_alignment(align::right | align::middle);
 //                txt.set_utf8_text("median ");
 
@@ -1997,7 +2162,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 //                text txt;
 //                txt.set_color(color::magenta()());
-//                txt.set_font(default_font());
+//                txt.set_font(font_default());
 //                txt.set_alignment(align::right | align::middle);
 //                txt.set_utf8_text("baseline ");
 
@@ -2012,7 +2177,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 
 //                text txt;
 //                txt.set_color(color::blue()());
-//                txt.set_font(default_font());
+//                txt.set_font(font_default());
 //                txt.set_alignment(align::right | align::middle);
 //                txt.set_utf8_text("descent ");
 
@@ -2021,86 +2186,140 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
 //            }
 //        }
 
-        add_rect(t.get_frect(), transform, color::red(), false, 1.0f);
+        auto red = color::red();
+        red.a = uint8_t(t.get_opacity() * 255.0f);
+        add_rect(t.get_bounds(text::bounds_query::precise), transform, red, false, 1.0f);
 
         {
+            auto col = color::cyan();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
             for(const auto& line : lines)
             {
                 math::vec2 v1{line.minx, line.ascent};
                 math::vec2 v2{line.maxx, line.ascent};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::cyan());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
 
-        for(const auto& line : lines)
         {
-            math::vec2 v1{line.minx, line.cap_height};
-            math::vec2 v2{line.maxx, line.cap_height};
+            auto col = color::green();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.cap_height};
+                math::vec2 v2{line.maxx, line.cap_height};
 
-            add_line(transform.transform_coord(v1), transform.transform_coord(v2),  color::green());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            }
         }
 
         {
+            auto col = color::magenta();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
             for(const auto& line : lines)
             {
                 math::vec2 v1{line.minx, line.baseline};
                 math::vec2 v2{line.maxx, line.baseline};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::magenta());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
         {
+            auto col = color::red();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
             for(const auto& line : lines)
             {
                 math::vec2 v1{line.minx, line.median};
                 math::vec2 v2{line.maxx, line.median};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::red());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
         {
+            auto col = color::black();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
+            for(const auto& line : lines)
+            {
+                math::vec2 v1{line.minx, line.x_height};
+                math::vec2 v2{line.maxx, line.x_height};
+
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
+            }
+        }
+        {
+            auto col = color::blue();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
             for(const auto& line : lines)
             {
                 math::vec2 v1{line.minx, line.descent};
                 math::vec2 v2{line.maxx, line.descent};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::blue());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
 
         {
+            auto col = color::green();
+            col.a = uint8_t(t.get_opacity() * 255.0f);
             for(const auto& line : lines)
             {
                 auto line_height = t.get_style().font->line_height * t.get_style().scale;
                 math::vec2 v1{line.maxx, line.ascent};
                 math::vec2 v2{line.maxx, line.ascent + line_height};
 
-                add_line(transform.transform_coord(v1), transform.transform_coord(v2), color::green());
+                add_line(transform.transform_coord(v1), transform.transform_coord(v2), col);
             }
         }
     }
 
-    add_rect(rect{-2, -2, 4, 4}, transform, gfx::color{255, 190, 2});
+    add_rect(rect{-2, -2, 4, 4}, transform, color{255, 190, 2});
 }
 
-
-bool set_debug_draw(bool debug)
+std::string to_string(size_fit fit)
 {
-    bool old = debug_draw_enabled;
-    debug_draw_enabled = debug;
-    return old;
+    switch(fit)
+    {
+        case size_fit::shrink_to_fit: return "shrink_to_fit";
+        case size_fit::stretch_to_fit: return "stretch_to_fit";
+        case size_fit::auto_fit: return "auto_fit";
+    }
+    return "unknown";
 }
 
-void toggle_debug_draw()
+std::string to_string(dimension_fit fit)
 {
-    debug_draw_enabled = !debug_draw_enabled;
+    switch(fit)
+    {
+        case dimension_fit::x: return "x";
+        case dimension_fit::y: return "y";
+        case dimension_fit::uniform: return "uniform";
+        case dimension_fit::non_uniform: return "non_uniform";
+    }
+    return "unknown";
 }
 
-bool debug_draw()
+template<> size_fit from_string<size_fit>(const std::string& str)
 {
-    return debug_draw_enabled;
+#define switch_case(val, val2) if(str == (val)) return val2
+
+    switch_case("shrink_to_fit", size_fit::shrink_to_fit);
+    switch_case("stretch_to_fit", size_fit::stretch_to_fit);
+    switch_case("auto_fit", size_fit::auto_fit);
+
+    return size_fit::shrink_to_fit;
 }
 
+template<> dimension_fit from_string<dimension_fit>(const std::string& str)
+{
+#define switch_case(val, val2) if(str == (val)) return val2
+
+    switch_case("x", dimension_fit::x);
+    switch_case("y", dimension_fit::y);
+    switch_case("uniform", dimension_fit::uniform);
+    switch_case("non_uniform", dimension_fit::non_uniform);
+
+    return dimension_fit::uniform;
+}
 
 }

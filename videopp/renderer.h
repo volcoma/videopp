@@ -20,6 +20,7 @@ struct font_info;
 struct gpu_stats
 {
     void record(const draw_list& list);
+    std::string to_string() const;
 
     size_t requested_calls{};
     size_t requested_opaque_calls{};
@@ -37,6 +38,14 @@ struct gpu_stats
     size_t indices{};
 };
 
+class renderer;
+
+struct frame_callbacks
+{
+    std::function<void(renderer&)> on_start_frame {};
+    std::function<void(renderer&)> on_end_frame {};
+};
+
 class renderer
 {
 public:
@@ -44,7 +53,9 @@ public:
     using weak_ptr = std::weak_ptr<renderer>;
     using u_ptr = std::unique_ptr<renderer>;
 
-    renderer(os::window& win, bool vsync);
+
+
+    renderer(os::window& win, bool vsync, frame_callbacks fn = {});
 
     texture_ptr create_texture(const surface& surface, bool empty = false) const noexcept;
     texture_ptr create_texture(const surface& surface, size_t level_id, size_t layer_id = 0, size_t face_id = 0) const noexcept;
@@ -56,7 +67,7 @@ public:
     shader_ptr create_shader(const char* fragment_code , const char* vertex_code) const noexcept;
 
     // comsumes font_info
-    font_ptr create_font(font_info&& info) const noexcept;
+    font_ptr create_font(font_info&& info, bool embedded = false) const noexcept;
 
     // Bind textures
     bool set_texture(texture_view texture, uint32_t id = 0) const noexcept;
@@ -73,6 +84,7 @@ public:
     bool push_transform(const math::transformf& transform) const noexcept;
     bool pop_transform() const noexcept;
     bool reset_transform() const noexcept;
+    math::transformf get_transform() const noexcept;
 
     // Destinations
     bool push_fbo(const texture_ptr& texture);
@@ -85,6 +97,7 @@ public:
     void clear(const color& color = {}) const noexcept;
 
     // VSync
+    bool set_vsync(bool vsync) noexcept;
     bool enable_vsync() noexcept;
     bool disable_vsync() noexcept;
 
@@ -101,6 +114,9 @@ public:
     void delete_textures() noexcept;
 private:
 
+    using transform_stack = std::stack<math::mat4x4>;
+
+    transform_stack& get_transform_stack() const noexcept;
     void queue_to_delete_texture(pixmap pixmap_id, uint32_t fbo_id, uint32_t texture_id) const;
 
     // Set blending
@@ -118,36 +134,41 @@ private:
     {
         texture_ptr fbo;
         draw_list list;
+        transform_stack transforms;
     };
 
     os::window& win_;
     std::unique_ptr<context> context_;
     rect rect_;
 
+    mutable rect transformed_rect_ {};
     mutable std::vector<pixmap> pixmap_to_delete_ {};
     mutable std::vector<uint32_t> fbo_to_delete_ {};
     mutable std::vector<uint32_t> textures_to_delete_ {};
 
     mutable math::mat4x4 current_ortho_;
-    mutable std::stack<math::mat4x4> transforms_;
     mutable std::stack<fbo_context> fbo_stack_;
+    mutable transform_stack master_transforms_;
     mutable draw_list master_list_;
     draw_list dummy_list_;
 
     bool vsync_enabled_ {false};
 
+    static constexpr size_t max_buffers{3};
     mutable size_t current_vao_idx_{};
-    std::array<vertex_array_object, 3> stream_vaos_;
+    std::array<vertex_array_object, max_buffers> stream_vaos_;
     mutable size_t current_vbo_idx_{};
-    std::array<vertex_buffer, 3> stream_vbos_;
+    std::array<vertex_buffer, max_buffers> stream_vbos_;
     mutable size_t current_ibo_idx_{};
-    std::array<index_buffer, 3> stream_ibos_;
+    std::array<index_buffer, max_buffers> stream_ibos_;
 
-    std::vector<shader_ptr> embedded_shaders_;
-    std::vector<font_ptr> embedded_fonts_;
+    mutable std::vector<shader_ptr> embedded_shaders_;
+    mutable std::vector<font_ptr> embedded_fonts_;
 
     mutable gpu_stats stats_{};
     mutable gpu_stats last_stats_{};
+
+    frame_callbacks frame_callbacks_ {};
 
     constexpr static auto wrap_count{size_t(texture::wrap_type::count)};
     constexpr static auto interp_count{size_t(texture::interpolation_type::count)};

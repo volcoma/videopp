@@ -108,7 +108,7 @@ public:
     void reserve(const void* data, std::size_t size, bool dynamic = false) const noexcept;
 
     /// Upload new vertices to the vertex buffer
-    bool update(const void* data, std::size_t offset, std::size_t size) const noexcept;
+    bool update(const void* data, std::size_t offset, std::size_t size, bool mapped = false) const noexcept;
 
     void bind() const noexcept;
     void unbind() const noexcept;
@@ -135,7 +135,7 @@ public:
     void reserve(const void* data, std::size_t size, bool dynamic = false) const noexcept;
 
     /// Upload new vertices to the index_buffer
-    bool update(const void* data, std::size_t offset, std::size_t size) const noexcept;
+    bool update(const void* data, std::size_t offset, std::size_t size, bool mapped = false) const noexcept;
 
     void bind() const noexcept;
     void unbind() const noexcept;

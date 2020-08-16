@@ -97,7 +97,7 @@ void vertex_buffer::reserve(const void* data, std::size_t size, bool dynamic) co
 ///     @param offset - starting byte offset inside the VRAM
 ///     @param size - the number of bytes to upload
 ///     @returns false if the buffer doesn't have the required budget for the new upload
-bool vertex_buffer::update(const void* data, std::size_t offset, std::size_t size) const noexcept
+bool vertex_buffer::update(const void* data, std::size_t offset, std::size_t size, bool mapped) const noexcept
 {
     if(offset + size > reserved_bytes_)
     {
@@ -105,8 +105,24 @@ bool vertex_buffer::update(const void* data, std::size_t offset, std::size_t siz
         return false;
     }
 
-    gl_call(glBufferSubData(GL_ARRAY_BUFFER, GLsizeiptr(offset),
-                            GLsizeiptr(size), data));
+    if(mapped)
+    {
+        auto dst = glMapBufferRange(GL_ARRAY_BUFFER, GLsizeiptr(offset),
+                                    GLsizeiptr(size), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT);
+        if(!dst)
+        {
+            glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+            return false;
+        }
+        std::memcpy(dst, data, size);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+    else
+    {
+
+        gl_call(glBufferSubData(GL_ARRAY_BUFFER, GLsizeiptr(offset),
+                                GLsizeiptr(size), data));
+    }
 
     return true;
 }
@@ -174,7 +190,7 @@ void index_buffer::reserve(const void* data, std::size_t size, bool dynamic) con
 ///     @param offset - starting byte offset inside the VRAM
 ///     @param size - the number of bytes to upload
 ///     @returns false if the buffer doesn't have the required budget for the new upload
-bool index_buffer::update(const void* data, std::size_t offset, std::size_t size) const noexcept
+bool index_buffer::update(const void* data, std::size_t offset, std::size_t size, bool mapped) const noexcept
 {
     if(offset + size > reserved_bytes_)
     {
@@ -182,9 +198,23 @@ bool index_buffer::update(const void* data, std::size_t offset, std::size_t size
         return false;
     }
 
-    gl_call(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, GLsizeiptr(offset),
-                            GLsizeiptr(size), data));
-
+    if(mapped)
+    {
+        auto dst = glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, GLsizeiptr(offset),
+                                    GLsizeiptr(size), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT);
+        if(!dst)
+        {
+            glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+            return false;
+        }
+        std::memcpy(dst, data, size);
+        glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+    }
+    else
+    {
+        gl_call(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, GLsizeiptr(offset),
+                                GLsizeiptr(size), data));
+    }
     return true;
 }
 

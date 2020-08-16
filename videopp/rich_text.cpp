@@ -1,5 +1,8 @@
 #include "rich_text.h"
 #include "font.h"
+
+#include <array>
+
 namespace gfx
 {
 
@@ -91,10 +94,6 @@ void rich_text::apply_config()
 
     calculated_line_height_ = (line_height * cfg_.image_scale + advance.y) * main_style.scale;
 
-    if(!has_dynamic_line_height())
-    {
-        set_advance({advance.x, advance.y + line_height * (cfg_.image_scale - 1.0f)});
-    }
     // clear decorators with callbacks
     clear_decorators_with_callbacks();
 
@@ -109,6 +108,8 @@ void rich_text::apply_config()
             decorator->get_size_on_line = [this, style](const text_decorator& decorator, const line_metrics&, const char* str_begin, const char* str_end) -> text_decorator::size_info
             {
                 key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
+
+                static const line_metrics empty_metric {};
 
                 auto it = embedded_texts_.find(key);
                 if(it == std::end(embedded_texts_))
@@ -138,8 +139,8 @@ void rich_text::apply_config()
                     auto& element = embedded.element;
                     element.rect = {0, 0, embedded.text.get_width(), embedded.text.get_height()};
                     const auto& line_metrics = embedded.text.get_lines_metrics();
-                    const auto first_line_baseline = line_metrics.empty() ? 0.0f : line_metrics.front().baseline - line_metrics.front().miny;
-                    return {element.rect.w, element.rect.h, first_line_baseline};
+                    const auto& first_line_metrics = line_metrics.empty() ? empty_metric : line_metrics.front();
+                    return {element.rect.w, element.rect.h, {first_line_metrics}};
                 }
 
                 auto& embedded = it->second;
@@ -147,8 +148,8 @@ void rich_text::apply_config()
                 embedded.text.set_style(style);
 
                 const auto& line_metrics = embedded.text.get_lines_metrics();
-                const auto first_line_baseline = line_metrics.empty() ? 0.0f : line_metrics.front().baseline - line_metrics.front().miny;
-                return {element.rect.w, element.rect.h, first_line_baseline};
+                const auto& first_line_metrics = line_metrics.empty() ? empty_metric : line_metrics.front();
+                return {element.rect.w, element.rect.h, {first_line_metrics}};
             };
 
             decorator->set_position_on_line = [this](const text_decorator& decorator,
@@ -176,22 +177,18 @@ void rich_text::apply_config()
         {
             decorator->get_size_on_line = [this](const text_decorator& decorator, const line_metrics& metrics, const char* str_begin, const char* str_end) -> text_decorator::size_info
             {
-                const auto calc_image_baseline = [&](script_line image_alignment, float h)
+                const auto calc_image_line_metrics = [&](float image_alignment, float w, float h)
                 {
-                    switch (image_alignment)
-                    {
-                        case script_line::median:
-                        {
-                            const auto image_median = h * 0.5f;
-                            const auto line_dist_median_to_baseline = metrics.baseline - metrics.median;
-                            return image_median + line_dist_median_to_baseline;
-                        }
-                        case script_line::baseline:
-                            return h; // The baseline should be at the bottom of the image
-                        default:
-                            assert(false && "Not implemented");
-                            return h;
-                    }
+                    const auto image_median = h * (1.0f - image_alignment);
+                    const auto line_dist_median_to_baseline = metrics.baseline - metrics.median;
+
+                    line_metrics res;
+                    res.miny = res.ascent = image_median + line_dist_median_to_baseline;
+                    res.median = res.cap_height = res.x_height = res.baseline = 0.0f;
+                    res.descent = res.maxy = res.miny > h ? 0.0f : (res.miny - h);
+                    res.minx = 0.0f;
+                    res.maxx = w;
+                    return res;
                 };
 
                 key_t key{decorator.unicode_range.begin, decorator.unicode_range.end};
@@ -201,7 +198,7 @@ void rich_text::apply_config()
                 {
                     if(!cfg_.image_getter)
                     {
-                        return {0.0f, 0.0f, 0.0f};
+                        return {0.0f, 0.0f, {line_metrics()}};
                     }
 
                     auto& embedded = embedded_images_[key];
@@ -220,17 +217,16 @@ void rich_text::apply_config()
                     auto& src_rect = embedded.data.src_rect;
                     element.rect = {0.0f, 0.0f, float(src_rect.w), float(src_rect.h)};
                     element.rect = apply_line_constraints(element.rect);
-                    embedded.alignment = get_image_alignment();
 
-                    const auto baseline = calc_image_baseline(embedded.alignment, element.rect.h);
-                    return {element.rect.w, element.rect.h, baseline};
+                    const auto image_metrics = calc_image_line_metrics(cfg_.image_alignment, element.rect.w, element.rect.h);
+                    return {element.rect.w, element.rect.h, {image_metrics}};
                 }
 
                 auto& embedded = it->second;
                 auto& element = embedded.element;
 
-                const auto baseline = calc_image_baseline(embedded.alignment, element.rect.h);
-                return {element.rect.w, element.rect.h, baseline};
+                const auto image_metrics = calc_image_line_metrics(cfg_.image_alignment, element.rect.w, element.rect.h);
+                return {element.rect.w, element.rect.h, {image_metrics}};
             };
 
             decorator->set_position_on_line = [this](const text_decorator& decorator,
@@ -250,33 +246,17 @@ void rich_text::apply_config()
                 auto& embedded = it->second;
                 auto& element = embedded.element;
 
+                const auto& main_style = get_style();
+                const auto& font = main_style.font;
+                const auto scale = main_style.scale * get_small_caps_scale();
+
                 element.line = line;
                 element.rect.x = line_offset_x;
-                element.rect.y =
-                    embedded.alignment == script_line::median ? metrics.median :
-                    embedded.alignment == script_line::baseline ? metrics.baseline :
-                    metrics.median;
+                element.rect.y = font ? (metrics.baseline - font->cap_height * scale * 0.5f) : metrics.median;
             };
 
         }
     }
-}
-
-script_line rich_text::get_image_alignment() const noexcept
-{
-    return image_alignment_;
-}
-
-void rich_text::set_image_alignment(script_line a)
-{
-    assert(a == script_line::median || a == script_line::baseline);
-
-    if(image_alignment_ == a)
-    {
-        return;
-    }
-    image_alignment_ = a;
-    clear_lines();
 }
 
 void rich_text::apply_scripting_decorators()
@@ -308,8 +288,8 @@ frect rich_text::apply_line_constraints(const frect& r) const
 {
     float aspect = r.w / r.h;
     auto result = r;
-    result.h = calculated_line_height_;
-    result.w = aspect * calculated_line_height_;
+    result.h = float(int(calculated_line_height_));
+    result.w = float(int(aspect * calculated_line_height_));
     return result;
 }
 
@@ -318,7 +298,7 @@ float rich_text::get_calculated_line_height() const
     return calculated_line_height_;
 }
 
-rich_config& rich_text::get_config()
+const rich_config& rich_text::get_config() const
 {
     return cfg_;
 }

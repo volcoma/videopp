@@ -165,6 +165,13 @@ namespace gfx
             return w != 0 && h != 0;
         }
 
+        /// Cast to true if rectangle has a valid area (>0)
+        template<typename U>
+        operator rect_t<U>() const noexcept
+        {
+            return rect_t<U>(x, y, w, h);
+        }
+
         void expand(const T& x, const T& y) noexcept
         {
             this->x -= x;
@@ -176,7 +183,6 @@ namespace gfx
     
     using rect = rect_t<int>;
     using frect = rect_t<float>;
-    using tcoords = frect;
 }
 
 namespace std

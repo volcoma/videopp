@@ -2,6 +2,7 @@
 
 #include "text.h"
 #include "texture.h"
+#include <map>
 
 namespace gfx
 {
@@ -13,8 +14,8 @@ struct line_element
 
 struct image_data
 {
-    gfx::rect src_rect{};
-    gfx::texture_weak_ptr image{};
+    rect src_rect{};
+    texture_weak_ptr image{};
 };
 
 struct embedded_image
@@ -43,7 +44,7 @@ struct rich_config
     text_getter_t text_getter;
 
     float image_scale{1.0};
-
+    float image_alignment{0.5f};
     std::map<std::string, text_style> styles{};
 };
 
@@ -65,11 +66,9 @@ public:
     std::vector<embedded_text*> get_embedded_texts() const;
     float get_calculated_line_height() const;
 
-    rich_config& get_config();
-    void apply_config();
+    const rich_config& get_config() const;
 
-    script_line get_image_alignment() const noexcept;
-    void set_image_alignment(script_line a);
+    void apply_config();
 
 private:
     void apply_scripting_decorators();
@@ -87,9 +86,5 @@ private:
     rich_config cfg_;
 
     float calculated_line_height_{};
-
-    /// Image alignment
-    script_line image_alignment_ = script_line::median;
-
 };
 }

@@ -42,6 +42,11 @@ static constexpr const char* user_defines =
                     #define HAS_CROP_RECTS
                 )";
 
+static constexpr const char* supersample =
+                R"(
+                    #define SUPERSAMPLE
+                )";
+
 static constexpr const char* common_funcs =
                 R"(
                     vec4 texture2DArrayIdx(sampler2D textures[32], float tex_index, vec2 tex_coords)
@@ -312,7 +317,6 @@ static constexpr const char* fs_distance_field =
                     uniform int uRectsCount;
                 #endif
 
-                #define SUPERSAMPLE
                 #define THRESHOLD 0.5
                 #define WEIGHT 0.5
                 #define SQRT2H 0.70710678118654757
@@ -365,7 +369,15 @@ static constexpr const char* fs_distance_field =
                         float alpha = contour( dist, width );
                         return alpha;
                     }
-
+                    float get_glow_color(float d, float scale, float a, float glow_offset, float glow_inner, float glow_outer, float glow_power)
+                    {
+                        float glow = d - (glow_offset) * 0.5 * scale;
+                        float t = mix(glow_inner, (glow_outer), step(0.0, glow)) * 0.5 * scale;
+                        glow = clamp(abs(glow/(1.0 + t)), 0.0, 1.0);
+                        glow = 1.0-pow(glow, glow_power);
+                        glow *= sqrt(min(1.0, t)); // Fade off glow thinner than 1 screen pixel
+                        return clamp(a * glow * 2.0, 0.0, 1.0);
+                    }
                     void main()
                     {
                         vec4 master_color = vColor;
@@ -374,7 +386,8 @@ static constexpr const char* fs_distance_field =
                         float softness = clamp(vExtraData.y, 0.0, 1.0);
                         vec2 uv = vTexCoord.xy;
 
-                        float dist = texture2DArrayIdx(uTextures, vTexIndex, uv).r;
+//                        float dist = texture2DArrayIdx(uTextures, vTexIndex, uv).r;
+                        float dist = texture2D(uTextures[0], uv).r;
 
                         float odist = dist + outline_width;
 
@@ -384,10 +397,14 @@ static constexpr const char* fs_distance_field =
                         vec2 duv = dscale * (dFdx(uv) + dFdy(uv));
                         vec4 box = vec4(uv-duv, uv+duv);
                         vec4 box_distances = vec4(
-                            texture2DArrayIdx(uTextures, vTexIndex, box.xy).r,
-                            texture2DArrayIdx(uTextures, vTexIndex, box.zw).r,
-                            texture2DArrayIdx(uTextures, vTexIndex, box.xw).r,
-                            texture2DArrayIdx(uTextures, vTexIndex, box.zy).r
+//                            texture2DArrayIdx(uTextures, vTexIndex, box.xy).r,
+//                            texture2DArrayIdx(uTextures, vTexIndex, box.zw).r,
+//                            texture2DArrayIdx(uTextures, vTexIndex, box.xw).r,
+//                            texture2DArrayIdx(uTextures, vTexIndex, box.zy).r
+                            texture2D(uTextures[0], box.xy).r,
+                            texture2D(uTextures[0], box.zw).r,
+                            texture2D(uTextures[0], box.xw).r,
+                            texture2D(uTextures[0], box.zy).r
                         );
                         vec4 obox_distances = box_distances + outline_width;
 
@@ -405,11 +422,14 @@ static constexpr const char* fs_distance_field =
                         float glow = pow(pow(dist, 0.75) * 2.0, 2.0);
                         ocolor.a = mix(outline_color.a * oalpha, outline_color.a * glow, softness);
 
+//                        float c = get_glow_color(dist, 0.1, ocolor.a, 0.0, softness, softness, 0.5);
+//                        color.rgb += ocolor.rgb * c;
+
                         // Alpha blend foreground.
                         vec4 rcolor = mix(
                             color,
                             ocolor,
-                            1.0 - alpha//clamp(1.0 - alpha, 0.0, 1.0)
+                            1.0 - alpha
                         );
 
                         // Master alpha.

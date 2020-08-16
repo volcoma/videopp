@@ -8,13 +8,37 @@
 namespace gfx
 {
 
-struct batch_config
+struct draw_config
 {
+    /// maximum number of different textures
+    /// that can be batched in one draw call.
     size_t max_textures_per_batch{32};
+
+    /// cpu_batching is disabled for text rendering with more than X vertices
+    /// because there are too many vertices and their matrix multiplication
+    /// on the cpu dominates the batching benefits.
+    size_t max_cpu_transformed_glyhps{24};
+
+    /// when linear filtering, we need to shift uv coords to the
+    /// center of the texels, otherwise for outermost pixels
+    /// the filtering will sample the image's neighbouring pixels in the atlas.
+    math::vec2 filtering_correction{0.5f, 0.0f};
+
+    /// Supersampling when signed distance field(vectorized)
+    /// texts are rendered. Results in better visuals when
+    /// text is scaled down, at the cost of some gpu performance.
+    bool sdf_supersample{true};
+
+    /// Internally uses mapped buffers for vertices/indices update.
+    bool mapped_buffers{false};
+
+    /// Enable/Disable debug draw.
+    bool debug{};
 };
 
-const batch_config& get_batch_config();
-void set_batch_config(const batch_config& cfg);
+const draw_config& get_draw_config();
+void set_draw_config(const draw_config& cfg);
+bool debug_draw();
 
 enum class size_fit
 {
@@ -54,25 +78,24 @@ math::transformf align_item(align_t align,
                             bool pixel_snap);
 
 math::transformf align_item(align_t align,
-                            const rect& item);
+                            const frect& item);
 
 math::transformf align_and_fit_item(align_t align,
                                     float item_w, float item_h,
                                     const math::transformf& transform,
-                                    const rect& dst_rect,
+                                    const frect& dst_rect,
                                     size_fit sz_fit = size_fit::shrink_to_fit,
                                     dimension_fit dim_fit = dimension_fit::uniform);
 
-
 math::transformf align_and_fit_text(const text& t,
                                     const math::transformf& transform,
-                                    const rect& dst_rect,
+                                    const frect& dst_rect,
                                     size_fit sz_fit = size_fit::shrink_to_fit,
                                     dimension_fit dim_fit = dimension_fit::uniform);
 
 math::transformf align_wrap_and_fit_text(text& t,
                                          const math::transformf& transform,
-                                         rect dst_rect,
+                                         frect dst_rect,
                                          size_fit sz_fit = size_fit::shrink_to_fit,
                                          dimension_fit dim_fit = dimension_fit::uniform);
 
@@ -197,6 +220,43 @@ struct draw_list
                          const color& col = color::white());
 
     //-----------------------------------------------------------------------------
+    /// Adds a movie images (rgb and alpha textures) to the list.
+    //-----------------------------------------------------------------------------
+    void add_movie_images(const texture_view& rgb_texture,
+                          const texture_view& alpha_texture,
+                          const rect& src,
+                          const rect& dst,
+                          const math::transformf& transform,
+                          const color& col = color::white(),
+                          flip_format flip = flip_format::none);
+
+    void add_movie_images(const texture_view& rgb_texture,
+                          const texture_view& alpha_texture,
+                          const rect& src,
+                          const rect& dst,
+                          const color& col = color::white(),
+                          flip_format flip = flip_format::none);
+
+    void add_movie_images(const texture_view& rgb_texture,
+                          const texture_view& alpha_texture,
+                          const rect& dst,
+                          const color& col = color::white(),
+                          flip_format flip = flip_format::none);
+
+    void add_movie_images(const texture_view& rgb_texture,
+                          const texture_view& alpha_texture,
+                          const rect& dst,
+                          const math::transformf& transform,
+                          const color& col = color::white(),
+                          flip_format flip = flip_format::none);
+
+    void add_movie_images(const texture_view& rgb_texture,
+                          const texture_view& alpha_texture,
+                          const math::transformf& transform,
+                          const color& col = color::white(),
+                          flip_format flip = flip_format::none);
+
+    //-----------------------------------------------------------------------------
     /// Adds an image to the list.
     //-----------------------------------------------------------------------------
     void add_image(const texture_view& texture,
@@ -281,7 +341,7 @@ struct draw_list
     //-----------------------------------------------------------------------------
     /// Adds another draw_list into the list
     //-----------------------------------------------------------------------------
-    void add_list(const draw_list& list);
+    void add_list(const draw_list& list, bool transform_verts = true);
 
     //-----------------------------------------------------------------------------
     /// Adds a text which will be fitted into the destination rect.
@@ -309,12 +369,12 @@ struct draw_list
     //-----------------------------------------------------------------------------
     void add_text(const text& t,
                   const math::transformf& transform,
-                  const rect& dst_rect,
+                  const frect& dst_rect,
                   size_fit sz_fit = size_fit::shrink_to_fit,
                   dimension_fit dim_fit = dimension_fit::uniform);
     void add_text(const rich_text& t,
                   const math::transformf& transform,
-                  const rect& dst_rect,
+                  const frect& dst_rect,
                   size_fit sz_fit = size_fit::shrink_to_fit,
                   dimension_fit dim_fit = dimension_fit::uniform);
 
@@ -323,7 +383,7 @@ struct draw_list
     /// The script part lies on the ascent of the whole part.
     //-----------------------------------------------------------------------------
     void add_text(const text& t,
-                  const math::transformf& transform); 
+                  const math::transformf& transform);
     void add_text(const rich_text& t,
                   const math::transformf& transform);
 
@@ -408,6 +468,9 @@ struct draw_list
     void add_text_debug_info(const text& t, const math::transformf& transform);
     std::string to_string() const;
     void validate_stacks() const noexcept;
+    void apply_linear_filtering_correction(const texture_view& texture,
+                                           math::vec2& min_uv,
+                                           math::vec2& max_uv);
 
     bool empty() const noexcept { return commands_requested == 0; }
     //-----------------------------------------------------------------------------
@@ -420,11 +483,11 @@ struct draw_list
     /// draw commands
     std::vector<draw_cmd> commands;
     /// clip rects stack
-    std::vector<rect> clip_rects; 
+    std::vector<rect> clip_rects;
     /// crop rects stack
     std::vector<crop_area_t> crop_areas;
     /// blend modes stack
-    std::vector<blending_mode> blend_modes; 
+    std::vector<blending_mode> blend_modes;
     /// transforms stack
     std::vector<math::transformf> transforms;
     /// programs stack
@@ -435,8 +498,10 @@ struct draw_list
     std::unique_ptr<draw_list> debug;
 };
 
-bool set_debug_draw(bool debug);
-void toggle_debug_draw();
-bool debug_draw();
+std::string to_string(size_fit fit);
+std::string to_string(dimension_fit fit);
+
+template<> size_fit from_string<size_fit>(const std::string& str);
+template<> dimension_fit from_string<dimension_fit>(const std::string& str);
 
 }

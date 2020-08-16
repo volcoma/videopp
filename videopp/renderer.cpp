@@ -152,29 +152,43 @@ namespace
 
         assert(type != GL_DEBUG_TYPE_ERROR);
     }
-}
 
-inline GLenum to_gl_primitive(primitive_type type)
-{
-    switch(type)
+    rect transform_rect(const rect& rect, const math::transformf& transform) noexcept
     {
-        case primitive_type::lines:
-            return GL_LINES;
-        case primitive_type::lines_loop:
-            return GL_LINE_LOOP;
-        case primitive_type::triangle_fan:
-            return GL_TRIANGLE_FAN;
-        case primitive_type::triangle_strip:
-            return GL_TRIANGLE_STRIP;
-        default:
-            return GL_TRIANGLES;
+        const auto& scale = transform.get_scale();
+
+        return { int(std::lround(float(rect.x) * scale.x)), int(std::lround(float(rect.y) * scale.y)),
+                 int(std::lround(float(rect.w) * scale.x)), int(std::lround(float(rect.h) * scale.y))};
+    }
+
+    rect inverse_and_tranfrom_rect(const rect& rect, const math::transformf& transform) noexcept
+    {
+        auto inversed_transform = math::inverse(transform);
+        return transform_rect(rect, inversed_transform);
+    }
+
+    inline GLenum to_gl_primitive(primitive_type type)
+    {
+        switch(type)
+        {
+            case primitive_type::lines:
+                return GL_LINES;
+            case primitive_type::lines_loop:
+                return GL_LINE_LOOP;
+            case primitive_type::triangle_fan:
+                return GL_TRIANGLE_FAN;
+            case primitive_type::triangle_strip:
+                return GL_TRIANGLE_STRIP;
+            default:
+                return GL_TRIANGLES;
+        }
     }
 }
 
 /// Construct the renderer and initialize default rendering states
 ///	@param win - the window handle
 ///	@param vsync - true to enable vsync
-renderer::renderer(os::window& win, bool vsync)
+renderer::renderer(os::window& win, bool vsync, frame_callbacks fn)
     : win_(win)
 #ifdef WGL_CONTEXT
     , context_(std::make_unique<context_wgl>(win.get_native_handle()))
@@ -187,15 +201,15 @@ renderer::renderer(os::window& win, bool vsync)
 {
     if(!gladLoadGL())
     {
-        throw gfx::exception("Cannot load glad.");
+        throw exception("Cannot load glad.");
     }
 
     GLint max_tex_units{};
     gl_call(glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &max_tex_units));
 
-    batch_config cfg;
-    cfg.max_textures_per_batch = max_tex_units / 2;
-    set_batch_config(cfg);
+    draw_config cfg;
+    cfg.max_textures_per_batch = max_tex_units;
+    set_draw_config(cfg);
 
     log("Max Texture Units Supported : " + std::to_string(max_tex_units));
     log("Max Texture Units Per Batch configured to : " + std::to_string(cfg.max_textures_per_batch));
@@ -329,6 +343,28 @@ renderer::renderer(os::window& win, bool vsync)
                    std::string(glsl_version)
                        .append(vs_simple).c_str());
 
+
+    create_program(get_program<programs::distance_field_supersample>(),
+                   std::string(glsl_version)
+                       .append(glsl_derivatives)
+                       .append(glsl_precision)
+                       .append(common_funcs)
+                       .append(supersample)
+                       .append(fs_distance_field).c_str(),
+                   std::string(glsl_version)
+                       .append(vs_simple).c_str());
+
+    create_program(get_program<programs::distance_field_crop_supersample>(),
+                   std::string(glsl_version)
+                       .append(glsl_derivatives)
+                       .append(glsl_precision)
+                       .append(common_funcs)
+                       .append(user_defines)
+                       .append(supersample)
+                       .append(fs_distance_field).c_str(),
+                   std::string(glsl_version)
+                       .append(vs_simple).c_str());
+
     create_program(get_program<programs::alphamix>(),
                     std::string(glsl_version)
                        .append(glsl_precision)
@@ -377,10 +413,9 @@ renderer::renderer(os::window& win, bool vsync)
                    std::string(glsl_version)
                        .append(vs_simple).c_str());
 
-    if(!default_font())
+    if(!font_default())
     {
-        default_font() = create_font(create_default_font(13));
-        embedded_fonts_.emplace_back(default_font());
+        font_default() = create_font(create_default_font(13), true);
     }
 
     master_list_.reserve_rects(4096);
@@ -396,6 +431,12 @@ renderer::renderer(os::window& win, bool vsync)
     clear(color::black());
     present();
     clear(color::black());
+
+    frame_callbacks_ = std::move(fn);
+    if (frame_callbacks_.on_start_frame)
+    {
+        frame_callbacks_.on_start_frame(*this);
+    }
 }
 
 void renderer::setup_sampler(texture::wrap_type wrap, texture::interpolation_type interp) noexcept
@@ -435,6 +476,7 @@ void renderer::setup_sampler(texture::wrap_type wrap, texture::interpolation_typ
 
 renderer::~renderer()
 {
+    set_current_context();
     delete_textures();
     embedded_fonts_.clear();
     embedded_shaders_.clear();
@@ -447,7 +489,11 @@ renderer::~renderer()
         }
     };
 
-    clear_embedded(default_font());
+    clear_embedded(font_default());
+    clear_embedded(font_regular());
+    clear_embedded(font_bold());
+    clear_embedded(font_black());
+    clear_embedded(font_monospace());
 }
 
 draw_list& renderer::get_list() const noexcept
@@ -458,6 +504,16 @@ draw_list& renderer::get_list() const noexcept
     }
 
     return fbo_stack_.top().list;
+}
+
+renderer::transform_stack& renderer::get_transform_stack() const noexcept
+{
+    if (fbo_stack_.empty())
+    {
+        return master_transforms_;
+    }
+
+    return fbo_stack_.top().transforms;
 }
 
 void renderer::flush() const noexcept
@@ -534,8 +590,8 @@ void renderer::set_model_view(uint32_t fbo, const rect& rect) const noexcept
         current_ortho_ = math::ortho<float>(0, float(rect.w), 0, float(rect.h), 0, FARTHEST_Z);
     }
 
-    // Switch to modelview matrix and setup identity
-    reset_transform();
+//    // Switch to modelview matrix and setup identity
+//    reset_transform();
 }
 
 /// Bind this renderer & window
@@ -579,7 +635,7 @@ texture_ptr renderer::create_texture(const surface& surface, bool empty) const n
         auto tex = new texture(*this, surface, empty);
         return texture_ptr(tex);
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create texture from surface. Reason ") + e.what());
     }
@@ -599,7 +655,7 @@ texture_ptr renderer::create_texture(const surface& surface, size_t level_id, si
         auto tex = new texture(*this, surface, level_id, layer_id, face_id);
         return texture_ptr(tex);
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create texture from surface. Reason ") + e.what());
     }
@@ -616,13 +672,13 @@ texture_ptr renderer::create_texture(const std::string& file_name) const noexcep
 
     try
     {
-        gfx::surface surface(file_name);
-        auto tex = new texture(*this, surface);
+        surface surf(file_name);
+        auto tex = new texture(*this, surf);
         texture_ptr texture(tex);
 
         return texture;
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create texture from file. Reason ") + e.what());
     }
@@ -648,7 +704,7 @@ texture_ptr renderer::create_texture(int w, int h, pix_type pixel_type, texture:
         auto tex = new texture(*this, w, h, pixel_type, format_type);
         return texture_ptr(tex);
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create blank texture. Reason ") + e.what());
     }
@@ -668,7 +724,7 @@ texture_ptr renderer::create_texture(const texture_src_data& data) const noexcep
         auto tex = new texture(*this, data);
         return texture_ptr(tex);
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create blank texture. Reason ") + e.what());
     }
@@ -692,7 +748,7 @@ shader_ptr renderer::create_shader(const char* fragment_code, const char* vertex
         auto* shad = new shader(*this, fragment_code, vertex_code);
         return shader_ptr(shad);
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create shader. Reason ") + e.what());
     }
@@ -703,7 +759,7 @@ shader_ptr renderer::create_shader(const char* fragment_code, const char* vertex
 /// Create a font
 ///	@param info - description of font
 ///	@return a shared pointer to the font
-font_ptr renderer::create_font(font_info&& info) const noexcept
+font_ptr renderer::create_font(font_info&& info, bool embedded) const noexcept
 {
     if(!set_current_context())
     {
@@ -722,9 +778,15 @@ font_ptr renderer::create_font(font_info&& info) const noexcept
             r->texture->generate_mipmap();
         }
         r->surface.reset();
+
+        if(embedded)
+        {
+            embedded_fonts_.emplace_back(r);
+        }
+
         return r;
     }
-    catch(gfx::exception& e)
+    catch(const exception& e)
     {
         log(std::string("ERROR: Cannot create font. Reason ") + e.what());
     }
@@ -883,9 +945,9 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
 
         draw_list list;
 
-        gfx::program_setup setup;
+        program_setup setup;
         setup.program = get_program<programs::blur>();
-        setup.begin = [=](const gfx::gpu_context& ctx)
+        setup.begin = [=](const gpu_context& ctx)
         {
             ctx.program.shader->set_uniform("uTexture", input);
             ctx.program.shader->set_uniform("uTextureSize", input_size);
@@ -912,7 +974,16 @@ texture_ptr renderer::blur(const texture_ptr& texture, uint32_t passes)
 ///     @return true on success
 bool renderer::push_transform(const math::transformf& transform) const noexcept
 {
-    transforms_.push(transform);
+    auto& transforms = get_transform_stack();
+    if(transforms.empty())
+    {
+        transforms.push(transform);
+    }
+    else
+    {
+        const auto& top = transforms.top();
+        transforms.push(top * transform.get_matrix());
+    }
 
     return true;
 }
@@ -921,9 +992,10 @@ bool renderer::push_transform(const math::transformf& transform) const noexcept
 ///     @return true on success
 bool renderer::pop_transform() const noexcept
 {
-    transforms_.pop();
+    auto& transforms = get_transform_stack();
+    transforms.pop();
 
-    if (transforms_.empty())
+    if (transforms.empty())
     {
         reset_transform();
     }
@@ -934,11 +1006,18 @@ bool renderer::pop_transform() const noexcept
 ///     @return true on success
 bool renderer::reset_transform() const noexcept
 {
-    decltype (transforms_) new_tranform;
+    auto& transforms = get_transform_stack();
+    transform_stack new_tranform;
     new_tranform.push(math::transformf::identity());
-    transforms_.swap(new_tranform);
+    transforms.swap(new_tranform);
 
     return true;
+}
+
+math::transformf renderer::get_transform() const noexcept
+{
+    auto& transforms = get_transform_stack();
+    return transforms.top();
 }
 
 /// Set scissor test rectangle
@@ -953,14 +1032,27 @@ bool renderer::push_clip(const rect& rect) const noexcept
 
     gl_call(glEnable(GL_SCISSOR_TEST));
 
+    auto mod_clip = rect;
+    const auto& transforms = get_transform_stack();
+    if (transforms.size() > 1)
+    {
+        const auto trans = math::transformf{transforms.top()};
+        const auto& scale = trans.get_scale();
+        const auto& pos = trans.get_position();
+        mod_clip.x = int(float(mod_clip.x) * scale.x + pos.x);
+        mod_clip.y = int(float(mod_clip.y) * scale.y + pos.y);
+        mod_clip.w = int(float(rect.w) * scale.x);
+        mod_clip.h = int(float(rect.h) * scale.y);
+    }
+
     if (fbo_stack_.empty())
     {
         // If we have no fbo_target_ it is a back buffer
-        gl_call(glScissor(rect.x, rect_.h - rect.y - rect.h, rect.w, rect.h));
+        gl_call(glScissor(mod_clip.x, rect_.h - mod_clip.y - mod_clip.h, mod_clip.w, mod_clip.h));
     }
     else
     {
-        gl_call(glScissor(rect.x, rect.y, rect.w, rect.h));
+        gl_call(glScissor(mod_clip.x, mod_clip.y, mod_clip.w, mod_clip.h));
     }
 
     return true;
@@ -996,6 +1088,7 @@ bool renderer::push_fbo(const texture_ptr& texture)
     fbo_stack_.emplace();
     auto& top_texture = fbo_stack_.top();
     top_texture.fbo = texture;
+    top_texture.transforms.push(math::transformf::identity());
 
     set_model_view(top_texture.fbo->get_FBO(), top_texture.fbo->get_rect());
     return true;
@@ -1059,6 +1152,25 @@ void renderer::present() noexcept
     auto sz = win_.get_size();
     resize(int(sz.w), int(sz.h));
 
+//    {
+//        const auto& stats = get_stats();
+
+//        gfx::text text;
+//        text.set_font(gfx::default_font(), 24);
+//        text.set_utf8_text(stats.to_string());
+//        text.set_outline_width(0.1f);
+
+//        math::transformf t {};
+//        t.set_position(0, 100);
+
+//        get_list().add_text(text, t);
+//    }
+
+    if (frame_callbacks_.on_end_frame)
+    {
+        frame_callbacks_.on_end_frame(*this);
+    }
+
     if(!master_list_.commands_requested)
     {
         // due to bug in the driver
@@ -1078,7 +1190,13 @@ void renderer::present() noexcept
 
     set_current_context();
     delete_textures();
+    reset_transform();
     set_model_view(0, rect_);
+
+    if (frame_callbacks_.on_start_frame)
+    {
+        frame_callbacks_.on_start_frame(*this);
+    }
 }
 
 /// Clear the currently bound buffer
@@ -1090,7 +1208,7 @@ void renderer::clear(const color& color) const noexcept
     if (fbo_stack_.empty())
     {
         master_list_.push_blend(blending_mode::blend_none);
-        master_list_.add_rect(rect_, color);
+        master_list_.add_rect(get_rect(), color);
         master_list_.pop_blend();
         return;
     }
@@ -1127,9 +1245,9 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
     stats_.record(list);
 
-    //log(list.to_string());
-
     list.validate_stacks();
+
+//    EGT_BLOCK_PROFILING("renderer::draw_cmd_list - %d commands", int(list.commands.size()))
 
     const auto vtx_stride = sizeof(decltype(list.vertices)::value_type);
     const auto vertices_mem_size = list.vertices.size() * vtx_stride;
@@ -1147,7 +1265,10 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
     current_ibo_idx_ = (current_ibo_idx_ + 1) % stream_ibos_.size();
 
 
+    bool mapped = get_draw_config().mapped_buffers;
     {
+//        EGT_BLOCK_PROFILING("draw_cmd_list::vao/vbo/ibo")
+
         // Bind the vertex array object
         vao.bind();
 
@@ -1155,7 +1276,7 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         vbo.bind();
 
         // Upload vertices to VRAM
-        if (!vbo.update(list.vertices.data(), 0, vertices_mem_size))
+        if (!vbo.update(list.vertices.data(), 0, vertices_mem_size, mapped))
         {
             // We're out of vertex budget. Allocate a new vertex buffer
             vbo.reserve(list.vertices.data(), vertices_mem_size, true);
@@ -1165,12 +1286,14 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         ibo.bind();
 
         // Upload indices to VRAM
-        if (!ibo.update(list.indices.data(), 0, indices_mem_size))
+        if (!ibo.update(list.indices.data(), 0, indices_mem_size, mapped))
         {
             // We're out of index budget. Allocate a new index buffer
             ibo.reserve(list.indices.data(), indices_mem_size, true);
         }
     }
+
+
 
     {
         blending_mode last_blend{blending_mode::blend_none};
@@ -1179,9 +1302,13 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
         // Draw commands
         for (const auto& cmd : list.commands)
         {
+//            EGT_BLOCK_PROFILING("draw_cmd_list::cmd")
+
             {
                 if(cmd.setup.program.shader)
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::shader.enable")
+
                     cmd.setup.program.shader->enable();
                 }
 
@@ -1192,12 +1319,14 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
                 if(cmd.setup.begin)
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::cmd.setup.begin")
+
                     cmd.setup.begin(gpu_context{cmd, *this, cmd.setup.program});
                 }
 
                 if(cmd.setup.program.shader && cmd.setup.program.shader->has_uniform("uProjection"))
                 {
-                    const auto& projection = current_ortho_ * transforms_.top();
+                    const auto& projection = current_ortho_ * get_transform_stack().top();
                     cmd.setup.program.shader->set_uniform("uProjection", projection);
                 }
 
@@ -1213,6 +1342,8 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
             {
                 case draw_type::elements:
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::glDrawElements - %d indices", int(cmd.indices_count))
+
                     gl_call(glDrawElements(to_gl_primitive(cmd.type), GLsizei(cmd.indices_count), get_index_type(),
                                            reinterpret_cast<const GLvoid*>(uintptr_t(cmd.indices_offset * idx_stride))));
                 }
@@ -1220,6 +1351,8 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
                 case draw_type::array:
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::glDrawArrays")
+
                     gl_call(glDrawArrays(to_gl_primitive(cmd.type), GLint(cmd.vertices_offset), GLsizei(cmd.vertices_count)));
                 }
                 break;
@@ -1233,6 +1366,8 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
                 if (cmd.setup.end)
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::cmd.setup.end")
+
                     cmd.setup.end(gpu_context{cmd, *this, cmd.setup.program});
                 }
 
@@ -1243,6 +1378,8 @@ bool renderer::draw_cmd_list(const draw_list& list) const noexcept
 
                 if(cmd.setup.program.shader)
                 {
+//                    EGT_BLOCK_PROFILING("draw_cmd_list::shader.disable")
+
                     cmd.setup.program.shader->disable();
                 }
             }
@@ -1278,17 +1415,39 @@ bool renderer::disable_vsync() noexcept
     return context_->set_vsync(false);
 }
 
+
+bool renderer::set_vsync(bool vsync) noexcept
+{
+    return context_->set_vsync(vsync);
+}
+
 /// Get the dirty rectangle we're drawing into
 ///     @return the currently used rect
 const rect& renderer::get_rect() const
 {
     if (fbo_stack_.empty())
     {
+        const auto& transforms = get_transform_stack();
+        if (transforms.size() > 1) // skip identity matrix
+        {
+            transformed_rect_ = inverse_and_tranfrom_rect(rect_, math::transformf{transforms.top()});
+            return transformed_rect_;
+        }
+
         return rect_;
     }
 
-    const auto& top_texture = fbo_stack_.top();
-    return top_texture.fbo->get_rect();
+    const auto& top_stack = fbo_stack_.top();
+    const auto& fbo = top_stack.fbo;
+    const auto& transforms = top_stack.transforms;
+    if (transforms.size() > 1) // skip identity matrix
+    {
+        const auto& rect = fbo->get_rect();
+        transformed_rect_ = inverse_and_tranfrom_rect(rect, math::transformf{transforms.top()});
+        return transformed_rect_;
+    }
+
+    return fbo->get_rect();
 }
 
 const gpu_stats& renderer::get_stats() const
@@ -1329,5 +1488,21 @@ void gpu_stats::record(const draw_list& list)
 
     batched_opaque_calls += req_opaque_calls - rend_opaque_calls;
     batched_blended_calls += req_blended_calls - rend_blended_calls;
+}
+
+std::string gpu_stats::to_string() const
+{
+    std::stringstream ss;
+    ss << "Requested:" << requested_calls << "\n"
+       << "   - Opaque: " << requested_opaque_calls << "\n"
+       << "   - Blended: " << requested_blended_calls << "\n"
+       << "Rendered:" << rendered_calls << "\n"
+       << "   - Opaque: " << rendered_opaque_calls << "\n"
+       << "   - Blended: " << rendered_blended_calls << "\n"
+       << "Batched:" << batched_calls << "\n"
+       << "   - Opaque: " << batched_opaque_calls << "\n"
+       << "   - Blended: " << batched_blended_calls;
+
+    return ss.str();
 }
 }

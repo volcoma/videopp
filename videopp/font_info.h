@@ -8,6 +8,8 @@
 #include <vector>
 #include <locale>
 #include <codecvt>
+#include <sstream>
+#include <iomanip>
 
 namespace gfx
 {
@@ -40,6 +42,32 @@ struct font_info
         return 0.0f;
     }
 
+    std::string get_info() const
+    {
+        auto glyphs_mem_bytes = glyphs.size() * sizeof(glyph) + glyph_index.size() * sizeof(char_t);
+        auto glyphs_mem_mb =  float(glyphs_mem_bytes) / float(1024 * 1024);
+        std::stringstream ss{};
+        ss << "\n";
+        ss << "face       : " << face_name << "\n";
+        ss << "size       : " << size << "\n";
+        ss << "glyphs     : " << glyphs.size() << "\n";
+        ss << "kerning    : " << kernings.size() << " pairs\n";
+        ss << "glyphs mem : " << glyphs_mem_bytes << "b (" << std::setprecision(2) << glyphs_mem_mb << "mb)\n";
+        if(surface)
+        {
+            auto atlas_mem_bytes =  surface->get_width() * surface->get_height();
+            auto atlas_mem_mb =  float(atlas_mem_bytes) / float(1024 * 1024);
+
+            ss << "atlas      : " << surface->get_width() << "x" << surface->get_height() << "\n";
+            ss << "atlas mem  : " << atlas_mem_bytes << "b (" << std::setprecision(3) << atlas_mem_mb << "mb)\n";
+            ss << "total mem  : " << glyphs_mem_bytes + atlas_mem_bytes << "b (" << std::setprecision(3) << glyphs_mem_mb + atlas_mem_mb << "mb)\n";
+        }
+        ss << "build time : " << build_time.count() << " ms\n";
+        ss << "sdf time   : " << sdf_time.count() << " ms\n";
+        ss << "total time : " << (build_time + sdf_time).count() << " ms\n";
+        return ss.str();
+    }
+
     /// name of font
     std::string face_name;
 
@@ -58,6 +86,8 @@ struct font_info
     /// rasterized font goes here
     surface_ptr surface;
 
+    std::chrono::milliseconds build_time{};
+    std::chrono::milliseconds sdf_time{};
     /// (point) size based on which the glyphs will be rasterized onto the texture
     /// Do not use this for line calculations - use line_height
     float size = 0;

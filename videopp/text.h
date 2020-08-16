@@ -10,6 +10,41 @@
 
 namespace gfx
 {
+enum align : uint32_t
+{
+    invalid                             = 0,
+    // Horizontal align (general)
+    left                                = 1<<0,
+    center                              = 1<<1,
+    right                               = 1<<2,
+    horizontal_mask                     = left | center | right,
+
+    // Vertical align (general)
+    top                                 = 1<<3,
+    middle                              = 1<<4,
+    bottom                              = 1<<5,
+    vertical_mask                       = top | middle | bottom,
+
+    // Vertical align (text only)
+    cap_height_top                      = 1<<6, // cap_height of first line
+    cap_height_bottom                   = 1<<7, // cap_height of last line
+    cap_height = cap_height_top,
+    median                              = 1<<8, // half distance between cap_height and baseline
+    baseline_top                        = 1<<9, // baseline of first line
+    baseline_bottom                     = 1<<10,// baseline of last line
+    baseline = baseline_bottom,
+    typographic_mask                    = cap_height_top | cap_height_bottom | median | baseline_top | baseline_bottom,
+
+//    geometric_top                 = 1<<11, // top of geometric bounds(visible characters)
+//    geometric_middle              = 1<<12, // middle of geometric bounds(visible characters)
+//    geometric_bottom              = 1<<13, // bottom of geometric bounds(visible characters)
+
+//    geometric_mask                = geometric_top | geometric_middle | geometric_bottom,
+    vertical_text_mask                  = vertical_mask | typographic_mask
+};
+
+using align_t = uint32_t;
+
 struct line_metrics
 {
     /// Ascent of the line.
@@ -36,50 +71,26 @@ struct line_metrics
 
 enum class script_line : uint32_t
 {
-    // ascender line.
-	ascent,
+    // Superscript aligned on the ascender line.
+    ascent,
 
-    // cap height line.
+    // Superscript aligned on the cap height line.
     cap_height,
 
-    // x_height line.
+    // Superscript aligned on the x_height line.
     x_height,
 
-    // median line.
+    // Script aligned on the median line. (cap_height/2)
     median,
 
-    // baseline.
-	baseline,
+    // Subscript aligned on the baseline.
+    baseline,
 
-    // descender line.
+    // Subscript aligned on the descender line.
     descent,
 
     count
 };
-
-enum align : uint32_t
-{
-    // Horizontal align (general)
-    left        = 1<<0,
-    center      = 1<<1,
-    right       = 1<<2,
-
-    // Vertical align (general)
-    top 		= 1<<3,
-    middle      = 1<<4,
-    bottom      = 1<<5,
-
-    // Vertical align (text only)
-    cap_height_top      = 1<<6, // cap_height of first line
-    cap_height_bottom   = 1<<7, // cap_height of last line
-    cap_height = cap_height_top,
-
-    baseline_top        = 1<<8,  // baseline of first line
-    baseline_bottom     = 1<<9,  // baseline of last line
-    baseline = baseline_top,
-};
-
-using align_t = uint32_t;
 
 
 struct text_decorator
@@ -88,7 +99,7 @@ struct text_decorator
     {
         float width;
         float height;
-        float first_line_baseline;
+        line_metrics first_line_metrics;
     };
 
     using calc_size_t = std::function<size_info(
@@ -185,6 +196,7 @@ struct text_style
     /// Kerning usage if the font provides any kerning pairs.
     bool kerning_enabled{false};
 };
+using text_style_ptr = std::shared_ptr<text_style>;
 
 enum class overflow_type
 {
@@ -204,6 +216,12 @@ enum class overflow_type
 class text
 {
 public:
+
+    enum class line_height_behaviour
+    {
+        fixed,   // All lines have the height of the tallest one.
+        dynamic, // Each line has the height of it's tallest decorator.
+    };
 
     text() = default;
     text(const text&) = default;
@@ -252,6 +270,11 @@ public:
     void set_outline_width(float owidth);
 
     //-----------------------------------------------------------------------------
+    /// Outline affets char spacing
+    //-----------------------------------------------------------------------------
+    void set_outline_advance(bool oadvance);
+
+    //-----------------------------------------------------------------------------
     /// Set softness of the text in range [0.0f, 1.0f]. Note this will only
     /// have any effect if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------
@@ -277,13 +300,7 @@ public:
     //-----------------------------------------------------------------------------
     /// Set point alignment based on position
     //-----------------------------------------------------------------------------
-    void set_alignment(align_t a);
-
-    //-----------------------------------------------------------------------------
-    /// Set image alignment.
-    /// Currently, only baseline and median are supported.
-    //-----------------------------------------------------------------------------
-    void set_image_alignment(script_line a);
+    void set_alignment(align_t flag);
 
     //-----------------------------------------------------------------------------
     /// Enables/Disables kerning usage if the font provides any kerning pairs.
@@ -308,13 +325,9 @@ public:
     void set_overflow_type(overflow_type overflow);
 
     //-----------------------------------------------------------------------------
-    /// Enables/Disables the decorator's height reflection on the line.
-    /// If enabled and the decorator has bigger height than the line,
-    /// then the line's height will be increased to fit the decorator.
-    /// Note that it will adjust the baseline of the line
-    /// to the baseline of the decorator(it's first line).
+    /// Sets the line height behaviour.
     //-----------------------------------------------------------------------------
-    void set_dynamic_line_height(bool enabled);
+    void set_line_height_behaviour(line_height_behaviour behaviour);
 
     //-----------------------------------------------------------------------------
     /// Sets the path of the line
@@ -354,7 +367,16 @@ public:
     //-----------------------------------------------------------------------------
     /// Gets the rect of the text relative to the aligned origin.
     //-----------------------------------------------------------------------------
-    const frect& get_frect() const;
+    enum class bounds_query
+    {
+        typographic, // ascent to descent based
+        precise      // based on alignment
+                     // - ascent line to descent line
+                     // - cap line to base line
+                     // - geometric bounds(top, bottom) of current text
+    };
+
+    frect get_bounds(bounds_query query = bounds_query::typographic) const;
 
     //-----------------------------------------------------------------------------
     /// Gets the style of the text
@@ -365,11 +387,6 @@ public:
     /// Gets the alignment of the text (relative to the origin point).
     //-----------------------------------------------------------------------------
     align_t get_alignment() const noexcept;
-
-    //-----------------------------------------------------------------------------
-    /// Gets the image alignment.
-    //-----------------------------------------------------------------------------
-    script_line get_image_alignment() const noexcept;
 
     //-----------------------------------------------------------------------------
     /// Sets an opacity of the text. It multiplies by the style colors' alpha.
@@ -413,9 +430,9 @@ public:
     overflow_type get_overflow_type() const;
 
     //-----------------------------------------------------------------------------
-    /// Checks whether the decorator height reflects on the line.
+    /// Gets the line height behaviour
     //-----------------------------------------------------------------------------
-    bool has_dynamic_line_height() const;
+    auto get_line_height_behaviour() const -> line_height_behaviour;
 
     //-----------------------------------------------------------------------------
     /// Checks the validity of the text.
@@ -449,6 +466,11 @@ public:
 
     void clear_decorators_with_callbacks();
 
+    void set_small_caps(bool small_caps);
+    bool get_small_caps() const;
+
+    float get_small_caps_scale() const;
+    float get_line_height() const;
 private:
     float get_advance_offset_x() const;
     float get_advance_offset_y() const;
@@ -460,6 +482,7 @@ private:
     void update_alignment() const;
 
     color apply_opacity(color c) const noexcept;
+    void set_scale(float scale);
 
     const text_decorator* get_next_decorator(size_t glyph_idx, const text_decorator* current) const;
     bool get_decorator(size_t i, const text_decorator*& current, const text_decorator*& next) const;
@@ -499,7 +522,7 @@ private:
     mutable uint32_t chars_{0};
 
     /// Origin alignment
-    align_t alignment_ = align::left | align::baseline_top;
+    align_t alignment_ = align::top | align::left;
 
     /// Overflow type
     overflow_type overflow_ = overflow_type::word;
@@ -510,38 +533,54 @@ private:
     /// Opacity
     float opacity_{1.0f};
 
-    /// Indicates whether the decorator's height reflects to the line
-    bool dynamic_line_height_{};
+    /// Line height behaviour
+    line_height_behaviour line_height_behaviour_ = line_height_behaviour::fixed;
 
+    bool small_caps_{};
 };
 
 
 float get_alignment_x(align_t alignment,
-					  float minx,
-					  float maxx,
-					  bool pixel_snap);
+                      float minx,
+                      float maxx,
+                      bool pixel_snap);
 
 float get_alignment_y(align_t alignment,
-					  float miny,
-					  float maxy,
-					  bool pixel_snap);
+                      float miny,
+                      float maxy,
+                      bool pixel_snap);
 
 
 std::pair<float, float> get_alignment_offsets(align_t alignment,
-											  float minx, float miny,
-											  float maxx, float maxy,
-											  bool pixel_snap);
+                                              float minx, float miny,
+                                              float maxx, float maxy,
+                                              bool pixel_snap);
 
 
 
 float get_alignment_y(align_t alignment,
-					  float miny, float miny_baseline, float miny_cap,
-					  float maxy, float maxy_baseline, float maxy_cap,
-					  bool pixel_snap);
+                      float miny, float miny_baseline, float miny_cap,
+                      float maxy, float maxy_baseline, float maxy_cap,
+                      bool pixel_snap);
+
 
 std::pair<float, float> get_alignment_offsets(align_t alignment,
-											  float minx, float miny, float miny_baseline, float miny_cap,
-											  float maxx, float maxy, float maxy_baseline, float maxy_cap,
-											  bool pixel_snap);
+                                              float minx, float miny, float miny_baseline, float miny_cap,
+                                              float maxx, float maxy, float maxy_baseline, float maxy_cap,
+                                              bool pixel_snap);
+
+
+std::string to_string(text::line_height_behaviour behaviour);
+std::string to_string(overflow_type overflow);
+
+template<typename T>
+T from_string(const std::string&);
+
+template<>
+text::line_height_behaviour from_string<text::line_height_behaviour>(const std::string& str);
+
+template<>
+overflow_type from_string<overflow_type>(const std::string& str);
+
 
 }
