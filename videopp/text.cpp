@@ -1,6 +1,7 @@
 #include "text.h"
 #include "font.h"
 #include "texture.h"
+#include <fontpp/ucaps.h>
 
 #include <array>
 #include <algorithm>
@@ -390,7 +391,7 @@ text::~text()
     cache<text>::add(lines_);
     cache<text>::add(unicode_text_);
     cache<text>::add(utf8_text_);
-
+    cache<text>::add(cap_scales_);
 }
 
 bool text::set_utf8_text(const std::string& t)
@@ -721,7 +722,7 @@ void text::set_line_height_behaviour(line_height_behaviour behaviour)
     clear_lines();
 }
 
-overflow_type text::get_overflow_type() const
+text::overflow_type text::get_overflow_type() const
 {
     return overflow_;
 }
@@ -811,6 +812,7 @@ void text::clear_lines()
     chars_ = 0;
     lines_.clear();
     unicode_text_.clear();
+    cap_scales_.clear();
     lines_metrics_.clear();
     rect_ = {};
 
@@ -833,6 +835,9 @@ void text::update_unicode_text() const
     cache<text>::get(unicode_text_, utf8_text_.size() * 2);
     unicode_text_.reserve(utf8_text_.size() * 2); // enough for most scripts
 
+    cache<text>::get(cap_scales_, utf8_text_.size() * 2);
+    cap_scales_.reserve(utf8_text_.size() * 2); // enough for most scripts
+
     const char* beg = utf8_text_.c_str();
     const char* const end = beg + utf8_text_.size();
 
@@ -845,6 +850,24 @@ void text::update_unicode_text() const
         {
             break;
         }
+        float scale = 1.0f;
+        if(case_type_ == case_type::lowercase)
+        {
+            uchar = fnt::find_lower_case(uchar);
+        }
+        else if(case_type_ == case_type::uppercase)
+        {
+            uchar = fnt::find_upper_case(uchar);
+        }
+        else if(case_type_ == case_type::small_caps)
+        {
+            if(fnt::to_upper_case(uchar))
+            {
+                scale = get_small_caps_scale();
+            }
+        }
+
+        cap_scales_.push_back(scale);
         unicode_text_.push_back(uchar);
         beg += m;
     }
@@ -1176,12 +1199,14 @@ void text::update_lines() const
             const auto is_last_symbol = i == unicode_text_size - 1;
             const auto is_beginning_of_line = lines_.back().empty();
             const auto c = unicode_text[i];
+            auto caps_scale = cap_scales_[i];
+
             const auto& g = font->get_glyph(c);
             // Decorator handling.
             get_decorator(chars_, decorator, next_decorator);
 
             // Get relative scale from decorator
-            const auto relative_scale = get_decorator_scale(decorator);
+            const auto relative_scale = get_decorator_scale(decorator) * caps_scale;
             const auto extra_advance = advance_offset_x * scale * relative_scale;
 
             // Calculate unscaled glyph advance
@@ -1530,8 +1555,8 @@ void text::update_geometry() const
     const auto median = cap_height * 0.5f;
 
     auto scaled_spread = font->sdf_spread * (style_.softness > 0.0f ? 1.0f : std::max(0.1f, style_.outline_width));
-    auto sdf_shift_x = fnt::calc_shift(scaled_spread, font->texture->get_rect().w);
-    auto sdf_shift_y = fnt::calc_shift(scaled_spread, font->texture->get_rect().h);
+    auto sdf_shift_x = fnt::calc_shift(scaled_spread, float(font->texture->get_rect().w));
+    auto sdf_shift_y = fnt::calc_shift(scaled_spread, float(font->texture->get_rect().h));
 
     cache<text>::get(geometry_, chars_ * vertices_per_quad);
     geometry_.resize(chars_ * vertices_per_quad);
@@ -1560,9 +1585,10 @@ void text::update_geometry() const
 
         for(auto c : line)
         {
+            auto glyph_idx = i++;
+            auto caps_scale = cap_scales_[glyph_idx];
             const auto& gl = font->get_glyph(c);
             auto g = fnt::shift(gl, sdf_shift_x, sdf_shift_y);
-            auto glyph_idx = i++;
 
             if(is_newline(c))
             {
@@ -1594,7 +1620,7 @@ void text::update_geometry() const
                 }
             }
 
-            float relative_scale = get_decorator_scale(decorator);
+            float relative_scale = get_decorator_scale(decorator) * caps_scale;;
             line_metrics metric_relative_to_font = metric;
             metric_relative_to_font.ascent = metric.baseline - ascent;
             metric_relative_to_font.cap_height = metric.baseline - cap_height;
@@ -1973,14 +1999,9 @@ void text::clear_decorators_with_callbacks()
     clear_lines();
 }
 
-bool text::get_small_caps() const
-{
-    return small_caps_;
-}
-
 float text::get_small_caps_scale() const
 {
-    return get_small_caps() ? 0.75f : 1.0f;
+    return (case_type_ == case_type::small_caps) ? 0.75f : 1.0f;
 }
 
 float text::get_line_height() const
@@ -1994,16 +2015,6 @@ float text::get_line_height() const
     return 1.0f;
 }
 
-void text::set_small_caps(bool small_caps)
-{
-    if(small_caps_ == small_caps)
-    {
-        return;
-    }
-    small_caps_ = small_caps;
-    clear_lines();
-}
-
 const text_decorator& text::get_decorator() const
 {
     return main_decorator_;
@@ -2015,14 +2026,14 @@ bool text_decorator::is_visible(size_t idx) const
 
 }
 
-std::string to_string(overflow_type overflow)
+std::string to_string(text::overflow_type overflow)
 {
     switch(overflow)
     {
-    case overflow_type::word:
+    case text::overflow_type::word:
         return "word";
 
-    case overflow_type::word_break:
+    case text::overflow_type::word_break:
         return "word_break";
 
     default:
@@ -2058,15 +2069,15 @@ text::line_height_behaviour from_string<text::line_height_behaviour>(const std::
 }
 
 template<>
-overflow_type from_string<overflow_type>(const std::string& str)
+text::overflow_type from_string<text::overflow_type>(const std::string& str)
 {
 #define switch_case(val, val2) if(str == (val)) return val2
 
-    switch_case("word", overflow_type::word);
-    switch_case("word_break", overflow_type::word_break);
-    switch_case("none", overflow_type::none);
+    switch_case("word", text::overflow_type::word);
+    switch_case("word_break", text::overflow_type::word_break);
+    switch_case("none", text::overflow_type::none);
 
-    return overflow_type::word_break;
+    return text::overflow_type::word_break;
 }
 
 }

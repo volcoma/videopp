@@ -198,29 +198,35 @@ struct text_style
 };
 using text_style_ptr = std::shared_ptr<text_style>;
 
-enum class overflow_type
-{
-    /// Break words when overflowing if no break characters
-    /// like 'spaces' are presnet (useful for Chinese, Japanese)
-    /// as they don't have any standalone 'spaces'.
-    word,
-
-    /// Keep words' integrity when overflowing.
-    word_break,
-
-    /// Do not break lines.
-    none,
-};
-
-
 class text
 {
-public:
+public:  
+    enum class overflow_type
+    {
+        /// Break words when overflowing if no break characters
+        /// like 'spaces' are presnet (useful for Chinese, Japanese)
+        /// as they don't have any standalone 'spaces'.
+        word,
+
+        /// Keep words' integrity when overflowing.
+        word_break,
+
+        /// Do not break lines.
+        none,
+    };
 
     enum class line_height_behaviour
     {
         fixed,   // All lines have the height of the tallest one.
         dynamic, // Each line has the height of it's tallest decorator.
+    };
+
+    enum class case_type
+    {
+        none,
+        lowercase,
+        uppercase,
+        small_caps
     };
 
     text() = default;
@@ -340,6 +346,16 @@ public:
     /// have any effect if the used font is vectorized(signed distance)
     //-----------------------------------------------------------------------------
     void set_shadow_softness(float softness);
+
+    //-----------------------------------------------------------------------------
+    /// Sets a case transformation. E.g uppercase, lowercase, small capitals
+    //-----------------------------------------------------------------------------
+    void set_case_type(case_type type);
+
+    //-----------------------------------------------------------------------------
+    /// Gets the current case transformation.
+    //-----------------------------------------------------------------------------
+    case_type get_case_type() const;
 
     //-----------------------------------------------------------------------------
     /// Gets the line_path of the text relative to the origin point
@@ -466,9 +482,6 @@ public:
 
     void clear_decorators_with_callbacks();
 
-    void set_small_caps(bool small_caps);
-    bool get_small_caps() const;
-
     float get_small_caps_scale() const;
     float get_line_height() const;
 private:
@@ -499,6 +512,7 @@ private:
 
     /// Unicode text
     mutable std::vector<uint32_t> unicode_text_;
+    mutable std::vector<float> cap_scales_;
 
     /// Utf8 text
     std::string utf8_text_{};
@@ -536,7 +550,8 @@ private:
     /// Line height behaviour
     line_height_behaviour line_height_behaviour_ = line_height_behaviour::fixed;
 
-    bool small_caps_{};
+    /// Case type
+    case_type case_type_ = case_type::none;
 };
 
 
@@ -571,7 +586,8 @@ std::pair<float, float> get_alignment_offsets(align_t alignment,
 
 
 std::string to_string(text::line_height_behaviour behaviour);
-std::string to_string(overflow_type overflow);
+std::string to_string(text::overflow_type overflow);
+std::string to_string(text::case_type ctype);
 
 template<typename T>
 T from_string(const std::string&);
@@ -580,7 +596,9 @@ template<>
 text::line_height_behaviour from_string<text::line_height_behaviour>(const std::string& str);
 
 template<>
-overflow_type from_string<overflow_type>(const std::string& str);
+text::overflow_type from_string<text::overflow_type>(const std::string& str);
 
+template<>
+text::case_type from_string<text::case_type>(const std::string& str);
 
 }
