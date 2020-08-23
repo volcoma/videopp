@@ -734,7 +734,7 @@ math::transformf align_wrap_and_fit_text(text& t,
 //    using clock_t = std::chrono::steady_clock;
 //    auto start = clock_t::now();
 
-    auto max_w = dst_rect.w;
+    auto max_w = int(dst_rect.w);
 
     t.set_wrap_width(float(max_w));
     auto world = align_and_fit_text(t, transform, dst_rect, sz_fit, dim_fit);
@@ -2067,7 +2067,7 @@ void draw_list::add_text_debug_info(const text& t, const math::transformf& trans
     const auto& lines = t.get_lines_metrics();
 
     {
-        const auto& geometry = t.get_geometry();
+//        const auto& geometry = t.get_geometry();
 
 //        float total_area = 0.0f;
 //        for(size_t i = 0, sz = geometry.size(); i < sz; i+=4)
