@@ -66,10 +66,6 @@ list(APPEND libsrc ${GLX_libsrc})
 
 add_library(${target_name} ${libsrc})
 
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads REQUIRED REQUIRED)
-
 set_target_properties(${target_name} PROPERTIES
     CXX_STANDARD 14
     CXX_STANDARD_REQUIRED YES
@@ -82,8 +78,6 @@ target_link_libraries(${target_name} PUBLIC gli)
 target_link_libraries(${target_name} PUBLIC glm)
 target_link_libraries(${target_name} PUBLIC fontpp)
 target_link_libraries(${target_name} PUBLIC ospp)
-target_link_libraries(${target_name} PRIVATE Threads::Threads)
-
 
 if(WIN32)
     target_link_libraries(${target_name} PRIVATE OpenGL::GL)
